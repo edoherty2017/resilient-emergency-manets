@@ -1,0 +1,7 @@
+topography_class,weather_tag,distance_bin,satellite_link_status,n,mae_rssi,rmse_rssi
+alpine_ridge,clear,0-2km,available,1.0,4.141728262953919,4.141728262953919
+alpine_ridge,clear,0-2km,degraded,1.0,3.377699960962616,3.377699960962616
+alpine_ridge,clear,2-5km,available,11.0,2.619211691477942,3.632156413194037
+alpine_ridge,clear,2-5km,degraded,6.0,4.471746999408613,4.932960896840124
+valley,clear,0-2km,available,14.0,3.0792651997711884,3.960737841936236
+valley,clear,0-2km,degraded,7.0,3.318124319977848,4.072019069294931

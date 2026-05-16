@@ -87,8 +87,29 @@ Secondary deterministic key for aggregations:
 
 ## Current Blockers (to resolve in Week 4 execution)
 1. `rssi_dbm` and `snr_db` are not yet present in current observation JSONL schema snapshot; calibration target may need temporary use of available proxy metric (`rsrp_dbm`) until collector enrichment is added.
-2. Need final command runner implementation for selected prediction engine.
-3. Need fixed AOI/trial segment index generation script.
+2. Need fixed AOI/trial segment index generation script.
+
+## Verified Dry-Run Command Path (2026-05-16)
+A local, deterministic dry-run command runner is now implemented:
+- Script: `scripts/airmap_dry_run.py`
+- Environment: `.venv` with `numpy`, `pandas`, `pyproj`, `rasterio`, `shapely`, `pyyaml`, `pyarrow`
+- Command:
+  ```bash
+  cd /home/doher/projects/manet/resilient-emergency-manets
+  . .venv/bin/activate
+  python scripts/airmap_dry_run.py
+  ```
+
+Generated artifact set in `artifacts/airmap/`:
+- `predictions_precalibration.parquet`
+- `predictions_postcalibration.parquet`
+- `prediction_observation_join_audit.csv`
+- `metrics_global.json`
+- `metrics_stratified.csv`
+- `outliers.csv`
+- `provenance.json`
+
+Note: this run uses synthetic path samples to validate the end-to-end command path and output contract, not live field telemetry yet.
 
 ## Reproducibility Metadata (must ship with every run)
 - `run_id`
