@@ -53,7 +53,7 @@ Initial toolchain checks showed missing dependencies. Re-check after provisionin
 - `make`: present
 - `pip`: present (via Python virtual environment)
 - Python geospatial/data modules: installed in `.venv` (`numpy`, `pandas`, `pyproj`, `rasterio`, `shapely`)
-- `cmake`: still missing (system package)
-- `gdalinfo`: still missing (system package)
+- `cmake`: present
+- `gdalinfo`: present (GDAL 3.8.4)
 
-Implication: Python-side calibration/prediction scripts can now run inside `.venv`, but workflows that require system GDAL/CLI tooling remain blocked until host-level packages are installed.
+Implication: blocker is cleared on this host for Python + CLI geospatial dependencies; first-pass prediction/calibration dry runs can proceed.
