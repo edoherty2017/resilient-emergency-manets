@@ -48,12 +48,12 @@ Prepare a reproducible AIRMap prediction + calibration workflow that can be vali
 - [in progress] First dry-run prediction pass with blocker capture.
 
 ## Dry-Run Blocker Snapshot (2026-05-16)
-Toolchain checks on the current execution host show:
+Initial toolchain checks showed missing dependencies. Re-check after provisioning:
 - `g++`: present
 - `make`: present
-- `cmake`: missing
-- `pip`: missing
-- `gdalinfo`: missing
-- Python geospatial/data modules missing: `numpy`, `pandas`, `pyproj`, `rasterio`, `shapely`
+- `pip`: present (via Python virtual environment)
+- Python geospatial/data modules: installed in `.venv` (`numpy`, `pandas`, `pyproj`, `rasterio`, `shapely`)
+- `cmake`: still missing (system package)
+- `gdalinfo`: still missing (system package)
 
-Implication: prediction/calibration dry runs are currently blocked until dependencies are installed (or pipeline is moved to a pre-provisioned runtime).
+Implication: Python-side calibration/prediction scripts can now run inside `.venv`, but workflows that require system GDAL/CLI tooling remain blocked until host-level packages are installed.
