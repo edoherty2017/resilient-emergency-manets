@@ -45,4 +45,15 @@ Prepare a reproducible AIRMap prediction + calibration workflow that can be vali
 - [pending] Calibration workflow document.
 - [pending] Config templates under `config/airmap/`.
 - [pending] Validation script/plan for MAE/RMSE.
-- [pending] First dry-run prediction pass with blocker capture.
+- [in progress] First dry-run prediction pass with blocker capture.
+
+## Dry-Run Blocker Snapshot (2026-05-16)
+Toolchain checks on the current execution host show:
+- `g++`: present
+- `make`: present
+- `cmake`: missing
+- `pip`: missing
+- `gdalinfo`: missing
+- Python geospatial/data modules missing: `numpy`, `pandas`, `pyproj`, `rasterio`, `shapely`
+
+Implication: prediction/calibration dry runs are currently blocked until dependencies are installed (or pipeline is moved to a pre-provisioned runtime).
