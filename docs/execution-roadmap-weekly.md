@@ -128,6 +128,7 @@
 ## Current Operational Checkpoint (2026-05-16)
 - Live-ingestion recovery checkpoint documented in `docs/status/2026-05-16-live-ingestion-checkpoint.md`.
 - SSH matrix is restored for all aliases and direct-IP targets.
+- Week 4 AIRMap prep checkpoint created in `docs/status/2026-05-16-week4-airmap-prep.md`.
 - Pre-reporting gap remains: full required-field parity (especially GNSS and schema consistency across head/hiker collectors).
 
 ## Completion Definition
