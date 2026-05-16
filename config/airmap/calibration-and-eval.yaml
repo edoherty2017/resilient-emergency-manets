@@ -1,0 +1,49 @@
+schema_version: 1
+join:
+  primary_keys:
+    - trial_id
+    - head_id
+    - node_id
+    - timestamp_utc
+  timestamp_tolerance_seconds: 5
+  segment_key: segment_id
+  orphan_report_required: true
+calibration:
+  version: v0.1.0
+  target_metric_priority:
+    - rssi_dbm
+    - snr_db
+    - rsrp_dbm
+  method: residual_bias_then_scale
+  save_precalibration_predictions: true
+  save_postcalibration_predictions: true
+evaluation:
+  metrics:
+    - mae
+    - rmse
+  stratify_by:
+    - topography_class
+    - weather_tag
+    - distance_bin
+    - satellite_link_status
+  min_samples_per_stratum: 30
+  require_sample_counts: true
+artifacts:
+  output_dir: artifacts/airmap
+  required_files:
+    - predictions_precalibration.parquet
+    - predictions_postcalibration.parquet
+    - prediction_observation_join_audit.csv
+    - metrics_global.json
+    - metrics_stratified.csv
+    - outliers.csv
+provenance:
+  required:
+    - run_id
+    - git_commit
+    - model_name
+    - model_version
+    - model_hash
+    - feature_recipe_version
+    - calibration_version
+    - generated_at_utc

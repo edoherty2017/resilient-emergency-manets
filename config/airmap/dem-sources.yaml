@@ -1,0 +1,29 @@
+schema_version: 1
+dem:
+  provider: usgs_3dep
+  api: https://tnmaccess.nationalmap.gov/api/v1/products
+  dataset: National Elevation Dataset (NED) 1 arc-second
+  datum: NAVD88
+  horizontal_crs: EPSG:4326
+  target_crs: EPSG:4326
+  tile_cache_dir: data/dem/cache
+  reprojection:
+    resampling: bilinear
+    nodata_strategy: preserve_mask
+  normalization:
+    enabled: true
+    variants:
+      - minmax
+      - zscore
+      - log
+      - arctangent
+      - gamma
+validation:
+  max_alignment_error_pixels: 1
+  require_missing_data_mask: true
+metadata_required:
+  - dem_source
+  - dem_resolution
+  - dem_datum
+  - dem_transform
+  - dem_tile_ids

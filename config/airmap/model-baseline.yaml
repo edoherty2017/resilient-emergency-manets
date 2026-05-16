@@ -1,0 +1,45 @@
+schema_version: 1
+run_profile: week4_baseline
+model:
+  name: itm_longley_rice_baseline
+  version: 0.1.0
+  hash: "TBD_PINNED_HASH"
+  frequency_mhz: 915
+  polarization: vertical
+  climate_code: "TBD"
+  variability_mode: area
+  notes: >-
+    First-pass terrain-aware baseline. Replace placeholders after engine selection and
+    command-path validation.
+features:
+  recipe_version: v0.1.0
+  required:
+    - distance_m
+    - tx_height_m
+    - rx_height_m
+    - dem_elevation_m
+    - slope_deg
+    - obstruction_depth_m
+    - topography_class
+    - material_class
+priors:
+  attenuation_priors_version: v0.1.0
+  source: geology-loss
+outputs:
+  fields:
+    - timestamp_utc
+    - trial_id
+    - head_id
+    - node_id
+    - segment_id
+    - distance_m
+    - pred_path_loss_db
+    - pred_rssi_dbm
+    - pred_snr_db
+    - topography_class
+    - material_class
+    - model_name
+    - model_version
+    - model_hash
+    - feature_recipe_version
+    - calibration_version
