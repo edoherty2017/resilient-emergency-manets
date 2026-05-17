@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/schemas/telemetry.schema.json",
+  "title": "MANET Telemetry Record",
+  "type": "object",
+  "required": ["timestamp_utc", "trial_id", "node_id", "head_id", "line"],
+  "properties": {
+    "timestamp_utc": {"type": "string", "format": "date-time"},
+    "trial_id": {"type": "string", "minLength": 1},
+    "node_id": {"type": "string", "minLength": 1},
+    "head_id": {"type": "string", "minLength": 1},
+    "line": {"type": "string", "minLength": 1},
+    "battery_mv": {"type": ["integer", "null"], "minimum": 0, "maximum": 20000},
+    "battery_pct": {"type": ["integer", "null"], "minimum": 0, "maximum": 100},
+    "usb_power": {"type": ["integer", "null"], "minimum": 0, "maximum": 1},
+    "is_charging": {"type": ["integer", "null"], "minimum": 0, "maximum": 1},
+    "rssi_dbm": {"type": ["integer", "null"], "minimum": -200, "maximum": 50},
+    "rsrp_dbm": {"type": ["number", "null"], "minimum": -200, "maximum": 50},
+    "snr_db": {"type": ["number", "null"], "minimum": -40, "maximum": 40},
+    "lat": {"type": ["number", "null"], "minimum": -90, "maximum": 90},
+    "lon": {"type": ["number", "null"], "minimum": -180, "maximum": 180},
+    "elev_m": {"type": ["number", "null"], "minimum": -1000, "maximum": 12000},
+    "satellite_link_status": {"type": ["string", "null"]},
+    "weather_tag": {"type": ["string", "null"]},
+    "checksum_ok": {"type": "integer", "minimum": 0, "maximum": 1},
+    "checksum_bad": {"type": "integer", "minimum": 0, "maximum": 1},
+    "malformed_frame": {"type": "integer", "minimum": 0, "maximum": 1}
+  },
+  "additionalProperties": true
+}

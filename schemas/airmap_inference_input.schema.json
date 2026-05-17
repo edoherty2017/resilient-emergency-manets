@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/schemas/airmap_inference_input.schema.json",
+  "title": "AIRMap Inference Input Row",
+  "type": "object",
+  "required": [
+    "timestamp_utc",
+    "trial_id",
+    "node_id",
+    "head_id",
+    "lat",
+    "lon"
+  ],
+  "properties": {
+    "timestamp_utc": { "type": "string", "format": "date-time" },
+    "trial_id": { "type": "string", "minLength": 1 },
+    "node_id": { "type": "string", "minLength": 1 },
+    "head_id": { "type": "string", "minLength": 1 },
+    "lat": { "type": "number", "minimum": -90, "maximum": 90 },
+    "lon": { "type": "number", "minimum": -180, "maximum": 180 },
+    "rssi_dbm": { "type": ["number", "null"], "minimum": -200, "maximum": 50 },
+    "rsrp_dbm": { "type": ["number", "null"], "minimum": -200, "maximum": 50 },
+    "snr_db": { "type": ["number", "null"], "minimum": -40, "maximum": 40 },
+    "obs_metric_dbm": { "type": ["number", "null"] },
+    "obs_metric_source": { "type": ["string", "null"], "enum": ["rsrp_dbm", "rssi_dbm", "none", null] },
+    "topography_class": { "type": ["string", "null"] },
+    "material_class": { "type": ["string", "null"] },
+    "weather_tag": { "type": ["string", "null"] },
+    "satellite_link_status": { "type": ["string", "null"] }
+  },
+  "additionalProperties": true
+}
