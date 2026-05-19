@@ -53,16 +53,22 @@
 **Objectives**
 - Execute first major field collection campaign in knife-edge diffraction conditions.
 - Validate in-field collection SOP and resilience behavior under degraded conditions.
+- Validate Starlink Mini as primary live-control backhaul for meshhead during active field movement.
+- Quantify control-plane degradation when remote nodes move out of Starlink/IP reach.
 
 **Deliverables**
 - Trial I raw logs plus normalized exports (CSV/JSON).
 - Trial I operational logbook (conditions, route segments, anomalies, failures).
 - Interim quality report with point counts and missingness statistics.
+- Backhaul behavior report: SSH/Tailscale uptime windows, outage windows, and recovery timing.
+- Meshtastic fallback logbook with command/heartbeat success rates during IP outage windows.
 
 **QA Gates**
 - Safety constraints met (buddy system; weather no-go thresholds).
 - Required fields captured: GNSS, RSSI, SNR, RSRP, satellite link status.
 - Collection pipeline confirms unique-point accounting and duplicate handling.
+- Every control-plane outage window is explicitly tagged (`CONTROL_PLANE_DOWN_START/END`).
+- Distinction is preserved between RF mesh degradation and IP backhaul loss.
 
 **Acceptance Criteria**
 - Trial I contributes meaningful portion of total target points.
@@ -124,6 +130,8 @@
    - Field activities must satisfy buddy plus weather no-go policy.
 5. **Review Gate**
    - Weekly checkpoint includes completed deliverables, blockers, risk updates, and next-week entry criteria.
+6. **Connectivity-Mode Gate**
+   - Each trial segment is labeled as one of: `IP_FULL`, `IP_DEGRADED`, `MESH_ONLY`.
 
 ## Current Operational Checkpoint (2026-05-16)
 - Live-ingestion recovery checkpoint documented in `docs/status/2026-05-16-live-ingestion-checkpoint.md`.

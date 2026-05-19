@@ -8,6 +8,9 @@ import pandas as pd
 
 
 SAT_POSITIVE = {"connected", "up", "online", "active", "true", "1", "yes"}
+TIME_BIN_ORDER = ["dawn", "day", "dusk", "evening_peak", "night", "unknown"]
+RAVINE_NOTCH_KEYWORDS = ("ravine", "notch", "gorge", "gulch", "canyon", "col", "gap")
+RAVINE_NOTCH_TOPOGRAPHY = {"valley", "ravine", "notch", "gorge", "canyon"}
 
 
 def load_jsonl(path: Path) -> pd.DataFrame:
@@ -38,7 +41,19 @@ def load_residuals(live_trial_dir: Path) -> pd.DataFrame:
         pred["timestamp_utc"] = pd.to_datetime(pred["timestamp_utc"], utc=True, errors="coerce")
     if "obs_metric_dbm" in pred.columns and "pred_rssi_dbm" in pred.columns:
         pred["abs_error_db"] = (pd.to_numeric(pred["obs_metric_dbm"], errors="coerce") - pd.to_numeric(pred["pred_rssi_dbm"], errors="coerce")).abs()
-    keep = [c for c in ["timestamp_utc", "node_id", "trial_id", "abs_error_db"] if c in pred.columns]
+    keep = [
+        c
+        for c in [
+            "timestamp_utc",
+            "node_id",
+            "trial_id",
+            "abs_error_db",
+            "time_bin",
+            "topography_class",
+            "segment_id",
+        ]
+        if c in pred.columns
+    ]
     return pred[keep].dropna(subset=["timestamp_utc"]) if keep else pd.DataFrame()
 
 
@@ -81,6 +96,58 @@ def error_band(abs_err):
     return "high"
 
 
+def normalize_time_bin(value) -> str:
+    if pd.isna(value):
+        return "unknown"
+    v = str(value).strip().lower()
+    return v if v in TIME_BIN_ORDER else "unknown"
+
+
+def infer_time_bin_from_timestamp(ts) -> str:
+    if pd.isna(ts):
+        return "unknown"
+    h = int(pd.Timestamp(ts).hour)
+    if 5 <= h < 8:
+        return "dawn"
+    if 8 <= h < 17:
+        return "day"
+    if 17 <= h < 19:
+        return "dusk"
+    if 19 <= h < 22:
+        return "evening_peak"
+    return "night"
+
+
+def is_ravine_notch_segment(segment_id, topography_class) -> bool:
+    topo = "" if pd.isna(topography_class) else str(topography_class).strip().lower()
+    seg = "" if pd.isna(segment_id) else str(segment_id).strip().lower()
+    if topo in RAVINE_NOTCH_TOPOGRAPHY:
+        return True
+    return any(tok in seg for tok in RAVINE_NOTCH_KEYWORDS)
+
+
+def enrich_overlay_features(df: pd.DataFrame) -> pd.DataFrame:
+    out = df.copy()
+    if "time_bin" not in out.columns:
+        out["time_bin"] = pd.NA
+    if "topography_class" not in out.columns:
+        out["topography_class"] = pd.NA
+    if "segment_id" not in out.columns:
+        out["segment_id"] = pd.NA
+
+    out["time_bin"] = out["time_bin"].apply(normalize_time_bin)
+    unknown_mask = out["time_bin"] == "unknown"
+    if unknown_mask.any() and "timestamp_utc" in out.columns:
+        out.loc[unknown_mask, "time_bin"] = out.loc[unknown_mask, "timestamp_utc"].apply(infer_time_bin_from_timestamp)
+
+    out["topography_class"] = out["topography_class"].fillna("unknown").astype(str)
+    out["segment_id"] = out["segment_id"].fillna("").astype(str)
+    out["ravine_notch_segment"] = [
+        is_ravine_notch_segment(seg, topo) for seg, topo in zip(out["segment_id"], out["topography_class"])
+    ]
+    return out
+
+
 def render_leaflet_html(df_map: pd.DataFrame, out_html: Path, title: str) -> None:
     max_points = 6000
     if len(df_map) > max_points:
@@ -103,6 +170,10 @@ def render_leaflet_html(df_map: pd.DataFrame, out_html: Path, title: str) -> Non
                 "satellite_link_status": str(r.get("satellite_link_status", "unknown")),
                 "abs_error_db": None if pd.isna(r.get("abs_error_db")) else float(r.get("abs_error_db")),
                 "error_band": str(r.get("error_band", "unknown")),
+                "time_bin": str(r.get("time_bin", "unknown")),
+                "topography_class": str(r.get("topography_class", "unknown")),
+                "segment_id": str(r.get("segment_id", "")),
+                "ravine_notch_segment": bool(r.get("ravine_notch_segment", False)),
                 "ts_epoch": int(r["timestamp_utc"].timestamp()) if not pd.isna(r.get("timestamp_utc")) else None,
             }
         )
@@ -141,11 +212,18 @@ def render_leaflet_html(df_map: pd.DataFrame, out_html: Path, title: str) -> Non
   <label>Time filter:</label>
   <input id='timeSlider' type='range' min='0' max='100' value='100' step='1'>
   <span id='timeLabel'>100%</span>
+  <br/>
+  <label>Time-bin layers:</label>
+  <span id='timeBinToggles'></span>
+  <label style='margin-left:10px;'>
+    <input id='toggle-ravine-notch' type='checkbox' checked> ravine/notch highlight
+  </label>
   <span id='stats' style='margin-left:12px;'></span>
 </div>
 <script src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'></script>
 <script>
 const points = {json.dumps(points)};
+const timeBinOrder = {json.dumps(TIME_BIN_ORDER)};
 const modeColor = (mode) => ({{'MESH':'#2ecc71','CELLULAR':'#3498db','SATELLITE':'#9b59b6','NONE':'#7f8c8d'}}[mode] || '#7f8c8d');
 const errFill = (band) => ({{'low':'#f1c40f','medium':'#e67e22','high':'#e74c3c','unknown':null}}[band] || null);
 
@@ -157,29 +235,64 @@ const withTs = points.filter(p => p.ts_epoch !== null).map(p => p.ts_epoch);
 const minTs = withTs.length ? Math.min(...withTs) : null;
 const maxTs = withTs.length ? Math.max(...withTs) : null;
 
+const timeBinCountsAll = {{}};
+for (const p of points) {{
+  const b = p.time_bin || 'unknown';
+  timeBinCountsAll[b] = (timeBinCountsAll[b] || 0) + 1;
+}}
+
+const timeBinToggleHost = document.getElementById('timeBinToggles');
+for (const bin of timeBinOrder) {{
+  if (!timeBinCountsAll[bin]) continue;
+  const id = `time-bin-${{bin}}`;
+  const wrapper = document.createElement('label');
+  wrapper.style.marginRight = '6px';
+  wrapper.innerHTML = `<input id="${{id}}" class="time-bin-toggle" type="checkbox" value="${{bin}}" checked> ${{bin}}`;
+  timeBinToggleHost.appendChild(wrapper);
+}}
+if (!timeBinToggleHost.children.length) {{
+  timeBinToggleHost.innerHTML = "<label><input class='time-bin-toggle' type='checkbox' value='unknown' checked> unknown</label>";
+}}
+
+function selectedTimeBins() {{
+  return new Set(Array.from(document.querySelectorAll('.time-bin-toggle:checked')).map(el => el.value));
+}}
+
 function render(pct) {{
   layer.clearLayers();
   let threshold = maxTs;
   if (minTs !== null && maxTs !== null) threshold = Math.round(minTs + ((maxTs - minTs) * (pct / 100)));
 
+  const enabledBins = selectedTimeBins();
+  const highlightRavineNotch = document.getElementById('toggle-ravine-notch').checked;
+
   let counts = {{MESH:0,CELLULAR:0,SATELLITE:0,NONE:0}};
   let shown = 0;
   let latlngs = [];
+  let ravineLatLngs = [];
+  let shownBinCounts = {{}};
 
   for (const p of points) {{
+    const bin = p.time_bin || 'unknown';
     if (p.ts_epoch !== null && p.ts_epoch > threshold) continue;
+    if (!enabledBins.has(bin)) continue;
+
     shown += 1;
     counts[p.coverage_mode] = (counts[p.coverage_mode] || 0) + 1;
+    shownBinCounts[bin] = (shownBinCounts[bin] || 0) + 1;
     latlngs.push([p.lat,p.lon]);
+
+    const highlightThis = highlightRavineNotch && p.ravine_notch_segment;
+    if (highlightThis) ravineLatLngs.push([p.lat,p.lon]);
     const fill = errFill(p.error_band);
     const marker = L.circleMarker([p.lat,p.lon], {{
-      radius:4,
-      color:modeColor(p.coverage_mode),
-      weight:1,
+      radius: highlightThis ? 6 : 4,
+      color: highlightThis ? '#ff4fa3' : modeColor(p.coverage_mode),
+      weight: highlightThis ? 2 : 1,
       fillColor: fill || modeColor(p.coverage_mode),
       fillOpacity: fill ? 0.95 : 0.80
     }}).addTo(layer);
-    marker.bindPopup(`<b>${{p.coverage_mode}}</b><br/>ts: ${{p.ts || 'n/a'}}<br/>node: ${{p.node_id}}<br/>elev_m: ${{p.elev_m ?? 'n/a'}}<br/>mesh_rssi: ${{p.mesh_metric_dbm ?? 'n/a'}}<br/>cell_rsrp: ${{p.cell_rsrp_dbm ?? 'n/a'}}<br/>abs_error_db: ${{p.abs_error_db ?? 'n/a'}}<br/>sat: ${{p.satellite_link_status}}`);
+    marker.bindPopup(`<b>${{p.coverage_mode}}</b><br/>ts: ${{p.ts || 'n/a'}}<br/>time_bin: ${{bin}}<br/>topography: ${{p.topography_class || 'unknown'}}<br/>segment_id: ${{p.segment_id || 'n/a'}}<br/>ravine_notch_segment: ${{Boolean(p.ravine_notch_segment)}}<br/>node: ${{p.node_id}}<br/>elev_m: ${{p.elev_m ?? 'n/a'}}<br/>mesh_rssi: ${{p.mesh_metric_dbm ?? 'n/a'}}<br/>cell_rsrp: ${{p.cell_rsrp_dbm ?? 'n/a'}}<br/>abs_error_db: ${{p.abs_error_db ?? 'n/a'}}<br/>sat: ${{p.satellite_link_status}}`);
   }}
 
   if (latlngs.length > 1) {{
@@ -187,7 +300,12 @@ function render(pct) {{
     map.fitBounds(line.getBounds(), {{padding:[20,20]}});
   }}
 
-  document.getElementById('stats').textContent = `shown=${{shown}} | mesh=${{counts.MESH||0}} | cell=${{counts.CELLULAR||0}} | sat=${{counts.SATELLITE||0}} | none=${{counts.NONE||0}}`;
+  if (highlightRavineNotch && ravineLatLngs.length > 1) {{
+    L.polyline(ravineLatLngs, {{color:'#ff4fa3', weight:4, opacity:0.85, dashArray:'6,4'}}).addTo(layer);
+  }}
+
+  const binStats = timeBinOrder.map(bin => `${{bin}}=${{shownBinCounts[bin] || 0}}`).join(' ');
+  document.getElementById('stats').textContent = `shown=${{shown}} | mesh=${{counts.MESH||0}} | cell=${{counts.CELLULAR||0}} | sat=${{counts.SATELLITE||0}} | none=${{counts.NONE||0}} | bins: ${{binStats}}`;
 }}
 
 const slider = document.getElementById('timeSlider');
@@ -196,6 +314,10 @@ slider.addEventListener('input', (e) => {{
   document.getElementById('timeLabel').textContent = `${{pct}}%`;
   render(pct);
 }});
+
+document.querySelectorAll('.time-bin-toggle').forEach(el => el.addEventListener('change', () => render(Number(slider.value))));
+document.getElementById('toggle-ravine-notch').addEventListener('change', () => render(Number(slider.value)));
+
 render(100);
 </script>
 </body>
@@ -240,11 +362,13 @@ def main():
     if "abs_error_db" not in df.columns:
         df["abs_error_db"] = pd.NA
     df["error_band"] = df["abs_error_db"].apply(error_band)
+    df = enrich_overlay_features(df)
 
     timeline_cols = [
         "timestamp_utc", "trial_id", "node_id", "head_id", "lat", "lon", "elev_m",
         "coverage_mode", "mesh_metric_dbm", "mesh_snr_db", "cell_rsrp_dbm", "satellite_link_status",
         "has_mesh_metric", "has_cell_metric", "has_satellite", "abs_error_db", "error_band",
+        "time_bin", "topography_class", "segment_id", "ravine_notch_segment",
     ]
     for c in timeline_cols:
         if c not in df.columns:

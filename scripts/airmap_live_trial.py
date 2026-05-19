@@ -46,6 +46,18 @@ def load_jsonl(path: Path) -> pd.DataFrame:
     return df.dropna(subset=["timestamp_utc"]).sort_values("timestamp_utc")
 
 
+def time_bin_from_hour(hour: int) -> str:
+    if 5 <= hour <= 7:
+        return "dawn"
+    if 8 <= hour <= 16:
+        return "day"
+    if 17 <= hour <= 19:
+        return "dusk"
+    if 20 <= hour <= 22:
+        return "evening_peak"
+    return "night"
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", default=str(Path(__file__).resolve().parents[1]))
@@ -108,6 +120,20 @@ def main() -> None:
     obs["topography_class"] = np.where(frac > 0.5, "alpine_ridge", "valley")
     obs["distance_bin"] = np.where(obs["distance_m"] < 2000.0, "0-2km", "2-5km")
     obs["material_class"] = "mixed_forest"
+    obs["local_hour"] = obs["timestamp_utc"].dt.hour.astype("Int64")
+    obs["time_bin"] = obs["local_hour"].apply(lambda h: time_bin_from_hour(int(h)) if pd.notna(h) else "unknown")
+
+    # Optional Starlink/satellite quality fields (ingested when available).
+    for col in (
+        "satellite_rtt_ms_p50",
+        "satellite_rtt_ms_p95",
+        "satellite_down_mbps",
+        "satellite_up_mbps",
+        "satellite_packet_loss_pct",
+        "satellite_obstruction_pct",
+        "satellite_outage_seconds",
+    ):
+        obs[col] = pd.to_numeric(obs.get(col), errors="coerce")
 
     # Route/time-window join quality audit against head stream timestamps.
     head_path = Path(args.ingest_root) / "meshradiohead/jsonl/telemetry_stream.jsonl"
@@ -212,6 +238,48 @@ def main() -> None:
         else pd.DataFrame(columns=["topography_class", "weather_tag", "distance_bin", "satellite_link_status", "n", "mae", "rmse"])
     )
     strat.to_csv(out_dir / "metrics_stratified.csv", index=False)
+
+    sat_timebin = (
+        post.groupby(["time_bin", "topography_class"], dropna=False)
+        .apply(
+            lambda g: pd.Series(
+                {
+                    "n": int(len(g)),
+                    "satellite_connected_rows": int(
+                        g.get("satellite_link_status", pd.Series(dtype=str))
+                        .astype(str)
+                        .str.lower()
+                        .isin(["connected", "up", "online", "active", "true", "1", "yes"])
+                        .sum()
+                    ),
+                    "satellite_rtt_ms_p50_median": float(g["satellite_rtt_ms_p50"].dropna().median()) if g["satellite_rtt_ms_p50"].notna().any() else None,
+                    "satellite_down_mbps_median": float(g["satellite_down_mbps"].dropna().median()) if g["satellite_down_mbps"].notna().any() else None,
+                    "satellite_packet_loss_pct_median": float(g["satellite_packet_loss_pct"].dropna().median()) if g["satellite_packet_loss_pct"].notna().any() else None,
+                }
+            )
+        )
+        .reset_index()
+    )
+    sat_timebin.to_csv(out_dir / "satellite_timebin_metrics.csv", index=False)
+
+    sat_events = post[
+        [
+            "timestamp_utc",
+            "trial_id",
+            "node_id",
+            "head_id",
+            "segment_id",
+            "time_bin",
+            "topography_class",
+            "satellite_link_status",
+            "satellite_rtt_ms_p95",
+            "satellite_packet_loss_pct",
+            "satellite_outage_seconds",
+            "satellite_obstruction_pct",
+        ]
+    ].copy()
+    sat_events = sat_events[sat_events["satellite_outage_seconds"].fillna(0) > 0]
+    sat_events.to_csv(out_dir / "satellite_outage_events.csv", index=False)
 
     if len(m):
         tmp = m.copy()

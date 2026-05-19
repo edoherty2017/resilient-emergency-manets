@@ -86,8 +86,14 @@ Secondary deterministic key for aggregations:
    - MAE/RMSE reported with sample counts by stratum.
 
 ## Current Blockers (to resolve in Week 4 execution)
-1. `rssi_dbm` and `snr_db` are not yet present in current observation JSONL schema snapshot; calibration target may need temporary use of available proxy metric (`rsrp_dbm`) until collector enrichment is added.
-2. Need fixed AOI/trial segment index generation script.
+1. Observed RF metric quality and availability are the primary bottleneck:
+   - `rsrp_dbm` is often unavailable in live telemetry.
+   - Pipeline currently falls back to `rssi_dbm` when `rsrp_dbm` is null.
+   - This is acceptable for engineering validation / field shakeout, but not final calibration conclusions.
+2. Join quality is the second bottleneck:
+   - prediction↔observation match rate has been low in some live runs.
+   - time-window alignment and clock-offset discipline must be tightened before advisor-grade claims.
+3. Need fixed AOI/trial segment index generation script.
 
 ## Verified Dry-Run Command Path (2026-05-16)
 A local, deterministic dry-run command runner is now implemented:
@@ -120,3 +126,39 @@ Note: this run uses synthetic path samples to validate the end-to-end command pa
 - `attenuation_priors_version`
 - `calibration_version`
 - `generated_at_utc`
+
+## Satellite/Starlink Ingestion Extension (new core deliverable support)
+Purpose: incorporate time- and terrain-dependent satellite coverage behavior into the same prediction-vs-observation pipeline used for mesh/cellular.
+
+### Candidate NH trail segments for likely Starlink stress testing
+(confirmed locations from OSM geocoding; choose segments, not entire trails)
+- Great Gulf Wilderness Trailhead area and interior valley approaches (`44.3112423, -71.2203297`)
+- King Ravine Trail (narrow ravine walls; higher sky-obstruction risk) (`44.3412668, -71.3001011`)
+- Tuckerman Ravine Trail segments (`44.2613341, -71.2915966`)
+- Franconia Brook Trail valley segments (`44.1468165, -71.5812332` representative)
+
+### Why "time of day" should be explicitly modeled
+- Satellite service quality varies by instantaneous geometry + obstruction + load.
+- Operationally, include local-time bins to capture demand effects (especially evening windows), while treating terrain/sky visibility as separate causal features.
+
+### Required new ingestion fields (per sample window)
+- `satellite_link_status` (connected/degraded/disconnected)
+- `satellite_rtt_ms_p50`, `satellite_rtt_ms_p95`
+- `satellite_down_mbps`, `satellite_up_mbps`
+- `satellite_packet_loss_pct`
+- `satellite_obstruction_pct` (if available from terminal/app)
+- `satellite_outage_seconds` (windowed)
+- `local_hour` (0-23), `time_bin` (`dawn|day|dusk|night|evening_peak`)
+- `solar_elevation_deg` (for horizon/terrain interaction studies)
+
+### Join + evaluation additions
+- Add stratified metrics by `time_bin` and `topography_class`.
+- Emit `satellite_timebin_metrics.csv` and `satellite_outage_events.csv`.
+- Report interaction slices: ravine/notch/summit × time_bin.
+
+### Gate for advisor-grade claims
+Do not claim general "time-of-day Starlink weakness" without:
+1. >=2 repeat runs per candidate segment,
+2. matched weather tags,
+3. per-time-bin sample count threshold,
+4. explicit obstruction-vs-load decomposition in notes.
