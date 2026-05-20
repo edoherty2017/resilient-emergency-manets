@@ -63,11 +63,13 @@ def build_coverage(df: pd.DataFrame) -> pd.DataFrame:
     out["mesh_snr_db"] = pd.to_numeric(out.get("snr_db"), errors="coerce")
     out["cell_rsrp_dbm"] = pd.to_numeric(out.get("rsrp_dbm"), errors="coerce")
 
-    sat = out.get("satellite_link_status")
-    if sat is None:
-        out["satellite_link_status"] = "unknown"
+    # merge_starlink_into_telemetry uses satellite_link_status_starlink to avoid
+    # collision with the MANET connectivity_mode field; alias it here.
+    if "satellite_link_status_starlink" in out.columns:
+        sat = out["satellite_link_status_starlink"].combine_first(out.get("satellite_link_status", pd.Series(dtype=str)))
     else:
-        out["satellite_link_status"] = sat.fillna("unknown").astype(str)
+        sat = out.get("satellite_link_status")
+    out["satellite_link_status"] = (sat.fillna("unknown").astype(str) if sat is not None else pd.Series("unknown", index=out.index))
 
     out["has_mesh_metric"] = out["mesh_metric_dbm"].notna() | out["mesh_snr_db"].notna()
     out["has_cell_metric"] = out["cell_rsrp_dbm"].notna()
@@ -165,6 +167,7 @@ def render_leaflet_html(df_map: pd.DataFrame, out_html: Path, title: str) -> Non
                 "node_id": str(r.get("node_id", "")),
                 "trial_id": str(r.get("trial_id", "")),
                 "coverage_mode": str(r.get("coverage_mode", "NONE")),
+                "control_plane_mode": str(r.get("control_plane_mode", "IP_FULL")),
                 "mesh_metric_dbm": None if pd.isna(r.get("mesh_metric_dbm")) else float(r.get("mesh_metric_dbm")),
                 "cell_rsrp_dbm": None if pd.isna(r.get("cell_rsrp_dbm")) else float(r.get("cell_rsrp_dbm")),
                 "satellite_link_status": str(r.get("satellite_link_status", "unknown")),
@@ -292,7 +295,7 @@ function render(pct) {{
       fillColor: fill || modeColor(p.coverage_mode),
       fillOpacity: fill ? 0.95 : 0.80
     }}).addTo(layer);
-    marker.bindPopup(`<b>${{p.coverage_mode}}</b><br/>ts: ${{p.ts || 'n/a'}}<br/>time_bin: ${{bin}}<br/>topography: ${{p.topography_class || 'unknown'}}<br/>segment_id: ${{p.segment_id || 'n/a'}}<br/>ravine_notch_segment: ${{Boolean(p.ravine_notch_segment)}}<br/>node: ${{p.node_id}}<br/>elev_m: ${{p.elev_m ?? 'n/a'}}<br/>mesh_rssi: ${{p.mesh_metric_dbm ?? 'n/a'}}<br/>cell_rsrp: ${{p.cell_rsrp_dbm ?? 'n/a'}}<br/>abs_error_db: ${{p.abs_error_db ?? 'n/a'}}<br/>sat: ${{p.satellite_link_status}}`);
+    marker.bindPopup(`<b>${{p.coverage_mode}}</b><br/>ctrl_plane: ${{p.control_plane_mode || 'IP_FULL'}}<br/>ts: ${{p.ts || 'n/a'}}<br/>time_bin: ${{bin}}<br/>topography: ${{p.topography_class || 'unknown'}}<br/>segment_id: ${{p.segment_id || 'n/a'}}<br/>ravine_notch_segment: ${{Boolean(p.ravine_notch_segment)}}<br/>node: ${{p.node_id}}<br/>elev_m: ${{p.elev_m ?? 'n/a'}}<br/>mesh_rssi: ${{p.mesh_metric_dbm ?? 'n/a'}}<br/>cell_rsrp: ${{p.cell_rsrp_dbm ?? 'n/a'}}<br/>abs_error_db: ${{p.abs_error_db ?? 'n/a'}}<br/>sat: ${{p.satellite_link_status}}`);
   }}
 
   if (latlngs.length > 1) {{
@@ -326,9 +329,74 @@ render(100);
     out_html.write_text(html)
 
 
+def load_connectivity_events(path: Path) -> pd.DataFrame:
+    """Load connectivity_events.jsonl and return sorted by timestamp."""
+    if not path.exists():
+        return pd.DataFrame()
+    rows = []
+    with path.open() as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rows.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+    if not rows:
+        return pd.DataFrame()
+    df = pd.DataFrame(rows)
+    df["timestamp_utc"] = pd.to_datetime(df["timestamp_utc"], utc=True, errors="coerce")
+    return df.dropna(subset=["timestamp_utc"]).sort_values("timestamp_utc").reset_index(drop=True)
+
+
+def assign_control_plane_mode(telemetry: pd.DataFrame, events: pd.DataFrame) -> pd.DataFrame:
+    """merge_asof connectivity events onto telemetry rows; default is IP_FULL."""
+    out = telemetry.copy()
+    if events.empty or "connectivity_mode" not in events.columns:
+        out["control_plane_mode"] = "IP_FULL"
+        return out
+    ev = events[["timestamp_utc", "connectivity_mode"]].rename(columns={"connectivity_mode": "control_plane_mode"})
+    ev = ev.drop_duplicates(subset=["timestamp_utc"]).sort_values("timestamp_utc")
+    merged = pd.merge_asof(
+        out.sort_values("timestamp_utc"),
+        ev,
+        on="timestamp_utc",
+        direction="backward",
+    )
+    merged["control_plane_mode"] = merged["control_plane_mode"].fillna("IP_FULL")
+    return merged
+
+
+def transition_window_summary(timeline: pd.DataFrame) -> dict:
+    """Emit per-mode pass/fail stats for coverage-transition windows."""
+    if "control_plane_mode" not in timeline.columns:
+        return {}
+    result = {}
+    for mode in ["IP_FULL", "IP_DEGRADED", "MESH_ONLY"]:
+        sub = timeline[timeline["control_plane_mode"] == mode]
+        n = int(len(sub))
+        if n == 0:
+            result[mode] = {"n_rows": 0, "coverage_mode_counts": {}, "pass": True}
+            continue
+        counts = sub["coverage_mode"].value_counts(dropna=False).to_dict()
+        # pass = at least some connectivity (MESH or better)
+        covered = sum(v for k, v in counts.items() if k != "NONE")
+        result[mode] = {
+            "n_rows": n,
+            "coverage_mode_counts": {str(k): int(v) for k, v in counts.items()},
+            "covered_rows": covered,
+            "coverage_pct": round(100.0 * covered / n, 2) if n else 0.0,
+            "pass": covered > 0,
+        }
+    return result
+
+
 def main():
     ap = argparse.ArgumentParser(description="Generate coverage overlay V2 artifacts (CSV + interactive HTML + summary)")
     ap.add_argument("--ingest-root", default="/home/doher/manet_ingest")
+    ap.add_argument("--node-id", default="meshradiohead2", help="Primary telemetry node to load")
+    ap.add_argument("--hiker-id", default="", help="Optional hiker node to merge in (leave empty if not available)")
     ap.add_argument("--trial-id", default="trial_live")
     ap.add_argument("--out-dir", default="artifacts/overlay")
     ap.add_argument("--live-trial-dir", default="artifacts/airmap/live_trial")
@@ -340,11 +408,19 @@ def main():
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    hiker = load_jsonl(root / "meshhikernode1/jsonl/telemetry_stream.jsonl")
-    head = load_jsonl(root / "meshradiohead/jsonl/telemetry_stream.jsonl")
-    df = pd.concat([hiker, head], ignore_index=True, sort=False)
+    head = load_jsonl(root / f"{args.node_id}/jsonl/telemetry_stream.jsonl")
+    frames = [head]
+    if args.hiker_id:
+        hiker = load_jsonl(root / f"{args.hiker_id}/jsonl/telemetry_stream.jsonl")
+        if not hiker.empty:
+            frames.append(hiker)
+    df = pd.concat(frames, ignore_index=True, sort=False)
     if df.empty:
         raise SystemExit("No telemetry rows found")
+
+    # Load connectivity events (one per transition, merge_asof backward → each row gets its mode).
+    events_path = root / args.node_id / "connectivity_events.jsonl"
+    events = load_connectivity_events(events_path)
 
     if "trial_id" in df.columns and args.trial_id:
         filtered = df[df["trial_id"] == args.trial_id].copy()
@@ -352,6 +428,7 @@ def main():
             df = filtered
 
     df = build_coverage(df).sort_values("timestamp_utc")
+    df = assign_control_plane_mode(df, events)
 
     # Merge residual/error bands from live trial outputs where available.
     residuals = load_residuals(Path(args.live_trial_dir))
@@ -366,7 +443,8 @@ def main():
 
     timeline_cols = [
         "timestamp_utc", "trial_id", "node_id", "head_id", "lat", "lon", "elev_m",
-        "coverage_mode", "mesh_metric_dbm", "mesh_snr_db", "cell_rsrp_dbm", "satellite_link_status",
+        "coverage_mode", "control_plane_mode",
+        "mesh_metric_dbm", "mesh_snr_db", "cell_rsrp_dbm", "satellite_link_status",
         "has_mesh_metric", "has_cell_metric", "has_satellite", "abs_error_db", "error_band",
         "time_bin", "topography_class", "segment_id", "ravine_notch_segment",
     ]
@@ -386,6 +464,9 @@ def main():
 
     render_leaflet_html(map_df, out_dir / "coverage_overlay.html", "Coverage Overlay V2 (Route+Time+Error)")
 
+    transition_summary = transition_window_summary(timeline)
+    overall_transition_pass = all(v.get("pass", True) for v in transition_summary.values())
+
     summary = {
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "out_dir": str(out_dir.resolve()),
@@ -394,10 +475,14 @@ def main():
         "gps_min_rows": int(args.gps_min_rows),
         "gps_gate_passed": bool(len(map_df) >= args.gps_min_rows),
         "gps_warning": gps_warning,
-        "coverage_mode_counts": timeline["coverage_mode"].value_counts(dropna=False).to_dict(),
-        "error_band_counts": timeline["error_band"].value_counts(dropna=False).to_dict(),
+        "coverage_mode_counts": {str(k): int(v) for k, v in timeline["coverage_mode"].value_counts(dropna=False).items()},
+        "control_plane_mode_counts": {str(k): int(v) for k, v in timeline["control_plane_mode"].value_counts(dropna=False).items()},
+        "error_band_counts": {str(k): int(v) for k, v in timeline["error_band"].value_counts(dropna=False).items()},
+        "transition_window_summary": transition_summary,
+        "transition_window_pass": overall_transition_pass,
     }
     (out_dir / "overlay_summary.json").write_text(json.dumps(summary, indent=2))
+    (out_dir / "transition_window_summary.json").write_text(json.dumps(transition_summary, indent=2))
     print(json.dumps(summary, indent=2))
 
 

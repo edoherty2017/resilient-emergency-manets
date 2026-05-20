@@ -124,6 +124,12 @@ def main() -> None:
     obs["time_bin"] = obs["local_hour"].apply(lambda h: time_bin_from_hour(int(h)) if pd.notna(h) else "unknown")
 
     # Optional Starlink/satellite quality fields (ingested when available).
+    # merge_starlink_into_telemetry.py emits satellite_link_status_starlink to avoid
+    # colliding with the MANET connectivity_mode field; alias it here.
+    if "satellite_link_status_starlink" in obs.columns and "satellite_link_status" not in obs.columns:
+        obs["satellite_link_status"] = obs["satellite_link_status_starlink"]
+    elif "satellite_link_status_starlink" in obs.columns:
+        obs["satellite_link_status"] = obs["satellite_link_status_starlink"].combine_first(obs["satellite_link_status"])
     for col in (
         "satellite_rtt_ms_p50",
         "satellite_rtt_ms_p95",
@@ -136,7 +142,7 @@ def main() -> None:
         obs[col] = pd.to_numeric(obs.get(col), errors="coerce")
 
     # Route/time-window join quality audit against head stream timestamps.
-    head_path = Path(args.ingest_root) / "meshradiohead/jsonl/telemetry_stream.jsonl"
+    head_path = Path(args.ingest_root) / f"{args.head_id}/jsonl/telemetry_stream.jsonl"
     head = load_jsonl(head_path)
     head = head[(head["trial_id"] == args.trial_id)].copy() if not head.empty else head
     if not head.empty:
@@ -180,6 +186,18 @@ def main() -> None:
         frame["model_hash"] = model_hash
         frame["feature_recipe_version"] = recipe_version
         frame["calibration_version"] = calibration_version
+
+    _KNOWN_STR_COLS = {
+        "timestamp_utc", "head_timestamp_utc", "trial_id", "node_id", "head_id",
+        "segment_id", "topography_class", "distance_bin", "material_class", "time_bin",
+        "obs_metric_source", "join_status", "model_name", "model_version",
+        "model_hash", "feature_recipe_version", "calibration_version",
+        "satellite_link_status", "satellite_link_status_starlink",
+    }
+    for _frame in (pre, post):
+        for _col in list(_frame.select_dtypes(include="object").columns):
+            if _col not in _KNOWN_STR_COLS:
+                _frame[_col] = pd.to_numeric(_frame[_col], errors="coerce")
 
     pre.to_parquet(out_dir / "predictions_precalibration.parquet", index=False)
     post.to_parquet(out_dir / "predictions_postcalibration.parquet", index=False)

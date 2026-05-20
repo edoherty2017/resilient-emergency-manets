@@ -29,7 +29,7 @@ REQUIRED = ["timestamp_utc", "trial_id", "node_id", "head_id", "line"]
 
 RANGES: dict[str, tuple[float, float]] = {
     "battery_mv": (0, 20000),
-    "battery_pct": (0, 100),
+    "battery_pct": (0, 101),
     "usb_power": (0, 1),
     "is_charging": (0, 1),
     "rssi_dbm": (-200, 50),
@@ -68,7 +68,7 @@ def validate_record(rec: dict[str, Any], line_no: int) -> list[str]:
         if not isinstance(val, (int, float)):
             errs.append(f"type_error:{field}")
             continue
-        if field in INT_FIELDS and not isinstance(val, int):
+        if field in INT_FIELDS and not (isinstance(val, int) or (isinstance(val, float) and val == int(val))):
             errs.append(f"int_required:{field}")
         if val < lo or val > hi:
             errs.append(f"range_error:{field}:{val}")

@@ -23,11 +23,47 @@ def main() -> int:
     ap.add_argument("--root", default=str(Path(__file__).resolve().parents[1]))
     ap.add_argument("--ingest-root", default="/home/doher/manet_ingest")
     ap.add_argument("--trial-id", default="trial-live")
+    ap.add_argument("--skip-schema-validation", action="store_true",
+                    help="Skip schema validation gate (not recommended)")
     args = ap.parse_args()
 
     root = Path(args.root)
     out_dir = root / "artifacts/release"
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Schema validation gate — hard-fail before running expensive pipeline steps.
+    if not args.skip_schema_validation:
+        ingest_root = Path(args.ingest_root)
+        node_jsonls = {
+            "meshradiohead2": ingest_root / "meshradiohead2" / "jsonl" / "telemetry_stream.jsonl",
+        }
+        validator = root / "scripts" / "validation" / "schema_validate.py"
+        schema_ok = True
+        for node_id, jsonl_path in node_jsonls.items():
+            report_path = root / "artifacts" / "reports" / f"schema_validation_{node_id}.json"
+            report_path.parent.mkdir(parents=True, exist_ok=True)
+            if not jsonl_path.exists():
+                print(f"[schema_gate] WARN: {node_id} JSONL not found at {jsonl_path} — skipping")
+                continue
+            result = run(
+                ["python3", str(validator), "--input", str(jsonl_path), "--output", str(report_path)],
+                root,
+            )
+            if result["exit_code"] != 0:
+                print(f"[schema_gate] FAIL: {node_id} has invalid records — aborting p6 run")
+                schema_ok = False
+        if not schema_ok:
+            (out_dir / "p6_artifact_index.json").write_text(
+                json.dumps({
+                    "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+                    "trial_id": args.trial_id,
+                    "gates": {"overall_ok": False, "schema_validation_ok": False},
+                    "error": "schema_validation_failed",
+                }, indent=2),
+                encoding="utf-8",
+            )
+            return 1
+        print("[schema_gate] PASS: all available JSONL files are schema-valid")
 
     steps = [
         ["python3", "scripts/airmap_dry_run.py"],
@@ -38,6 +74,10 @@ def main() -> int:
             args.ingest_root,
             "--trial-id",
             args.trial_id,
+            "--node-id",
+            "meshradiohead2",
+            "--head-id",
+            "meshradiohead2",
             "--min-observed-samples",
             "200",
         ],
@@ -71,11 +111,14 @@ def main() -> int:
             "scripts/coverage_overlay_mvp.py",
             "--ingest-root",
             args.ingest_root,
+            "--node-id",
+            "meshradiohead2",
             "--trial-id",
             args.trial_id,
             "--live-trial-dir",
             "artifacts/airmap/live_trial",
         ],
+        ["python3", "scripts/build_evidence_index.py"],
     ]
 
     runlog = []
@@ -93,6 +136,7 @@ def main() -> int:
         "artifacts/weather/**/*",
         "artifacts/overlay/**/*",
         "artifacts/reports/**/*",
+        "artifacts/release/**/*",
     ]
 
     files = []
@@ -102,6 +146,7 @@ def main() -> int:
                 files.append(str(p.relative_to(root)))
 
     gates = {
+        "schema_validation_ok": not args.skip_schema_validation,
         "dry_run_ok": any(r["cmd"][:2] == ["python3", "scripts/airmap_dry_run.py"] and r["exit_code"] == 0 for r in runlog),
         "live_trial_ok": any(r["cmd"][:2] == ["python3", "scripts/airmap_live_trial.py"] and r["exit_code"] == 0 for r in runlog),
         "dem_ok": any(r["cmd"][:2] == ["python3", "scripts/dem_transformer.py"] and r["exit_code"] == 0 for r in runlog),
@@ -110,6 +155,7 @@ def main() -> int:
         "eval_ok": any(r["cmd"][:2] == ["python3", "scripts/error_quantifier.py"] and r["exit_code"] == 0 for r in runlog),
         "weather_ok": any(r["cmd"][:2] == ["python3", "scripts/weather_guard.py"] and r["exit_code"] == 0 for r in runlog),
         "overlay_ok": any(r["cmd"][:2] == ["python3", "scripts/coverage_overlay_mvp.py"] and r["exit_code"] == 0 for r in runlog),
+        "evidence_index_ok": any(r["cmd"][:2] == ["python3", "scripts/build_evidence_index.py"] and r["exit_code"] == 0 for r in runlog),
     }
     gates["overall_ok"] = all(gates.values())
 
