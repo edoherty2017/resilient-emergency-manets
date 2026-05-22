@@ -105,19 +105,30 @@ def asof_join_positions(obs: pd.DataFrame, pos: pd.DataFrame,
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--root",         default=str(Path(__file__).resolve().parents[1]))
-    ap.add_argument("--ingest-root",  default="/home/doher/manet_ingest")
+    ap.add_argument("--ingest-root",  default="/tmp/manet_ingest")
     ap.add_argument("--trial-id",     default=None, help="Filter to specific trial_id (default: all)")
     ap.add_argument("--freq-mhz",     type=float, default=915.0)
     ap.add_argument("--tolerance-s",  type=int,   default=30,
                     help="Max age of position fix to pair with an RF observation (seconds)")
     ap.add_argument("--min-obs",      type=int,   default=5,
                     help="Minimum observations per source node to include in catalog")
+    ap.add_argument("--static-nodes", default=None,
+                    help="Path to trial config JSON with known static node positions "
+                         "(for nodes without GPS hardware). Format: "
+                         '{\"static_nodes\": {\"!hex\": {\"lat\": .., \"lon\": .., \"elev_m\": ..}}}')
     args = ap.parse_args()
 
     root       = Path(args.root)
     ingest     = Path(args.ingest_root)
     out_dir    = root / "artifacts/mesh_catalog"
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Load static node positions (for nodes without GPS hardware)
+    static_nodes: dict[str, dict] = {}
+    if args.static_nodes:
+        cfg = json.loads(Path(args.static_nodes).read_text(encoding="utf-8"))
+        static_nodes = cfg.get("static_nodes", {})
+        print(f"  loaded {len(static_nodes)} static node positions from {args.static_nodes}")
 
     # Discover all node JSONL files
     all_frames: list[pd.DataFrame] = []
@@ -175,6 +186,20 @@ def main() -> None:
         suffix="src", tolerance_s=args.tolerance_s,
     )
 
+    # Fill in static positions for nodes without GPS broadcasts
+    if static_nodes:
+        for mesh_id, pos in static_nodes.items():
+            mask = obs_with_src["from_mesh_id"] == mesh_id
+            if not mask.any():
+                continue
+            null_mask = mask & obs_with_src["lat_src"].isna()
+            if null_mask.any():
+                obs_with_src.loc[null_mask, "lat_src"]   = pos["lat"]
+                obs_with_src.loc[null_mask, "lon_src"]   = pos["lon"]
+                obs_with_src.loc[null_mask, "elev_m_src"] = pos.get("elev_m", np.nan)
+                print(f"    injected static position for {mesh_id}: "
+                      f"({pos['lat']:.5f}, {pos['lon']:.5f}) → {null_mask.sum()} obs")
+
     # --- Join receiver positions ---
     if not own_pos_df.empty:
         print("  joining receiver positions...")
@@ -212,13 +237,15 @@ def main() -> None:
         node_pos = pos_df[pos_df["from_mesh_id"] == node_id]
 
         last_pos = node_pos.sort_values("timestamp_utc").iloc[-1] if not node_pos.empty else None
+        static = static_nodes.get(node_id, {})
         node_summary[node_id] = {
             "total_rf_observations":    int(len(node_obs)),
             "complete_observations":    int(len(node_complete)),
             "position_packets":         int(len(node_pos)),
-            "last_known_lat":           float(last_pos["lat"])   if last_pos is not None else None,
-            "last_known_lon":           float(last_pos["lon"])   if last_pos is not None else None,
-            "last_known_elev_m":        float(last_pos["elev_m"]) if last_pos is not None and pd.notna(last_pos.get("elev_m")) else None,
+            "position_source":          "gps_broadcast" if last_pos is not None else ("static_config" if static else "none"),
+            "last_known_lat":           float(last_pos["lat"])   if last_pos is not None else (static.get("lat")    or None),
+            "last_known_lon":           float(last_pos["lon"])   if last_pos is not None else (static.get("lon")    or None),
+            "last_known_elev_m":        float(last_pos["elev_m"]) if last_pos is not None and pd.notna(last_pos.get("elev_m")) else (static.get("elev_m") or None),
             "rssi_dbm_mean":            float(node_obs["rssi_dbm"].mean()) if node_obs["rssi_dbm"].notna().any() else None,
             "rssi_dbm_min":             float(node_obs["rssi_dbm"].min())  if node_obs["rssi_dbm"].notna().any() else None,
             "distance_m_mean":          float(node_complete["distance_m"].mean()) if not node_complete.empty else None,
@@ -251,6 +278,7 @@ def main() -> None:
         "total_rf_observations":  int(len(obs_df)),
         "unique_source_nodes":    int(obs_df["from_mesh_id"].nunique()),
         "nodes_with_gps":         int(sum(1 for n in node_summary.values() if n["last_known_lat"] is not None)),
+        "nodes_with_static_pos":  int(sum(1 for n in node_summary.values() if n.get("position_source") == "static_config")),
         "complete_observations":  int(len(complete)) if not complete.empty else 0,
         "distance_m_min":         float(complete["distance_m"].min()) if not complete.empty else None,
         "distance_m_max":         float(complete["distance_m"].max()) if not complete.empty else None,

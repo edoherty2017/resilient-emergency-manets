@@ -1,0 +1,29 @@
+{
+  "_comment": "Mt. Washington field trial — Sat 2026-05-23. Fill in node IDs and GPS coords before running mesh_neighbor_catalog.py post-hike.",
+  "trial_id": "trial-live",
+  "date": "2026-05-23",
+  "location": "Mt. Washington, NH",
+  "head_node": {
+    "node_id": "meshradiohead2",
+    "hardware": "Pi 5 + Heltec V3",
+    "gps_source": "phone_bluetooth"
+  },
+  "static_nodes": {
+    "FILL_IN_NODE_ID_1": {
+      "label": "node 1 — describe placement location",
+      "lat": 0.0,
+      "lon": 0.0,
+      "elev_m": 0,
+      "placed_at_utc": "2026-05-23T00:00:00Z",
+      "_note": "Replace FILL_IN_NODE_ID_1 with the !hex ID from Meshtastic app. lat/lon from phone GPS when placed."
+    },
+    "FILL_IN_NODE_ID_2": {
+      "label": "node 2 — describe placement location",
+      "lat": 0.0,
+      "lon": 0.0,
+      "elev_m": 0,
+      "placed_at_utc": "2026-05-23T00:00:00Z",
+      "_note": "Add as many nodes as needed. Remove unused entries."
+    }
+  }
+}
