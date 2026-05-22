@@ -5,8 +5,10 @@
   "location": "Mt. Washington, NH",
   "head_node": {
     "node_id": "meshradiohead2",
+    "mesh_id": "!db51af80",
     "hardware": "Pi 5 + Heltec V3",
-    "gps_source": "phone_bluetooth"
+    "gps_source": "phone_bluetooth",
+    "_note": "HEAD GPS comes from phone paired via Bluetooth to Heltec V3. Verify is_own_node=true rows have lat/lon before hiking."
   },
   "static_nodes": {
     "FILL_IN_NODE_ID_1": {
