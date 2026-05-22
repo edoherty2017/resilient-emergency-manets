@@ -1,0 +1,452 @@
+#!/usr/bin/env python3
+"""Pre-trial coverage prediction map for Mt. Washington.
+
+No field data required — uses FSPL at 915 MHz plus terrain-class loss estimates.
+Outputs:
+  artifacts/coverage_prediction/coverage_map.html     — interactive Folium map
+  artifacts/coverage_prediction/rssi_vs_distance.png  — seaborn range curves
+"""
+from __future__ import annotations
+
+import argparse
+import math
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
+import folium
+import folium.plugins
+import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
+
+# ---------------------------------------------------------------------------
+# Radio parameters (Heltec V3 + LoRa @ 915 MHz, Meshtastic defaults)
+# ---------------------------------------------------------------------------
+FREQ_MHZ       = 915.0
+TX_POWER_DBM   = 22.0    # Heltec V3 typical Meshtastic output
+ANT_GAIN_DBI   = 2.15    # standard dipole, each end
+RX_SENS_DBM    = -130.0  # SF12, BW 125 kHz
+
+LINK_BUDGET_DB = TX_POWER_DBM + 2 * ANT_GAIN_DBI - RX_SENS_DBM
+
+# Extra path loss by terrain class (dB on top of free-space)
+TERRAIN_LOSS = {
+    "Open / Alpine (above treeline)": 3,
+    "Mixed / Sub-alpine":             15,
+    "Dense Forest (below treeline)":  25,
+}
+
+TERRAIN_COLORS = {
+    "Open / Alpine (above treeline)": "#2196F3",
+    "Mixed / Sub-alpine":             "#FF9800",
+    "Dense Forest (below treeline)":  "#795548",
+}
+
+# ---------------------------------------------------------------------------
+# Key Mt. Washington locations
+# ---------------------------------------------------------------------------
+LOCATIONS = {
+    "Summit (1917 m)":                 (44.27025, -71.30333),
+    "Lakes of the Clouds Hut (1528m)": (44.25872, -71.31915),
+    "Trailhead / Cog Base Station":    (44.26689, -71.36113),
+    "Jewell–Gulfside Junction":        (44.28259, -71.31689),
+    "Alpine Garden":                   (44.26780, -71.29220),
+}
+
+# Trail data loaded from GPX files at runtime (see load_trails())
+AMMO_TRAIL:    list[tuple] = []
+JEWELL_TRAIL:  list[tuple] = []
+TREELINE_AMMO:  tuple | None = None
+TREELINE_JEWELL: tuple | None = None
+GEM_POOL:       tuple | None = None
+
+
+def parse_gpx(path: Path) -> list[tuple[float, float, float]]:
+    tree = ET.parse(path)
+    root = tree.getroot()
+    ns = root.tag.split("}")[0].lstrip("{") if "}" in root.tag else ""
+    prefix = f"{{{ns}}}" if ns else ""
+    pts = (root.findall(f".//{prefix}trkpt") or
+           root.findall(f".//{prefix}rtept") or
+           root.findall(f".//{prefix}wpt"))
+    result = []
+    for p in pts:
+        ele = p.find(f"{prefix}ele")
+        result.append((float(p.get("lat")), float(p.get("lon")),
+                       float(ele.text) if ele is not None else 0.0))
+    return result
+
+
+def first_crossing(pts: list[tuple], elev: float) -> tuple | None:
+    for i in range(len(pts) - 1):
+        if pts[i][2] < elev <= pts[i + 1][2]:
+            return pts[i]
+    return None
+
+
+def load_trails(mapdata_dir: Path) -> None:
+    global AMMO_TRAIL, JEWELL_TRAIL, TREELINE_AMMO, TREELINE_JEWELL, GEM_POOL
+
+    ammo_gpx   = mapdata_dir / "Mount_Washington_via_Ammonoosuc_Ravine_Trail.gpx"
+    jewell_gpx = mapdata_dir / "Jewell_Trail_.gpx"
+
+    if not ammo_gpx.exists() or not jewell_gpx.exists():
+        raise FileNotFoundError(
+            f"GPX files not found in {mapdata_dir}. "
+            "Download from AllTrails and place in that directory."
+        )
+
+    ammo_pts   = parse_gpx(ammo_gpx)
+    jewell_pts = parse_gpx(jewell_gpx)
+
+    # Both GPX files are round-trips; split at the highest-elevation point (summit)
+    ammo_summit_idx   = max(range(len(ammo_pts)),   key=lambda i: ammo_pts[i][2])
+    jewell_summit_idx = max(range(len(jewell_pts)), key=lambda i: jewell_pts[i][2])
+
+    ammo_ascent   = ammo_pts[:ammo_summit_idx + 1]
+    jewell_ascent = jewell_pts[:jewell_summit_idx + 1]
+
+    # Downsample to ~60 pts each — smooth line, compact HTML
+    step_a = max(1, len(ammo_ascent)   // 60)
+    step_j = max(1, len(jewell_ascent) // 60)
+    AMMO_TRAIL[:]   = [(lat, lon) for lat, lon, _ in ammo_ascent[::step_a]]
+    JEWELL_TRAIL[:] = [(lat, lon) for lat, lon, _ in reversed(jewell_ascent[::step_j])]
+
+    # Treeline and landmarks (exact points from GPX)
+    tl_a = first_crossing(ammo_ascent, 1200)
+    tl_j = first_crossing(jewell_ascent, 1200)
+    gp   = first_crossing(ammo_ascent, 1068)
+
+    TREELINE_AMMO   = (tl_a[0], tl_a[1]) if tl_a else None
+    TREELINE_JEWELL = (tl_j[0], tl_j[1]) if tl_j else None
+    GEM_POOL        = (gp[0],  gp[1])  if gp  else None
+
+    print(f"  Ammo:   {len(ammo_ascent)} ascent pts → {len(AMMO_TRAIL)} plotted")
+    print(f"  Jewell: {len(jewell_ascent)} ascent pts → {len(JEWELL_TRAIL)} plotted")
+    if TREELINE_AMMO:
+        print(f"  Treeline Ammo:   {TREELINE_AMMO}")
+    if TREELINE_JEWELL:
+        print(f"  Treeline Jewell: {TREELINE_JEWELL}")
+    if GEM_POOL:
+        print(f"  Gem Pool:        {GEM_POOL}")
+
+HEAD_POSITIONS = {
+    "Summit":          {"lat": 44.27057, "lon": -71.30328, "elev_m": 1917},
+    "Pinkham Notch":   {"lat": 44.25764, "lon": -71.25291, "elev_m":  609},
+    "Alpine Garden":   {"lat": 44.26780, "lon": -71.29220, "elev_m": 1640},
+}
+
+
+def haversine_km(lat1, lon1, lat2, lon2) -> float:
+    R = 6371.0
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dp = math.radians(lat2 - lat1)
+    dl = math.radians(lon2 - lon1)
+    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+def fspl_db(d_km: float) -> float:
+    d_km = max(d_km, 0.001)
+    return 32.44 + 20 * math.log10(d_km) + 20 * math.log10(FREQ_MHZ)
+
+
+def pred_rssi(d_km: float, extra_loss_db: float = 0.0) -> float:
+    return TX_POWER_DBM + 2 * ANT_GAIN_DBI - fspl_db(d_km) - extra_loss_db
+
+
+def rssi_to_color(rssi: float) -> str:
+    if rssi >= -90:
+        return "#00C853"   # strong green
+    if rssi >= -105:
+        return "#FFD600"   # yellow
+    if rssi >= -120:
+        return "#FF6D00"   # orange
+    return "#B71C1C"       # out of range red
+
+
+def rssi_to_label(rssi: float) -> str:
+    if rssi >= -90:
+        return "Strong"
+    if rssi >= -105:
+        return "Good"
+    if rssi >= -120:
+        return "Marginal"
+    return "Out of range"
+
+
+# ---------------------------------------------------------------------------
+# Folium map
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Nodes observed historically from home base (from JSONL analysis 2026-05-20)
+# RSSI shown is what was measured from MA home base (~38m elev)
+# ---------------------------------------------------------------------------
+KNOWN_NODES = {
+    "!3369ecf0": {"lat": 44.2237, "lon": -72.0110, "elev_m": 195,  "obs_rssi": -97,  "packets": 1},
+    "!facda2e0": {"lat": 43.6470, "lon": -71.8537, "elev_m": 662,  "obs_rssi": -91,  "packets": 1},
+    "!a2e26938": {"lat": 43.5945, "lon": -70.2284, "elev_m": 46,   "obs_rssi": -95,  "packets": 1},
+    "!9e3b15c4": {"lat": 43.1227, "lon": -71.7488, "elev_m": 249,  "obs_rssi": -95,  "packets": 1},
+    "!98de985c": {"lat": 43.1227, "lon": -71.9061, "elev_m": None, "obs_rssi": -94,  "packets": 2},
+    "!4ad10bfa": {"lat": 43.0113, "lon": -71.4801, "elev_m": 35,   "obs_rssi": -93,  "packets": 5},
+    "!de28f744": {"lat": 42.9130, "lon": -71.6440, "elev_m": 289,  "obs_rssi": -94,  "packets": 4},
+    "!4bb40fe5": {"lat": 42.9326, "lon": -70.8116, "elev_m": 15,   "obs_rssi": -115, "packets": 11},
+    "!a20a1240": {"lat": 42.9113, "lon": -70.8133, "elev_m": 20,   "obs_rssi": -110, "packets": 83},
+    "!b03d38b4": {"lat": 42.8081, "lon": -70.9100, "elev_m": 26,   "obs_rssi": -95,  "packets": 51},
+    "!9e75f97c": {"lat": 42.8081, "lon": -70.8575, "elev_m": None, "obs_rssi": -24,  "packets": 133},
+    "!e977eda7": {"lat": 42.8016, "lon": -70.8510, "elev_m": 14,   "obs_rssi": -92,  "packets": 8},
+    "!43593b08": {"lat": 42.7287, "lon": -72.3220, "elev_m": 157,  "obs_rssi": -91,  "packets": 3},
+}
+
+SUMMIT = (44.27057, -71.30328)
+
+
+def build_map(out_path: Path, grid_step_deg: float = 0.008) -> None:
+    # Zoom out enough to show all known nodes
+    center_lat, center_lon = 43.6, -71.5
+    m = folium.Map(location=[center_lat, center_lon], zoom_start=8,
+                   tiles="OpenStreetMap")
+
+    # Key location markers
+    for label, (lat, lon) in LOCATIONS.items():
+        folium.Marker(
+            [lat, lon],
+            tooltip=label,
+            icon=folium.Icon(color="gray", icon="info-sign"),
+        ).add_to(m)
+
+    # Known nodes layer
+    known_fg = folium.FeatureGroup(name="Known nodes (heard from home base)", show=True)
+    for mid, n in KNOWN_NODES.items():
+        d_km = haversine_km(*SUMMIT, n["lat"], n["lon"])
+        pred = pred_rssi(d_km, extra_loss_db=3)  # alpine estimate from summit
+        elev_str = f"{n['elev_m']}m" if n.get("elev_m") else "elev unknown"
+        popup_html = (
+            f"<b>{mid}</b><br>"
+            f"Elevation: {elev_str}<br>"
+            f"Packets heard: {n['packets']}<br>"
+            f"RSSI from home base (MA): {n['obs_rssi']} dBm<br>"
+            f"<b>Distance from summit: {d_km:.1f} km</b><br>"
+            f"<b>Predicted RSSI from summit: {pred:.0f} dBm</b><br>"
+            f"Reachable from summit: {'✓ YES' if pred > -120 else '✗ NO'}"
+        )
+        color = rssi_to_color(pred)
+        folium.CircleMarker(
+            location=[n["lat"], n["lon"]],
+            radius=10,
+            color=color,
+            fill=True,
+            fill_color=color,
+            fill_opacity=0.85,
+            weight=2,
+            tooltip=f"{mid} — {d_km:.0f} km from summit — pred {pred:.0f} dBm",
+            popup=folium.Popup(popup_html, max_width=280),
+        ).add_to(known_fg)
+        # Line from summit to node
+        folium.PolyLine(
+            [list(SUMMIT), [n["lat"], n["lon"]]],
+            color=color, weight=1.5, opacity=0.4,
+            tooltip=f"{d_km:.0f} km",
+        ).add_to(known_fg)
+    known_fg.add_to(m)
+
+    # Summit marker (prominent)
+    folium.Marker(
+        list(SUMMIT),
+        tooltip="Mt. Washington Summit — HEAD position tomorrow",
+        popup="HEAD node (meshradiohead2)<br>1917 m",
+        icon=folium.Icon(color="blue", icon="star"),
+    ).add_to(m)
+
+    # Trail routes
+    trail_fg = folium.FeatureGroup(name="Tomorrow's route", show=True)
+    folium.PolyLine(AMMO_TRAIL,  color="#E91E63", weight=4, opacity=0.85,
+                    tooltip="Ammonoosuc Ravine Trail (ascent)").add_to(trail_fg)
+    folium.PolyLine(JEWELL_TRAIL, color="#9C27B0", weight=4, opacity=0.85,
+                    tooltip="Jewell Trail (descent)").add_to(trail_fg)
+
+    # Treeline markers
+    for pt, label in [(TREELINE_AMMO, "Treeline — Ammo (~1200m)"),
+                      (TREELINE_JEWELL, "Treeline — Jewell (~1200m)")]:
+        folium.CircleMarker(pt, radius=8, color="#4CAF50", fill=True,
+                            fill_color="#4CAF50", fill_opacity=0.9,
+                            tooltip=label).add_to(trail_fg)
+
+    # Suggested node placement spots with predicted RSSI from summit
+    placements = [
+        {"lat": 44.26689, "lon": -71.36113, "label": "Trailhead — dense forest",          "extra_loss": 25},
+        {"lat": GEM_POOL[0],        "lon": GEM_POOL[1],        "label": "Gem Pool — ravine forest (~1068m)",    "extra_loss": 20}
+            if GEM_POOL else
+        {"lat": 44.26768, "lon": -71.32647, "label": "Gem Pool — ravine forest (~1068m)", "extra_loss": 20},
+        {"lat": TREELINE_AMMO[0],   "lon": TREELINE_AMMO[1],   "label": "Ammo treeline crossing (~1200m)",      "extra_loss": 5}
+            if TREELINE_AMMO else
+        {"lat": 44.26622, "lon": -71.32359, "label": "Ammo treeline crossing (~1200m)",   "extra_loss": 5},
+        {"lat": 44.25872, "lon": -71.31915, "label": "Lakes of the Clouds Hut (1528m)",   "extra_loss": 3},
+        {"lat": TREELINE_JEWELL[0], "lon": TREELINE_JEWELL[1], "label": "Jewell treeline crossing (~1200m)",    "extra_loss": 5}
+            if TREELINE_JEWELL else
+        {"lat": 44.28375, "lon": -71.33587, "label": "Jewell treeline crossing (~1200m)", "extra_loss": 5},
+        {"lat": 44.28259, "lon": -71.31689, "label": "Jewell–Gulfside Junction (1648m)",  "extra_loss": 3},
+    ]
+    for p in placements:
+        d_km = haversine_km(*SUMMIT, p["lat"], p["lon"])
+        rssi  = pred_rssi(d_km, p["extra_loss"])
+        popup = (f"<b>{p['label']}</b><br>"
+                 f"Distance from summit: {d_km:.1f} km<br>"
+                 f"Terrain loss: +{p['extra_loss']} dB<br>"
+                 f"Predicted RSSI: {rssi:.0f} dBm<br>"
+                 f"Quality: {rssi_to_label(rssi)}")
+        folium.Marker(
+            [p["lat"], p["lon"]],
+            tooltip=f"{p['label']} — {rssi:.0f} dBm predicted",
+            popup=folium.Popup(popup, max_width=260),
+            icon=folium.Icon(color="orange" if rssi > -105 else "red", icon="map-marker"),
+        ).add_to(trail_fg)
+    trail_fg.add_to(m)
+
+    # One FeatureGroup per HEAD position × terrain class
+    for head_name, head in HEAD_POSITIONS.items():
+        for terrain_label, extra_loss in TERRAIN_LOSS.items():
+            fg = folium.FeatureGroup(
+                name=f"{head_name} → {terrain_label}",
+                show=(head_name == "Summit" and extra_loss == 3),
+            )
+
+            # Build coverage grid
+            lat_range = np.arange(44.220, 44.330, grid_step_deg)
+            lon_range = np.arange(-71.370, -71.200, grid_step_deg)
+
+            for lat in lat_range:
+                for lon in lon_range:
+                    d_km = haversine_km(head["lat"], head["lon"], lat, lon)
+                    rssi = pred_rssi(d_km, extra_loss)
+                    if rssi < -130:
+                        continue
+                    folium.CircleMarker(
+                        location=[lat, lon],
+                        radius=6,
+                        color=rssi_to_color(rssi),
+                        fill=True,
+                        fill_color=rssi_to_color(rssi),
+                        fill_opacity=0.55,
+                        weight=0,
+                        tooltip=f"{rssi:.0f} dBm ({rssi_to_label(rssi)}) — {d_km:.1f} km",
+                    ).add_to(fg)
+
+            # HEAD marker
+            folium.Marker(
+                [head["lat"], head["lon"]],
+                tooltip=f"HEAD: {head_name} ({head['elev_m']} m)",
+                icon=folium.Icon(color="blue", icon="tower", prefix="fa"),
+            ).add_to(fg)
+
+            fg.add_to(m)
+
+    # Legend HTML
+    legend_html = """
+    <div style="position:fixed;bottom:40px;left:40px;z-index:1000;background:white;
+                padding:12px;border-radius:8px;border:1px solid #ccc;font-size:13px;">
+      <b>Predicted RSSI (915 MHz LoRa)</b><br>
+      <span style="color:#00C853">&#9632;</span> &ge; &minus;90 dBm &nbsp; Strong<br>
+      <span style="color:#FFD600">&#9632;</span> &minus;105 to &minus;90 &nbsp; Good<br>
+      <span style="color:#FF6D00">&#9632;</span> &minus;120 to &minus;105 &nbsp; Marginal<br>
+      <span style="color:#B71C1C">&#9632;</span> &lt; &minus;120 dBm &nbsp; Out of range<br>
+      <hr style="margin:6px 0">
+      <small>TX 22 dBm &bull; Dipole &bull; SF12 &bull; FSPL only<br>
+      Dense forest adds ~25 dB &bull; Sub-alpine ~15 dB</small>
+    </div>
+    """
+    m.get_root().html.add_child(folium.Element(legend_html))
+    folium.LayerControl(collapsed=False).add_to(m)
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    m.save(str(out_path))
+    print(f"  map  → {out_path}")
+
+
+# ---------------------------------------------------------------------------
+# Seaborn RSSI vs distance plot
+# ---------------------------------------------------------------------------
+
+def build_distance_plot(out_path: Path) -> None:
+    sns.set_theme(style="darkgrid", palette="muted")
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    distances = np.linspace(0.05, 25.0, 500)
+
+    for terrain_label, extra_loss in TERRAIN_LOSS.items():
+        rssi_vals = [pred_rssi(d, extra_loss) for d in distances]
+        ax.plot(distances, rssi_vals,
+                label=f"{terrain_label} (+{extra_loss} dB)",
+                color=TERRAIN_COLORS[terrain_label], linewidth=2.5)
+
+    # Thresholds
+    ax.axhline(-90,  color="#00C853", linestyle="--", linewidth=1.2, alpha=0.8, label="–90 dBm (strong)")
+    ax.axhline(-105, color="#FFD600", linestyle="--", linewidth=1.2, alpha=0.8, label="–105 dBm (marginal)")
+    ax.axhline(-120, color="#B71C1C", linestyle="--", linewidth=1.2, alpha=0.8, label="–120 dBm (link budget limit)")
+
+    # Range annotations for each terrain class
+    for terrain_label, extra_loss in TERRAIN_LOSS.items():
+        for threshold, threshold_label in [(-120, "max range")]:
+            # Find distance where RSSI crosses threshold
+            for d in distances:
+                if pred_rssi(d, extra_loss) < threshold:
+                    ax.annotate(
+                        f"{d:.1f} km",
+                        xy=(d, threshold),
+                        xytext=(d + 0.3, threshold + 4),
+                        fontsize=8,
+                        color=TERRAIN_COLORS[terrain_label],
+                        arrowprops=dict(arrowstyle="->", color=TERRAIN_COLORS[terrain_label], lw=1),
+                    )
+                    break
+
+    ax.set_xlabel("Distance from HEAD (km)", fontsize=12)
+    ax.set_ylabel("Predicted RSSI (dBm)", fontsize=12)
+    ax.set_title(
+        "Mt. Washington — Predicted LoRa Link Quality vs Distance\n"
+        f"915 MHz · TX {TX_POWER_DBM:.0f} dBm · Dipole · SF12 · RX sens {RX_SENS_DBM:.0f} dBm",
+        fontsize=12,
+    )
+    ax.set_xlim(0, 25)
+    ax.set_ylim(-140, -50)
+    ax.legend(loc="upper right", fontsize=9)
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.tight_layout()
+    fig.savefig(str(out_path), dpi=150)
+    plt.close()
+    print(f"  plot → {out_path}")
+
+
+# ---------------------------------------------------------------------------
+
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--root", default=str(Path(__file__).resolve().parents[1]))
+    ap.add_argument("--mapdata", default=str(Path(__file__).resolve().parents[2] / "MapData"),
+                    help="Directory containing the AllTrails GPX files")
+    ap.add_argument("--grid-step", type=float, default=0.008,
+                    help="Grid spacing in degrees (~0.008° ≈ 600m; finer = slower)")
+    args = ap.parse_args()
+
+    root    = Path(args.root)
+    out_dir = root / "artifacts/coverage_prediction"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    print("\nLoading trails from GPX...")
+    load_trails(Path(args.mapdata))
+    print("\nBuilding pre-trial coverage prediction...")
+    print(f"  Link budget: {LINK_BUDGET_DB:.1f} dB  "
+          f"({TX_POWER_DBM} dBm TX + {2*ANT_GAIN_DBI:.1f} dB antenna − {RX_SENS_DBM} dBm sens)")
+
+    build_map(out_dir / "coverage_map.html", grid_step_deg=args.grid_step)
+    build_distance_plot(out_dir / "rssi_vs_distance.png")
+
+    print("\nDone. Open in browser:")
+    print(f"  open {out_dir}/coverage_map.html")
+    print(f"  open {out_dir}/rssi_vs_distance.png\n")
+
+
+if __name__ == "__main__":
+    main()
