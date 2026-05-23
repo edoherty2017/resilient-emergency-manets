@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import math
+import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -23,13 +24,12 @@ import seaborn as sns
 # Radio parameters (Heltec V3 + LoRa @ 915 MHz, Meshtastic defaults)
 # ---------------------------------------------------------------------------
 FREQ_MHZ       = 915.0
-TX_POWER_DBM   = 22.0    # Heltec V3 typical Meshtastic output
-ANT_GAIN_DBI   = 2.15    # standard dipole, each end
-RX_SENS_DBM    = -130.0  # SF12, BW 125 kHz
+TX_POWER_DBM   = 22.0
+ANT_GAIN_DBI   = 2.15
+RX_SENS_DBM    = -130.0
 
 LINK_BUDGET_DB = TX_POWER_DBM + 2 * ANT_GAIN_DBI - RX_SENS_DBM
 
-# Extra path loss by terrain class (dB on top of free-space)
 TERRAIN_LOSS = {
     "Open / Alpine (above treeline)": 3,
     "Mixed / Sub-alpine":             15,
@@ -53,12 +53,11 @@ LOCATIONS = {
     "Alpine Garden":                   (44.26780, -71.29220),
 }
 
-# Trail data loaded from GPX files at runtime (see load_trails())
-AMMO_TRAIL:    list[tuple] = []
-JEWELL_TRAIL:  list[tuple] = []
-TREELINE_AMMO:  tuple | None = None
+AMMO_TRAIL:      list[tuple] = []
+JEWELL_TRAIL:    list[tuple] = []
+TREELINE_AMMO:   tuple | None = None
 TREELINE_JEWELL: tuple | None = None
-GEM_POOL:       tuple | None = None
+GEM_POOL:        tuple | None = None
 
 
 def parse_gpx(path: Path) -> list[tuple[float, float, float]]:
@@ -99,41 +98,36 @@ def load_trails(mapdata_dir: Path) -> None:
     ammo_pts   = parse_gpx(ammo_gpx)
     jewell_pts = parse_gpx(jewell_gpx)
 
-    # Both GPX files are round-trips; split at the highest-elevation point (summit)
     ammo_summit_idx   = max(range(len(ammo_pts)),   key=lambda i: ammo_pts[i][2])
     jewell_summit_idx = max(range(len(jewell_pts)), key=lambda i: jewell_pts[i][2])
 
     ammo_ascent   = ammo_pts[:ammo_summit_idx + 1]
     jewell_ascent = jewell_pts[:jewell_summit_idx + 1]
 
-    # Downsample to ~60 pts each — smooth line, compact HTML
     step_a = max(1, len(ammo_ascent)   // 60)
     step_j = max(1, len(jewell_ascent) // 60)
     AMMO_TRAIL[:]   = [(lat, lon) for lat, lon, _ in ammo_ascent[::step_a]]
     JEWELL_TRAIL[:] = [(lat, lon) for lat, lon, _ in reversed(jewell_ascent[::step_j])]
 
-    # Treeline and landmarks (exact points from GPX)
     tl_a = first_crossing(ammo_ascent, 1200)
     tl_j = first_crossing(jewell_ascent, 1200)
     gp   = first_crossing(ammo_ascent, 1068)
 
     TREELINE_AMMO   = (tl_a[0], tl_a[1]) if tl_a else None
     TREELINE_JEWELL = (tl_j[0], tl_j[1]) if tl_j else None
-    GEM_POOL        = (gp[0],  gp[1])  if gp  else None
+    GEM_POOL        = (gp[0],   gp[1])   if gp   else None
 
     print(f"  Ammo:   {len(ammo_ascent)} ascent pts → {len(AMMO_TRAIL)} plotted")
     print(f"  Jewell: {len(jewell_ascent)} ascent pts → {len(JEWELL_TRAIL)} plotted")
-    if TREELINE_AMMO:
-        print(f"  Treeline Ammo:   {TREELINE_AMMO}")
-    if TREELINE_JEWELL:
-        print(f"  Treeline Jewell: {TREELINE_JEWELL}")
-    if GEM_POOL:
-        print(f"  Gem Pool:        {GEM_POOL}")
+    if TREELINE_AMMO:   print(f"  Treeline Ammo:   {TREELINE_AMMO}")
+    if TREELINE_JEWELL: print(f"  Treeline Jewell: {TREELINE_JEWELL}")
+    if GEM_POOL:        print(f"  Gem Pool:        {GEM_POOL}")
+
 
 HEAD_POSITIONS = {
-    "Summit":          {"lat": 44.27057, "lon": -71.30328, "elev_m": 1917},
-    "Pinkham Notch":   {"lat": 44.25764, "lon": -71.25291, "elev_m":  609},
-    "Alpine Garden":   {"lat": 44.26780, "lon": -71.29220, "elev_m": 1640},
+    "Summit":        {"lat": 44.27057, "lon": -71.30328, "elev_m": 1917},
+    "Pinkham Notch": {"lat": 44.25764, "lon": -71.25291, "elev_m":  609},
+    "Alpine Garden": {"lat": 44.26780, "lon": -71.29220, "elev_m": 1640},
 }
 
 
@@ -147,8 +141,7 @@ def haversine_km(lat1, lon1, lat2, lon2) -> float:
 
 
 def fspl_db(d_km: float) -> float:
-    d_km = max(d_km, 0.001)
-    return 32.44 + 20 * math.log10(d_km) + 20 * math.log10(FREQ_MHZ)
+    return 32.44 + 20 * math.log10(max(d_km, 0.001)) + 20 * math.log10(FREQ_MHZ)
 
 
 def pred_rssi(d_km: float, extra_loss_db: float = 0.0) -> float:
@@ -156,32 +149,21 @@ def pred_rssi(d_km: float, extra_loss_db: float = 0.0) -> float:
 
 
 def rssi_to_color(rssi: float) -> str:
-    if rssi >= -90:
-        return "#00C853"   # strong green
-    if rssi >= -105:
-        return "#FFD600"   # yellow
-    if rssi >= -120:
-        return "#FF6D00"   # orange
-    return "#B71C1C"       # out of range red
+    if rssi >= -90:  return "#00C853"
+    if rssi >= -105: return "#FFD600"
+    if rssi >= -120: return "#FF6D00"
+    return "#B71C1C"
 
 
 def rssi_to_label(rssi: float) -> str:
-    if rssi >= -90:
-        return "Strong"
-    if rssi >= -105:
-        return "Good"
-    if rssi >= -120:
-        return "Marginal"
+    if rssi >= -90:  return "Strong"
+    if rssi >= -105: return "Good"
+    if rssi >= -120: return "Marginal"
     return "Out of range"
 
 
 # ---------------------------------------------------------------------------
-# Folium map
-# ---------------------------------------------------------------------------
-
-# ---------------------------------------------------------------------------
-# Nodes observed historically from home base (from JSONL analysis 2026-05-20)
-# RSSI shown is what was measured from MA home base (~38m elev)
+# Nodes observed historically (from JSONL analysis 2026-05-20)
 # ---------------------------------------------------------------------------
 KNOWN_NODES = {
     "!3369ecf0": {"lat": 44.2237, "lon": -72.0110, "elev_m": 195,  "obs_rssi": -97,  "packets": 1},
@@ -202,25 +184,170 @@ KNOWN_NODES = {
 SUMMIT = (44.27057, -71.30328)
 
 
+# ---------------------------------------------------------------------------
+# Custom control panel (replaces Folium LayerControl)
+# ---------------------------------------------------------------------------
+
+def _build_custom_control(layer_map: dict[str, str], map_var: str) -> str:
+    heads = list(HEAD_POSITIONS.keys())
+    terrain_labels = {
+        "Alpine":     "Open / Alpine (above treeline)",
+        "Sub-alpine": "Mixed / Sub-alpine",
+        "Forest":     "Dense Forest (below treeline)",
+    }
+    first_terrain = list(terrain_labels.values())[0]
+
+    layer_entries = ",\n".join(
+        f'    "{name}": "{js_var}"'
+        for name, js_var in layer_map.items()
+    )
+
+    head_btns = "\n    ".join(
+        f'<button class="ctrl-btn{" active" if i == 0 else ""}" '
+        f'data-head="{h}">{h}</button>'
+        for i, h in enumerate(heads)
+    )
+    terrain_btns = "\n      ".join(
+        f'<button class="ctrl-btn{" active" if i == 0 else ""}" '
+        f'data-terrain="{v}">{k}</button>'
+        for i, (k, v) in enumerate(terrain_labels.items())
+    )
+
+    # CSS uses plain string (no f-string) so braces don't need escaping
+    css = """<style>
+#map-ctrl {
+  position: fixed; top: 80px; right: 16px; z-index: 9999;
+  background: rgba(255,255,255,0.97); border-radius: 12px;
+  border: 1px solid #ddd; padding: 14px 16px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 12px; width: 200px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  user-select: none;
+}
+#map-ctrl .ctrl-title {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+  color: #888; text-transform: uppercase; margin: 10px 0 5px;
+}
+#map-ctrl .ctrl-title:first-child { margin-top: 0; }
+.btn-row { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 2px; }
+.ctrl-btn {
+  padding: 4px 10px; border: 1.5px solid #ccc; background: #f5f5f5;
+  border-radius: 20px; cursor: pointer; font-size: 11.5px; color: #444;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  white-space: nowrap; outline: none;
+}
+.ctrl-btn:hover { border-color: #1976D2; color: #1976D2; }
+.ctrl-btn.active {
+  background: #1976D2; border-color: #1976D2;
+  color: #fff; font-weight: 600;
+}
+#terrain-sec { display: none; }
+</style>"""
+
+    panel = f"""<div id="map-ctrl">
+  <div class="ctrl-title">Head Position</div>
+  <div class="btn-row" id="head-btns">
+    {head_btns}
+  </div>
+  <div class="ctrl-title">View</div>
+  <div class="btn-row" id="view-btns">
+    <button class="ctrl-btn active" data-view="heatmap">Heatmap</button>
+    <button class="ctrl-btn" data-view="dots">Dot Grid</button>
+  </div>
+  <div id="terrain-sec">
+    <div class="ctrl-title">Terrain</div>
+    <div class="btn-row" id="terrain-btns">
+      {terrain_btns}
+    </div>
+  </div>
+</div>"""
+
+    js = f"""<script>
+(function() {{
+  // Store var names as strings; Folium declares them AFTER </body>,
+  // so we must look them up at load time, not at parse time.
+  var MAP_VAR    = '{map_var}';
+  var layerNames = {{
+{layer_entries}
+  }};
+  var currentHead    = '{heads[0]}';
+  var currentView    = 'heatmap';
+  var currentTerrain = '{first_terrain}';
+
+  var layers = {{}};   // populated on load
+
+  function sync() {{
+    var MAP = window[MAP_VAR];
+    if (!MAP) return;
+    Object.keys(layers).forEach(function(k) {{
+      if (layers[k]) MAP.removeLayer(layers[k]);
+    }});
+    var key = currentView === 'heatmap'
+      ? 'heatmap__' + currentHead
+      : 'dots__' + currentHead + '__' + currentTerrain;
+    if (layers[key]) MAP.addLayer(layers[key]);
+    document.getElementById('terrain-sec').style.display =
+      currentView === 'dots' ? 'block' : 'none';
+  }}
+
+  function activate(groupId, el) {{
+    document.querySelectorAll('#' + groupId + ' .ctrl-btn')
+      .forEach(function(b) {{ b.classList.remove('active'); }});
+    el.classList.add('active');
+  }}
+
+  window.addEventListener('load', function() {{
+    // Resolve layer objects now that Folium has declared them
+    Object.keys(layerNames).forEach(function(k) {{
+      layers[k] = window[layerNames[k]];
+    }});
+
+    document.querySelectorAll('#head-btns .ctrl-btn').forEach(function(btn) {{
+      btn.addEventListener('click', function() {{
+        activate('head-btns', this);
+        currentHead = this.dataset.head;
+        sync();
+      }});
+    }});
+    document.querySelectorAll('#view-btns .ctrl-btn').forEach(function(btn) {{
+      btn.addEventListener('click', function() {{
+        activate('view-btns', this);
+        currentView = this.dataset.view;
+        sync();
+      }});
+    }});
+    document.querySelectorAll('#terrain-btns .ctrl-btn').forEach(function(btn) {{
+      btn.addEventListener('click', function() {{
+        activate('terrain-btns', this);
+        currentTerrain = this.dataset.terrain;
+        sync();
+      }});
+    }});
+    sync();
+  }});
+}})();
+</script>"""
+
+    return css + "\n" + panel + "\n" + js
+
+
+# ---------------------------------------------------------------------------
+# Folium map
+# ---------------------------------------------------------------------------
+
 def build_map(out_path: Path, grid_step_deg: float = 0.008) -> None:
-    # Zoom out enough to show all known nodes
-    center_lat, center_lon = 43.6, -71.5
-    m = folium.Map(location=[center_lat, center_lon], zoom_start=8,
-                   tiles="OpenStreetMap")
+    m = folium.Map(location=[43.6, -71.5], zoom_start=8, tiles="OpenStreetMap")
 
-    # Key location markers
+    # Key location markers (always visible)
     for label, (lat, lon) in LOCATIONS.items():
-        folium.Marker(
-            [lat, lon],
-            tooltip=label,
-            icon=folium.Icon(color="gray", icon="info-sign"),
-        ).add_to(m)
+        folium.Marker([lat, lon], tooltip=label,
+                      icon=folium.Icon(color="gray", icon="info-sign")).add_to(m)
 
-    # Known nodes layer
+    # Known nodes layer (always visible)
     known_fg = folium.FeatureGroup(name="Known nodes (heard from home base)", show=True)
     for mid, n in KNOWN_NODES.items():
         d_km = haversine_km(*SUMMIT, n["lat"], n["lon"])
-        pred = pred_rssi(d_km, extra_loss_db=3)  # alpine estimate from summit
+        pred = pred_rssi(d_km, extra_loss_db=3)
         elev_str = f"{n['elev_m']}m" if n.get("elev_m") else "elev unknown"
         popup_html = (
             f"<b>{mid}</b><br>"
@@ -233,17 +360,12 @@ def build_map(out_path: Path, grid_step_deg: float = 0.008) -> None:
         )
         color = rssi_to_color(pred)
         folium.CircleMarker(
-            location=[n["lat"], n["lon"]],
-            radius=10,
-            color=color,
-            fill=True,
-            fill_color=color,
-            fill_opacity=0.85,
-            weight=2,
+            location=[n["lat"], n["lon"]], radius=10,
+            color=color, fill=True, fill_color=color,
+            fill_opacity=0.85, weight=2,
             tooltip=f"{mid} — {d_km:.0f} km from summit — pred {pred:.0f} dBm",
             popup=folium.Popup(popup_html, max_width=280),
         ).add_to(known_fg)
-        # Line from summit to node
         folium.PolyLine(
             [list(SUMMIT), [n["lat"], n["lon"]]],
             color=color, weight=1.5, opacity=0.4,
@@ -251,7 +373,7 @@ def build_map(out_path: Path, grid_step_deg: float = 0.008) -> None:
         ).add_to(known_fg)
     known_fg.add_to(m)
 
-    # Summit marker (prominent)
+    # Summit star marker (always visible)
     folium.Marker(
         list(SUMMIT),
         tooltip="Mt. Washington Summit — HEAD position tomorrow",
@@ -259,34 +381,41 @@ def build_map(out_path: Path, grid_step_deg: float = 0.008) -> None:
         icon=folium.Icon(color="blue", icon="star"),
     ).add_to(m)
 
-    # Trail routes
+    # Trail routes + placement markers (always visible)
     trail_fg = folium.FeatureGroup(name="Tomorrow's route", show=True)
     folium.PolyLine(AMMO_TRAIL,  color="#E91E63", weight=4, opacity=0.85,
                     tooltip="Ammonoosuc Ravine Trail (ascent)").add_to(trail_fg)
     folium.PolyLine(JEWELL_TRAIL, color="#9C27B0", weight=4, opacity=0.85,
                     tooltip="Jewell Trail (descent)").add_to(trail_fg)
-
-    # Treeline markers
-    for pt, label in [(TREELINE_AMMO, "Treeline — Ammo (~1200m)"),
+    for pt, label in [(TREELINE_AMMO,   "Treeline — Ammo (~1200m)"),
                       (TREELINE_JEWELL, "Treeline — Jewell (~1200m)")]:
-        folium.CircleMarker(pt, radius=8, color="#4CAF50", fill=True,
-                            fill_color="#4CAF50", fill_opacity=0.9,
-                            tooltip=label).add_to(trail_fg)
+        if pt:
+            folium.CircleMarker(pt, radius=8, color="#4CAF50", fill=True,
+                                fill_color="#4CAF50", fill_opacity=0.9,
+                                tooltip=label).add_to(trail_fg)
 
-    # Suggested node placement spots with predicted RSSI from summit
     placements = [
-        {"lat": 44.26689, "lon": -71.36113, "label": "Trailhead — dense forest",          "extra_loss": 25},
-        {"lat": GEM_POOL[0],        "lon": GEM_POOL[1],        "label": "Gem Pool — ravine forest (~1068m)",    "extra_loss": 20}
-            if GEM_POOL else
-        {"lat": 44.26768, "lon": -71.32647, "label": "Gem Pool — ravine forest (~1068m)", "extra_loss": 20},
-        {"lat": TREELINE_AMMO[0],   "lon": TREELINE_AMMO[1],   "label": "Ammo treeline crossing (~1200m)",      "extra_loss": 5}
-            if TREELINE_AMMO else
-        {"lat": 44.26622, "lon": -71.32359, "label": "Ammo treeline crossing (~1200m)",   "extra_loss": 5},
-        {"lat": 44.25872, "lon": -71.31915, "label": "Lakes of the Clouds Hut (1528m)",   "extra_loss": 3},
-        {"lat": TREELINE_JEWELL[0], "lon": TREELINE_JEWELL[1], "label": "Jewell treeline crossing (~1200m)",    "extra_loss": 5}
-            if TREELINE_JEWELL else
-        {"lat": 44.28375, "lon": -71.33587, "label": "Jewell treeline crossing (~1200m)", "extra_loss": 5},
-        {"lat": 44.28259, "lon": -71.31689, "label": "Jewell–Gulfside Junction (1648m)",  "extra_loss": 3},
+        {"lat": 44.26689, "lon": -71.36113,
+         "label": "Trailhead — dense forest", "extra_loss": 25},
+        ({"lat": GEM_POOL[0], "lon": GEM_POOL[1],
+          "label": "Gem Pool (~1068m)", "extra_loss": 20}
+         if GEM_POOL else
+         {"lat": 44.26768, "lon": -71.32647,
+          "label": "Gem Pool (~1068m)", "extra_loss": 20}),
+        ({"lat": TREELINE_AMMO[0], "lon": TREELINE_AMMO[1],
+          "label": "Ammo treeline (~1200m)", "extra_loss": 5}
+         if TREELINE_AMMO else
+         {"lat": 44.26622, "lon": -71.32359,
+          "label": "Ammo treeline (~1200m)", "extra_loss": 5}),
+        {"lat": 44.25872, "lon": -71.31915,
+         "label": "Lakes of the Clouds Hut (1528m)", "extra_loss": 3},
+        ({"lat": TREELINE_JEWELL[0], "lon": TREELINE_JEWELL[1],
+          "label": "Jewell treeline (~1200m)", "extra_loss": 5}
+         if TREELINE_JEWELL else
+         {"lat": 44.28375, "lon": -71.33587,
+          "label": "Jewell treeline (~1200m)", "extra_loss": 5}),
+        {"lat": 44.28259, "lon": -71.31689,
+         "label": "Jewell–Gulfside Junction (1648m)", "extra_loss": 3},
     ]
     for p in placements:
         d_km = haversine_km(*SUMMIT, p["lat"], p["lon"])
@@ -300,22 +429,31 @@ def build_map(out_path: Path, grid_step_deg: float = 0.008) -> None:
             [p["lat"], p["lon"]],
             tooltip=f"{p['label']} — {rssi:.0f} dBm predicted",
             popup=folium.Popup(popup, max_width=260),
-            icon=folium.Icon(color="orange" if rssi > -105 else "red", icon="map-marker"),
+            icon=folium.Icon(color="orange" if rssi > -105 else "red",
+                             icon="map-marker"),
         ).add_to(trail_fg)
     trail_fg.add_to(m)
 
-    # One FeatureGroup per HEAD position × terrain class
+    # Prediction layers — all show=False; custom JS control manages visibility
+    lat_range = np.arange(44.220, 44.330, grid_step_deg)
+    lon_range = np.arange(-71.370, -71.200, grid_step_deg)
+    # Heatmap uses a finer grid — just numbers, no DOM cost
+    heat_step = min(grid_step_deg / 4, 0.002)
+    heat_lat  = np.arange(44.220, 44.330, heat_step)
+    heat_lon  = np.arange(-71.370, -71.200, heat_step)
+    heat_gradient = {
+        0.0: "#B71C1C", 0.35: "#FF6D00",
+        0.6: "#FFD600", 0.85: "#00C853", 1.0: "#00E676",
+    }
+    rssi_min, rssi_max = -130.0, -60.0
+    layer_map: dict[str, str] = {}
+
     for head_name, head in HEAD_POSITIONS.items():
+
+        # Dot grid — one layer per terrain class
         for terrain_label, extra_loss in TERRAIN_LOSS.items():
-            fg = folium.FeatureGroup(
-                name=f"{head_name} → {terrain_label}",
-                show=(head_name == "Summit" and extra_loss == 3),
-            )
-
-            # Build coverage grid
-            lat_range = np.arange(44.220, 44.330, grid_step_deg)
-            lon_range = np.arange(-71.370, -71.200, grid_step_deg)
-
+            key = f"dots__{head_name}__{terrain_label}"
+            fg = folium.FeatureGroup(name=key, show=False)
             for lat in lat_range:
                 for lon in lon_range:
                     d_km = haversine_km(head["lat"], head["lon"], lat, lon)
@@ -323,27 +461,46 @@ def build_map(out_path: Path, grid_step_deg: float = 0.008) -> None:
                     if rssi < -130:
                         continue
                     folium.CircleMarker(
-                        location=[lat, lon],
-                        radius=6,
-                        color=rssi_to_color(rssi),
-                        fill=True,
-                        fill_color=rssi_to_color(rssi),
-                        fill_opacity=0.55,
-                        weight=0,
-                        tooltip=f"{rssi:.0f} dBm ({rssi_to_label(rssi)}) — {d_km:.1f} km",
+                        location=[lat, lon], radius=6, weight=0,
+                        color=rssi_to_color(rssi), fill=True,
+                        fill_color=rssi_to_color(rssi), fill_opacity=0.55,
+                        tooltip=(f"{rssi:.0f} dBm ({rssi_to_label(rssi)}) — "
+                                 f"{d_km:.1f} km from {head_name}"),
                     ).add_to(fg)
-
-            # HEAD marker
             folium.Marker(
                 [head["lat"], head["lon"]],
                 tooltip=f"HEAD: {head_name} ({head['elev_m']} m)",
                 icon=folium.Icon(color="blue", icon="tower", prefix="fa"),
             ).add_to(fg)
-
             fg.add_to(m)
+            layer_map[key] = fg.get_name()
 
-    # Legend HTML
-    legend_html = """
+        # Heatmap — alpine terrain, one per HEAD
+        key = f"heatmap__{head_name}"
+        hm_fg = folium.FeatureGroup(name=key, show=False)
+        heat_data = []
+        for lat in heat_lat:
+            for lon in heat_lon:
+                d_km = haversine_km(head["lat"], head["lon"], lat, lon)
+                rssi = pred_rssi(d_km, extra_loss_db=3)
+                if rssi <= rssi_min:
+                    continue
+                w = max(0.0, min(1.0, (rssi - rssi_min) / (rssi_max - rssi_min)))
+                heat_data.append([lat, lon, w])
+        folium.plugins.HeatMap(
+            heat_data, min_opacity=0.35, radius=18, blur=14,
+            gradient=heat_gradient,
+        ).add_to(hm_fg)
+        folium.Marker(
+            [head["lat"], head["lon"]],
+            tooltip=f"HEAD: {head_name} ({head['elev_m']} m)",
+            icon=folium.Icon(color="blue", icon="tower", prefix="fa"),
+        ).add_to(hm_fg)
+        hm_fg.add_to(m)
+        layer_map[key] = hm_fg.get_name()
+
+    # Legend (bottom-left, always visible)
+    m.get_root().html.add_child(folium.Element("""
     <div style="position:fixed;bottom:40px;left:40px;z-index:1000;background:white;
                 padding:12px;border-radius:8px;border:1px solid #ccc;font-size:13px;">
       <b>Predicted RSSI (915 MHz LoRa)</b><br>
@@ -354,13 +511,21 @@ def build_map(out_path: Path, grid_step_deg: float = 0.008) -> None:
       <hr style="margin:6px 0">
       <small>TX 22 dBm &bull; Dipole &bull; SF12 &bull; FSPL only<br>
       Dense forest adds ~25 dB &bull; Sub-alpine ~15 dB</small>
-    </div>
-    """
-    m.get_root().html.add_child(folium.Element(legend_html))
-    folium.LayerControl(collapsed=False).add_to(m)
+    </div>"""))
 
+    # Save to temp → inject custom control → write final output
+    tmp_path = out_path.with_suffix(".tmp.html")
+    m.save(str(tmp_path))
+    html = tmp_path.read_text(encoding="utf-8")
+    tmp_path.unlink()
+
+    match = re.search(r"var (map_[a-f0-9]+)\s*=\s*L\.map\(", html)
+    map_var = match.group(1) if match else "map_unknown"
+
+    ctrl = _build_custom_control(layer_map, map_var)
+    html = html.replace("</body>", ctrl + "\n</body>")
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    m.save(str(out_path))
+    out_path.write_text(html, encoding="utf-8")
     print(f"  map  → {out_path}")
 
 
@@ -380,26 +545,22 @@ def build_distance_plot(out_path: Path) -> None:
                 label=f"{terrain_label} (+{extra_loss} dB)",
                 color=TERRAIN_COLORS[terrain_label], linewidth=2.5)
 
-    # Thresholds
     ax.axhline(-90,  color="#00C853", linestyle="--", linewidth=1.2, alpha=0.8, label="–90 dBm (strong)")
     ax.axhline(-105, color="#FFD600", linestyle="--", linewidth=1.2, alpha=0.8, label="–105 dBm (marginal)")
     ax.axhline(-120, color="#B71C1C", linestyle="--", linewidth=1.2, alpha=0.8, label="–120 dBm (link budget limit)")
 
-    # Range annotations for each terrain class
     for terrain_label, extra_loss in TERRAIN_LOSS.items():
-        for threshold, threshold_label in [(-120, "max range")]:
-            # Find distance where RSSI crosses threshold
-            for d in distances:
-                if pred_rssi(d, extra_loss) < threshold:
-                    ax.annotate(
-                        f"{d:.1f} km",
-                        xy=(d, threshold),
-                        xytext=(d + 0.3, threshold + 4),
-                        fontsize=8,
-                        color=TERRAIN_COLORS[terrain_label],
-                        arrowprops=dict(arrowstyle="->", color=TERRAIN_COLORS[terrain_label], lw=1),
-                    )
-                    break
+        for d in distances:
+            if pred_rssi(d, extra_loss) < -120:
+                ax.annotate(
+                    f"{d:.1f} km",
+                    xy=(d, -120),
+                    xytext=(d + 0.3, -116),
+                    fontsize=8,
+                    color=TERRAIN_COLORS[terrain_label],
+                    arrowprops=dict(arrowstyle="->", color=TERRAIN_COLORS[terrain_label], lw=1),
+                )
+                break
 
     ax.set_xlabel("Distance from HEAD (km)", fontsize=12)
     ax.set_ylabel("Predicted RSSI (dBm)", fontsize=12)
