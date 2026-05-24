@@ -460,8 +460,8 @@ def build_map(out_path: Path) -> None:  # noqa: C901
     ).add_to(m)
 
     # ── Known nodes — coloured by hop plausibility ──────────────────────────
-    known_fg = folium.FeatureGroup(name="Known nodes — predicted coverage", show=True)
-    hop_fg   = folium.FeatureGroup(name="Known nodes — hop plausibility",   show=False)
+    known_fg = folium.FeatureGroup(name="OBSERVED nodes  [dot color = PREDICTED coverage]", show=True)
+    hop_fg   = folium.FeatureGroup(name="OBSERVED RSSI  [HYBRID: real signal vs FSPL model]", show=False)
 
     for mid, n in KNOWN_NODES.items():
         d_km    = haversine_km(*SUMMIT, n["lat"], n["lon"])
@@ -509,28 +509,37 @@ def build_map(out_path: Path) -> None:  # noqa: C901
 <b style="font-size:14px">{mid}</b><br>
 <span style="color:#555">Meshtastic node heard from Mt. Washington summit</span>
 <hr style="margin:5px 0">
+<div style="background:#E3F2FD;border-left:3px solid #1565C0;padding:3px 6px;margin:3px 0;font-size:10.5px">
+  <b style="color:#1565C0">REAL DATA</b> — from actual Meshtastic packets received on 2026-05-20 / 2026-05-23
+</div>
 <b>Location</b><br>
 &nbsp;GPS: ({n['lat']:.4f}°N, {abs(n['lon']):.4f}°W)<br>
 &nbsp;Elevation: {elev_str}<br>
 &nbsp;Direction from summit: {cdir} ({brg:.0f}°)<br>
 &nbsp;Distance from summit: <b>{d_km:.1f} km</b>
 <hr style="margin:5px 0">
-<b>Observed signal</b><br>
+<b>Observed signal (REAL)</b><br>
 &nbsp;Best RSSI: <b>{obs if obs is not None else '—'} dBm</b>
   ({rssi_to_label(obs) if obs is not None else '—'})<br>
 &nbsp;Total packets heard: {n['packets']}<br>
-&nbsp;Session(s): 2026-05-20 home base + 2026-05-23 hike
+&nbsp;Sessions: 2026-05-20 home base + 2026-05-23 hike
 <hr style="margin:5px 0">
-<b>Coverage prediction from summit</b><br>
-&nbsp;FSPL at {d_km:.0f} km (no terrain): {fspl_direct:.0f} dBm<br>
-&nbsp;With open/alpine terrain (+3 dB): {pred:.0f} dBm<br>
+<div style="background:#FFF8E1;border-left:3px solid #FF8F00;padding:3px 6px;margin:3px 0;font-size:10.5px">
+  <b style="color:#FF8F00">PREDICTED</b> — FSPL model (Rappaport 2002), 915 MHz, TX {TX_POWER_DBM:.0f} dBm, dipole antenna
+</div>
+<b>Link prediction from summit</b><br>
+&nbsp;Free-space path loss at {d_km:.0f} km: {fspl_direct:.0f} dBm<br>
+&nbsp;+ Alpine terrain penalty (+3 dB): <b>{pred:.0f} dBm</b><br>
 &nbsp;Summit-to-here reachable: {'<b style="color:green">YES</b>' if pred > -120 else '<b style="color:red">NO (beyond link budget)</b>'}
 <hr style="margin:5px 0">
+<div style="background:#F3E5F5;border-left:3px solid #7B1FA2;padding:3px 6px;margin:3px 0;font-size:10.5px">
+  <b style="color:#7B1FA2">HYBRID</b> — real observed RSSI compared against FSPL model to infer hop count
+</div>
 <b>Hop plausibility: <span style="color:{hop_color}">{hop_label}</span></b><br>
 <span style="font-size:11px;color:#333">{hop_explain}</span><br>
 <span style="font-size:10px;color:#888;font-style:italic">
-  Once hop_limit/hops_away fields are collected, this will be replaced
-  with ground-truth hop count from the Meshtastic packet header.
+  Will be replaced with ground-truth hop count once hop_limit/hops_away
+  fields are deployed to the collector.
 </span>
 </div>"""
 
@@ -613,23 +622,20 @@ for all distance/RSSI calculations on this map.
     # This is a prediction (no HEAD GPS from the hike), but uses real node
     # positions from the collected data.
     if AMMO_ANIM and JEWELL_ANIM:
-        conn_fg = folium.FeatureGroup(name="Connectivity along route (predicted)", show=False)
+        conn_fg = folium.FeatureGroup(name="PREDICTED  Connectivity along route", show=False)
 
         def _conn_color(score: float) -> str:
             """
-            Smooth gradient: black → very dark red → dark red → red →
-            orange → amber → yellow-green → green.
-            Covers the range from completely isolated to well-connected.
+            Gradient: black (no signal) → red (very weak) →
+            orange (weak) → yellow (ok) → green (good).
+            Clean, distinct colors with no brownish mid-tones.
             """
             STOPS = [
-                (-135, (0,   0,   0)),    # black — nothing reachable
-                (-128, (55,  0,   0)),    # near-black dark red
-                (-121, (130, 10,  0)),    # dark red
-                (-114, (200, 40,  0)),    # medium red
-                (-107, (240, 100, 0)),    # red-orange
-                (-100, (255, 175, 0)),    # amber
-                ( -93, (210, 230, 0)),    # yellow-green
-                ( -84, (40,  200, 60)),   # green
+                (-135, (0,   0,   0)),    # black  — completely isolated
+                (-127, (180, 0,   0)),    # red    — super weak
+                (-119, (255, 80,  0)),    # orange — weakish
+                (-111, (255, 210, 0)),    # yellow — ok
+                (-100, (0,   200, 60)),   # green  — great
             ]
             if score >= STOPS[-1][0]:
                 r, g, b = STOPS[-1][1]
@@ -714,8 +720,8 @@ for all distance/RSSI calculations on this map.
     # set that gives complete Good-quality trail coverage regardless of where
     # the HEAD node is on the trail.
     if TREELINE_AMMO and TREELINE_JEWELL and AMMO_ANIM and JEWELL_ANIM:
-        relay_fg = folium.FeatureGroup(name="Proposed relay nodes", show=False)
-        cov_fg   = folium.FeatureGroup(name="Trail coverage (relays active)", show=False)
+        relay_fg = folium.FeatureGroup(name="PREDICTED  Proposed relay nodes", show=False)
+        cov_fg   = folium.FeatureGroup(name="PREDICTED  Trail coverage with relays", show=False)
 
         anim_combined = AMMO_ANIM + JEWELL_ANIM  # [(lat, lon, elev_m), ...]
 
@@ -960,15 +966,88 @@ before the hike; collect on the way down.
   padding: 12px 14px; font-family: sans-serif; font-size: 11px;
   max-width: 260px; box-shadow: 2px 2px 6px rgba(0,0,0,0.14);
 }}
+#data-toggle-btn {{
+  position: fixed; top: 80px; left: 50%; transform: translateX(-50%);
+  z-index: 9999; padding: 6px 16px; border-radius: 20px; border: none;
+  font-family: sans-serif; font-size: 12px; font-weight: bold;
+  cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+  background: #1565C0; color: white; letter-spacing: 0.04em;
+}}
+#data-toggle-btn:hover {{ background: #0d47a1; }}
+#data-source-panel {{
+  display: none; position: fixed; top: 115px; left: 50%; transform: translateX(-50%);
+  z-index: 9998; background: rgba(255,255,255,0.98);
+  border: 1.5px solid #1565C0; border-radius: 10px;
+  padding: 14px 16px; font-family: sans-serif; font-size: 11.5px;
+  max-width: 520px; width: 90vw; box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+}}
+#data-source-panel h4 {{ margin: 0 0 8px; font-size: 13px; }}
+#data-source-panel table {{ width: 100%; border-collapse: collapse; }}
+#data-source-panel td {{ padding: 4px 8px; vertical-align: top; }}
+#data-source-panel tr:not(:last-child) td {{ border-bottom: 1px solid #eee; }}
+.ds-real {{ color: #1565C0; font-weight: bold; white-space: nowrap; }}
+.ds-pred {{ color: #E65100; font-weight: bold; white-space: nowrap; }}
+.ds-hybrid {{ color: #6A1B9A; font-weight: bold; white-space: nowrap; }}
 </style>
 
+<button id="data-toggle-btn">&#128202; Data Sources</button>
+
+<div id="data-source-panel">
+  <h4>&#128202; What is real data vs. model prediction?</h4>
+  <table>
+    <tr>
+      <td class="ds-real">&#9679; REAL</td>
+      <td>Node GPS positions — from actual Meshtastic packet headers (2026-05-20 + 2026-05-23)</td>
+    </tr>
+    <tr>
+      <td class="ds-real">&#9679; REAL</td>
+      <td>Observed RSSI — signal strength actually measured by the HEAD radio at the summit</td>
+    </tr>
+    <tr>
+      <td class="ds-real">&#9679; REAL</td>
+      <td>Packet counts — total transmissions heard per node across all sessions</td>
+    </tr>
+    <tr>
+      <td class="ds-real">&#9679; REAL</td>
+      <td>Trail route — AllTrails GPX recording of Ammo ascent / Jewell descent</td>
+    </tr>
+    <tr>
+      <td class="ds-pred">&#9632; PREDICTED</td>
+      <td>Animation lines — color/weight = FSPL model estimate, <b>not measured</b>. HEAD had no GPS during the hike; trail position is approximate.</td>
+    </tr>
+    <tr>
+      <td class="ds-pred">&#9632; PREDICTED</td>
+      <td>Connectivity gradient (colored trail) — FSPL + terrain loss at each elevation. Predicted, not recorded.</td>
+    </tr>
+    <tr>
+      <td class="ds-pred">&#9632; PREDICTED</td>
+      <td>Proposed relay nodes + their link quality — model estimates for hardware not yet deployed</td>
+    </tr>
+    <tr>
+      <td class="ds-pred">&#9632; PREDICTED</td>
+      <td>Node dot color in coverage layer — predicted RSSI from summit via FSPL, not observed signal</td>
+    </tr>
+    <tr>
+      <td class="ds-hybrid">&#9670; HYBRID</td>
+      <td>Hop plausibility — <b>real observed RSSI</b> compared against FSPL model math to infer whether a packet was relayed. The signal is real; the hop-count inference is a model estimate.</td>
+    </tr>
+  </table>
+  <div style="margin-top:8px;font-size:10.5px;color:#888">
+    Layer names in the control (top-right) are prefixed REAL / PREDICTED / HYBRID accordingly.
+    Node popups show colored banners for each section.
+  </div>
+</div>
+
 <div id="anim-panel">
-  <h3>&#128247; Hike Playback — LoRa Link Quality</h3>
+  <h3>&#128247; Hike Playback — LoRa Link Quality
+    <span style="font-size:9px;background:#E65100;color:white;padding:2px 6px;
+                 border-radius:10px;vertical-align:middle;margin-left:6px;
+                 font-weight:normal;letter-spacing:0.05em">PREDICTED</span>
+  </h3>
   <div style="font-size:10.5px;color:#555;margin-bottom:6px;">
     Press Play to simulate the HEAD node moving along the trail.
-    Lines show the <b>predicted LoRa link quality</b> to every known Meshtastic node
-    at each point in the hike, using free-space path loss (FSPL) adjusted for terrain
-    elevation. Colors update in real time as elevation and terrain change.
+    Lines show <b>FSPL-predicted link quality</b> — not recorded measurements.
+    HEAD had no GPS during the hike; node positions are real observed data.
   </div>
   <div id="anim-controls">
     <button id="btn-play">&#9654; Play</button>
@@ -1002,22 +1081,31 @@ before the hike; collect on the way down.
   <b style="font-size:12px">Resilient Emergency MANET</b><br>
   <span style="color:#555">915 MHz LoRa · SF12 · TX 22 dBm · Dipole</span>
   <hr style="margin:5px 0">
-  <b>Connection line color = predicted RSSI</b><br>
-  <span style="color:#00C853">&#9644;</span> &ge;&#8722;90 dBm &nbsp; <b>Strong</b> — reliable link<br>
-  <span style="color:#FFD600">&#9644;</span> &#8722;105 &nbsp; <b>Good</b> — usable, some packet loss<br>
-  <span style="color:#FF6D00">&#9644;</span> &#8722;120 &nbsp; <b>Marginal</b> — intermittent<br>
-  <span style="color:#B71C1C">&#9644;</span> &lt;&#8722;120 &nbsp; <b>Out of range</b> — below SF12 sensitivity<br>
+  <span style="font-size:10px">
+    <span style="background:#E3F2FD;color:#1565C0;padding:1px 5px;border-radius:8px;font-weight:bold">REAL</span>
+    Node GPS &amp; RSSI &nbsp;
+    <span style="background:#FFF8E1;color:#E65100;padding:1px 5px;border-radius:8px;font-weight:bold">PRED</span>
+    Lines &amp; gradients &nbsp;
+    <span style="background:#F3E5F5;color:#6A1B9A;padding:1px 5px;border-radius:8px;font-weight:bold">HYBRID</span>
+    Hop inference
+  </span>
   <hr style="margin:5px 0">
-  <b>Node dot color = hop plausibility</b><br>
-  <span style="color:#43A047">&#9679;</span> Plausible direct link<br>
+  <b>Line color = <span style="color:#E65100">PREDICTED</span> RSSI</b><br>
+  <span style="color:#00C853">&#9644;</span> &ge;&#8722;90 dBm &nbsp; <b>Strong</b><br>
+  <span style="color:#FFD600">&#9644;</span> &ge;&#8722;105 &nbsp; <b>Good</b><br>
+  <span style="color:#FF6D00">&#9644;</span> &ge;&#8722;120 &nbsp; <b>Marginal</b><br>
+  <span style="color:#B71C1C">&#9644;</span> &lt;&#8722;120 &nbsp; <b>Out of range</b><br>
+  <hr style="margin:5px 0">
+  <b>Node dot = hop plausibility (<span style="color:#6A1B9A">HYBRID</span>)</b><br>
+  <span style="color:#43A047">&#9679;</span> Plausible direct<br>
   <span style="color:#FB8C00">&#9679;</span> Possibly relayed<br>
   <span style="color:#E53935">&#9679;</span> Almost certainly relayed<br>
   <hr style="margin:5px 0">
   <span style="color:#555;font-size:10px">
-    Gray lines = trail route (Ammo ascent / Jewell descent).<br>
-    Green dots on trail = treeline crossings (~1200 m).<br>
+    Gray lines = trail route (real GPX).<br>
+    Green dots = treeline crossings (~1200 m, real elevation).<br>
     FSPL model: Rappaport (2002). Terrain: &gt;1500 m = +3 dB,
-    1200&#8211;1500 m = +15 dB, &lt;1200 m = +25 dB (forest).
+    1200&#8211;1500 m = +15 dB, &lt;1200 m = +25 dB.
   </span>
 </div>
 
@@ -1201,6 +1289,15 @@ window.addEventListener('load', function() {{
 
   // Wire tooltips on lines
   Object.values(lines).forEach(l => l.bindTooltip('', {{sticky: true}}));
+
+  // Data Sources toggle
+  document.getElementById('data-toggle-btn').addEventListener('click', function() {{
+    const panel = document.getElementById('data-source-panel');
+    const open  = panel.style.display === 'block';
+    panel.style.display = open ? 'none' : 'block';
+    this.style.background = open ? '#1565C0' : '#0d47a1';
+    this.textContent = open ? '\U0001F4CA Data Sources' : '\U0001F4CA Data Sources ✕';
+  }});
 
   renderFrame(0);
 }});
