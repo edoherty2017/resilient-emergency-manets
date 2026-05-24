@@ -22,9 +22,25 @@ This anchor was pruned to active, execution-critical items only.
 - [x] Emit operator-facing pass/fail summary for coverage-transition windows (`IP_FULL`, `IP_DEGRADED`, `MESH_ONLY`). — transition_window_summary.json emitted; connectivity_events.jsonl merged via merge_asof; MESH_ONLY window: 87.1% covered (106 SATELLITE + 16 MESH / 140 rows).
 
 ## [P4] Cellular telemetry program integration
-- [ ] Define normalized cellular telemetry schema contract (`rsrp_dbm`, `rsrq_db`, `sinr_db`, serving cell IDs, attach state).
-- [ ] Add ingestion/normalization path for host-side modem telemetry.
-- [ ] Add quality gates for modem absent/degraded cases (explicit null + state tags, not silent omission).
+**Methodology note (2026-05-24):** The comparison metric between LoRa mesh and cellular is
+*service-layer availability*, not raw signal strength. Directly comparing LoRa `rssi_dbm` to
+cellular `rsrp_dbm` constitutes a category error: RSSI in a narrowband LoRa/FSK context and
+RSRP in an LTE OFDM context quantify fundamentally different physical phenomena and are not
+dimensionally comparable as performance indicators. The appropriate cross-technology evaluation
+follows the heterogeneous network (HetNet) methodology: link availability (Pr[successful packet
+delivery]) and round-trip latency, both conditioned on GPS-verified position and elevation.
+Hardware path: Verizon MiFi (existing) tethered to Pi; ping-based availability + latency logged
+every 30 s to JSONL; merged post-hike with LoRa observations on timestamp + GPS position.
+No M.2 modem or additional HAT required.
+
+- [ ] Define `cellular_telemetry` schema fields: `cell_ping_rtt_ms` (null if unreachable),
+      `cell_available` (bool), `cell_carrier`, `cell_tech` (LTE/5G), `lat`, `lon`, `elev_m`.
+- [ ] Write `scripts/cellular_ping_collector.py` — 30 s interval ping via MiFi interface,
+      appends to `cellular_telemetry.jsonl`; null-safe on timeout; logs carrier from MiFi
+      admin API where available.
+- [ ] Add ingestion + merge path: `merge_cellular_into_telemetry.py` (merge_asof 35 s tolerance).
+- [ ] Add quality gates: flag sessions where `cell_available` is always True (no coverage gradient
+      observed — trial segment not useful for comparison).
 
 ## [P5] Release-readiness evidence
 - [x] Build one advisor-ready evidence index tying scripts -> inputs -> outputs -> figures. — `scripts/build_evidence_index.py` emits `artifacts/release/evidence_index.json` + `evidence_summary.md` 2026-05-20.
