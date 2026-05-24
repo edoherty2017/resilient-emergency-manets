@@ -163,22 +163,65 @@ def rssi_to_label(rssi: float) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Nodes observed historically (from JSONL analysis 2026-05-20)
+# Nodes observed from Mt. Washington (combined: 2026-05-20 + 2026-05-23 hike)
+#
+# obs_rssi = best (highest) RSSI observed across all sessions, dBm.
+# packets  = total packet count across all sessions.
+# elev_m   = None where elevation is unconfirmed.
+#
+# Directional coverage from summit:
+#   W:   !3369ecf0
+#   SW:  !0ac9f61c, !d0dbf5e0, !facda2e0, !43593b08
+#   SSW: !98de985c, !9e3b15c4, !a6965348, !8ecc1813
+#   S:   !de28f744, !4ad10bfa, !da63ea38, !3b46af7c, !1c496f00, !e1ccc5f2,
+#        !a20a1240, !b03d38b4, !9e75f97c, !e977eda7
+#   SSE: !4bb40fe5
+#   SE:  !d872fb89, !bcae633e, !a2e26938
+#   ESE: !3e703fd2, !c0c103db, !05b41df9, !16c3f424  ← new from 2026-05-23 hike
+#
+#   GAP: N / NE / E / NW — blocked by Presidential Range terrain
+#
+# EXCLUDED (not added):
+#   !db51af80  rssi=-1 at 180 km — impossible for direct link; relayed packet
+#              with sender GPS from Lowell MA but last-hop relay physically
+#              adjacent to HEAD Pi. Not usable as a propagation reference.
+#   unknown    no mesh_id — can't track across sessions.
 # ---------------------------------------------------------------------------
 KNOWN_NODES = {
-    "!3369ecf0": {"lat": 44.2237, "lon": -72.0110, "elev_m": 195,  "obs_rssi": -97,  "packets": 1},
-    "!facda2e0": {"lat": 43.6470, "lon": -71.8537, "elev_m": 662,  "obs_rssi": -91,  "packets": 1},
-    "!a2e26938": {"lat": 43.5945, "lon": -70.2284, "elev_m": 46,   "obs_rssi": -95,  "packets": 1},
-    "!9e3b15c4": {"lat": 43.1227, "lon": -71.7488, "elev_m": 249,  "obs_rssi": -95,  "packets": 1},
-    "!98de985c": {"lat": 43.1227, "lon": -71.9061, "elev_m": None, "obs_rssi": -94,  "packets": 2},
-    "!4ad10bfa": {"lat": 43.0113, "lon": -71.4801, "elev_m": 35,   "obs_rssi": -93,  "packets": 5},
-    "!de28f744": {"lat": 42.9130, "lon": -71.6440, "elev_m": 289,  "obs_rssi": -94,  "packets": 4},
-    "!4bb40fe5": {"lat": 42.9326, "lon": -70.8116, "elev_m": 15,   "obs_rssi": -115, "packets": 11},
-    "!a20a1240": {"lat": 42.9113, "lon": -70.8133, "elev_m": 20,   "obs_rssi": -110, "packets": 83},
-    "!b03d38b4": {"lat": 42.8081, "lon": -70.9100, "elev_m": 26,   "obs_rssi": -95,  "packets": 51},
-    "!9e75f97c": {"lat": 42.8081, "lon": -70.8575, "elev_m": None, "obs_rssi": -24,  "packets": 133},
-    "!e977eda7": {"lat": 42.8016, "lon": -70.8510, "elev_m": 14,   "obs_rssi": -92,  "packets": 8},
-    "!43593b08": {"lat": 42.7287, "lon": -72.3220, "elev_m": 157,  "obs_rssi": -91,  "packets": 3},
+    # ── West ────────────────────────────────────────────────────────────────
+    "!3369ecf0": {"lat": 44.2237, "lon": -72.0110, "elev_m": 195,  "obs_rssi": -45,  "packets":  3},  # W  57 km; updated 2026-05-23
+    # ── Southwest ───────────────────────────────────────────────────────────
+    "!0ac9f61c": {"lat": 43.6470, "lon": -72.2731, "elev_m": None, "obs_rssi": -43,  "packets": 10},  # SW 104 km; new 2026-05-23 hike
+    "!d0dbf5e0": {"lat": 43.6994, "lon": -72.0634, "elev_m": None, "obs_rssi": -60,  "packets":  1},  # SW  88 km; new 2026-05-23 hike
+    "!facda2e0": {"lat": 43.6470, "lon": -71.8537, "elev_m": 662,  "obs_rssi": -91,  "packets":  1},  # SW  85 km
+    "!43593b08": {"lat": 42.7287, "lon": -72.3220, "elev_m": 157,  "obs_rssi": -91,  "packets":  3},  # SW 193 km
+    # ── South-southwest ─────────────────────────────────────────────────────
+    "!98de985c": {"lat": 43.1227, "lon": -71.9061, "elev_m": None, "obs_rssi":  -8,  "packets":  3},  # SSW 137 km; updated 2026-05-23
+    "!9e3b15c4": {"lat": 43.1227, "lon": -71.7488, "elev_m": 249,  "obs_rssi": -95,  "packets":  1},  # SSW 130 km
+    "!a6965348": {"lat": 43.4373, "lon": -71.5915, "elev_m": None, "obs_rssi": -54,  "packets":  1},  # SSW  96 km; new 2026-05-23 hike
+    "!8ecc1813": {"lat": 42.7557, "lon": -71.8012, "elev_m": None, "obs_rssi": -54,  "packets":  1},  # SSW 173 km; new 2026-05-23 hike
+    # ── South ───────────────────────────────────────────────────────────────
+    "!de28f744": {"lat": 42.9130, "lon": -71.6440, "elev_m": 289,  "obs_rssi": -17,  "packets": 12},  # S  153 km; updated 2026-05-23
+    "!4ad10bfa": {"lat": 43.0113, "lon": -71.4801, "elev_m": 35,   "obs_rssi": -93,  "packets":  5},  # S  143 km
+    "!e1ccc5f2": {"lat": 43.5290, "lon": -71.1328, "elev_m": None, "obs_rssi": -48,  "packets":  1},  # S   84 km; new 2026-05-23 hike
+    "!da63ea38": {"lat": 42.9924, "lon": -71.4793, "elev_m": None, "obs_rssi": -42,  "packets":  2},  # S  143 km; new 2026-05-23 hike
+    "!3b46af7c": {"lat": 42.9858, "lon": -71.4199, "elev_m": None, "obs_rssi": -42,  "packets":  2},  # S  143 km; new 2026-05-23 hike
+    "!1c496f00": {"lat": 42.9896, "lon": -71.3368, "elev_m": None, "obs_rssi": -47,  "packets":  1},  # S  143 km; new 2026-05-23 hike
+    "!a20a1240": {"lat": 42.9113, "lon": -70.8133, "elev_m": 20,   "obs_rssi": -110, "packets": 83},  # S  155 km
+    "!b03d38b4": {"lat": 42.8081, "lon": -70.9100, "elev_m": 26,   "obs_rssi": -95,  "packets": 51},  # S  164 km
+    "!9e75f97c": {"lat": 42.8081, "lon": -70.8575, "elev_m": None, "obs_rssi": -24,  "packets": 133}, # S  165 km (own node home)
+    "!e977eda7": {"lat": 42.8016, "lon": -70.8510, "elev_m": 14,   "obs_rssi": -92,  "packets":  8},  # S  165 km
+    # ── South-southeast ─────────────────────────────────────────────────────
+    "!4bb40fe5": {"lat": 42.9326, "lon": -70.8116, "elev_m": 15,   "obs_rssi": -115, "packets": 11},  # SSE 154 km
+    # ── Southeast ───────────────────────────────────────────────────────────
+    "!d872fb89": {"lat": 43.8370, "lon": -70.8248, "elev_m": None, "obs_rssi": -61,  "packets":  2},  # SE   62 km; new 2026-05-23 hike
+    "!bcae633e": {"lat": 43.7748, "lon": -70.4938, "elev_m": None, "obs_rssi": -73,  "packets":  1},  # SE   85 km; new 2026-05-23 hike
+    "!a2e26938": {"lat": 43.5945, "lon": -70.2284, "elev_m": 46,   "obs_rssi": -95,  "packets":  1},  # SE  123 km
+    # ── East-southeast ──────────────────────────────────────────────────────
+    "!3e703fd2": {"lat": 43.9484, "lon": -70.2939, "elev_m": None, "obs_rssi":  -7,  "packets":  1},  # ESE  88 km; new 2026-05-23 hike
+    "!c0c103db": {"lat": 43.9484, "lon": -70.2939, "elev_m": None, "obs_rssi":  -9,  "packets":  1},  # ESE  88 km; new 2026-05-23 hike (co-located with !3e703fd2)
+    "!05b41df9": {"lat": 43.9419, "lon": -70.2874, "elev_m": None, "obs_rssi": -17,  "packets":  1},  # ESE  89 km; new 2026-05-23 hike
+    "!16c3f424": {"lat": 43.6470, "lon": -70.2284, "elev_m": None, "obs_rssi":  -9,  "packets":  1},  # SE  111 km; new 2026-05-23 hike
 }
 
 SUMMIT = (44.27057, -71.30328)
