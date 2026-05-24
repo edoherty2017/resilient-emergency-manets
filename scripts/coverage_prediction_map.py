@@ -53,8 +53,10 @@ LOCATIONS = {
     "Alpine Garden":                   (44.26780, -71.29220),
 }
 
-AMMO_TRAIL:      list[tuple] = []
-JEWELL_TRAIL:    list[tuple] = []
+AMMO_TRAIL:      list[tuple] = []   # (lat, lon) for static polyline display
+JEWELL_TRAIL:    list[tuple] = []   # (lat, lon) for static polyline display
+AMMO_ANIM:       list[tuple] = []   # (lat, lon, elev_m) finer-res for animation
+JEWELL_ANIM:     list[tuple] = []   # (lat, lon, elev_m) finer-res for animation
 TREELINE_AMMO:   tuple | None = None
 TREELINE_JEWELL: tuple | None = None
 GEM_POOL:        tuple | None = None
@@ -84,7 +86,8 @@ def first_crossing(pts: list[tuple], elev: float) -> tuple | None:
 
 
 def load_trails(mapdata_dir: Path) -> None:
-    global AMMO_TRAIL, JEWELL_TRAIL, TREELINE_AMMO, TREELINE_JEWELL, GEM_POOL
+    global AMMO_TRAIL, JEWELL_TRAIL, AMMO_ANIM, JEWELL_ANIM
+    global TREELINE_AMMO, TREELINE_JEWELL, GEM_POOL
 
     ammo_gpx   = mapdata_dir / "Mount_Washington_via_Ammonoosuc_Ravine_Trail.gpx"
     jewell_gpx = mapdata_dir / "Jewell_Trail_.gpx"
@@ -104,10 +107,17 @@ def load_trails(mapdata_dir: Path) -> None:
     ammo_ascent   = ammo_pts[:ammo_summit_idx + 1]
     jewell_ascent = jewell_pts[:jewell_summit_idx + 1]
 
+    # Static display — thin polylines only need ~60 pts
     step_a = max(1, len(ammo_ascent)   // 60)
     step_j = max(1, len(jewell_ascent) // 60)
     AMMO_TRAIL[:]   = [(lat, lon) for lat, lon, _ in ammo_ascent[::step_a]]
     JEWELL_TRAIL[:] = [(lat, lon) for lat, lon, _ in reversed(jewell_ascent[::step_j])]
+
+    # Animation — finer resolution with elevation (every 8th pt ≈ 150 frames per trail)
+    anim_step = max(1, len(ammo_ascent) // 150)
+    AMMO_ANIM[:]   = [(lat, lon, elev) for lat, lon, elev in ammo_ascent[::anim_step]]
+    anim_step_j = max(1, len(jewell_ascent) // 150)
+    JEWELL_ANIM[:] = [(lat, lon, elev) for lat, lon, elev in reversed(jewell_ascent[::anim_step_j])]
 
     tl_a = first_crossing(ammo_ascent, 1200)
     tl_j = first_crossing(jewell_ascent, 1200)
@@ -117,8 +127,8 @@ def load_trails(mapdata_dir: Path) -> None:
     TREELINE_JEWELL = (tl_j[0], tl_j[1]) if tl_j else None
     GEM_POOL        = (gp[0],   gp[1])   if gp   else None
 
-    print(f"  Ammo:   {len(ammo_ascent)} ascent pts → {len(AMMO_TRAIL)} plotted")
-    print(f"  Jewell: {len(jewell_ascent)} ascent pts → {len(JEWELL_TRAIL)} plotted")
+    print(f"  Ammo:   {len(ammo_ascent)} pts → {len(AMMO_TRAIL)} display, {len(AMMO_ANIM)} anim")
+    print(f"  Jewell: {len(jewell_ascent)} pts → {len(JEWELL_TRAIL)} display, {len(JEWELL_ANIM)} anim")
     if TREELINE_AMMO:   print(f"  Treeline Ammo:   {TREELINE_AMMO}")
     if TREELINE_JEWELL: print(f"  Treeline Jewell: {TREELINE_JEWELL}")
     if GEM_POOL:        print(f"  Gem Pool:        {GEM_POOL}")
@@ -413,18 +423,39 @@ def _build_custom_control(layer_map: dict[str, str], map_var: str) -> str:
 # Folium map
 # ---------------------------------------------------------------------------
 
-def build_map(out_path: Path, grid_step_deg: float = 0.008) -> None:
-    m = folium.Map(location=[43.6, -71.5], zoom_start=8, tiles="OpenStreetMap")
+def build_map(out_path: Path) -> None:  # noqa: C901
+    m = folium.Map(location=[44.10, -71.45], zoom_start=9, tiles="OpenStreetMap")
 
-    # Key location markers (always visible)
-    for label, (lat, lon) in LOCATIONS.items():
-        folium.Marker([lat, lon], tooltip=label,
-                      icon=folium.Icon(color="gray", icon="info-sign")).add_to(m)
+    import json as _json
 
-    # Known nodes — predicted coverage layer (coloured by summit predicted RSSI)
+    # ── Static trail lines ──────────────────────────────────────────────────
+    folium.PolyLine(AMMO_TRAIL,   color="#888", weight=3, opacity=0.5,
+                    tooltip="Ammonoosuc Ravine Trail (ascent)").add_to(m)
+    folium.PolyLine(JEWELL_TRAIL, color="#888", weight=3, opacity=0.5,
+                    tooltip="Jewell Trail (descent)").add_to(m)
+
+    if TREELINE_AMMO:
+        folium.CircleMarker(TREELINE_AMMO, radius=5, color="#4CAF50", fill=True,
+                            fill_color="#4CAF50", fill_opacity=0.9,
+                            tooltip="Treeline (Ammo) ~1200 m — terrain changes from forest to alpine above here").add_to(m)
+    if TREELINE_JEWELL:
+        folium.CircleMarker(TREELINE_JEWELL, radius=5, color="#4CAF50", fill=True,
+                            fill_color="#4CAF50", fill_opacity=0.9,
+                            tooltip="Treeline (Jewell) ~1200 m").add_to(m)
+
+    # ── Summit pin ──────────────────────────────────────────────────────────
+    folium.Marker(
+        list(SUMMIT),
+        tooltip=folium.Tooltip(
+            f"<b>Mt. Washington Summit — meshradiohead2 (HEAD)</b><br>"
+            f"1917 m · 915 MHz SF12 · TX {TX_POWER_DBM:.0f} dBm · Link budget {LINK_BUDGET_DB:.0f} dB",
+            sticky=False),
+        icon=folium.Icon(color="blue", icon="star"),
+    ).add_to(m)
+
+    # ── Known nodes — coloured by hop plausibility ──────────────────────────
     known_fg = folium.FeatureGroup(name="Known nodes — predicted coverage", show=True)
-    # Known nodes — hop plausibility layer (coloured by FSPL vs observed RSSI)
-    hop_fg = folium.FeatureGroup(name="Known nodes — hop plausibility", show=False)
+    hop_fg   = folium.FeatureGroup(name="Known nodes — hop plausibility",   show=False)
 
     for mid, n in KNOWN_NODES.items():
         d_km    = haversine_km(*SUMMIT, n["lat"], n["lon"])
@@ -544,9 +575,6 @@ Deviation: {hop_detail}<br>
             tooltip=f"{d_km:.0f} km — {hop_label}",
         ).add_to(hop_fg)
 
-    known_fg.add_to(m)
-    hop_fg.add_to(m)
-
     # Summit star marker (always visible)
     summit_tip = folium.Tooltip(f"""
 <div style="font-family:monospace;font-size:12px">
@@ -573,189 +601,43 @@ for all distance/RSSI calculations on this map.
         icon=folium.Icon(color="blue", icon="star"),
     ).add_to(m)
 
-    # Trail routes + placement markers (always visible)
-    trail_fg = folium.FeatureGroup(name="Tomorrow's route", show=True)
-    folium.PolyLine(AMMO_TRAIL,  color="#E91E63", weight=4, opacity=0.85,
-                    tooltip="Ammonoosuc Ravine Trail (ascent)").add_to(trail_fg)
-    folium.PolyLine(JEWELL_TRAIL, color="#9C27B0", weight=4, opacity=0.85,
-                    tooltip="Jewell Trail (descent)").add_to(trail_fg)
-    for pt, label in [(TREELINE_AMMO,   "Treeline — Ammo (~1200m)"),
-                      (TREELINE_JEWELL, "Treeline — Jewell (~1200m)")]:
-        if pt:
-            folium.CircleMarker(pt, radius=8, color="#4CAF50", fill=True,
-                                fill_color="#4CAF50", fill_opacity=0.9,
-                                tooltip=label).add_to(trail_fg)
+    known_fg.add_to(m)
+    hop_fg.add_to(m)
+    folium.LayerControl(collapsed=False).add_to(m)
 
-    placements = [
-        {"lat": 44.26689, "lon": -71.36113,
-         "label": "Trailhead — dense forest", "extra_loss": 25},
-        ({"lat": GEM_POOL[0], "lon": GEM_POOL[1],
-          "label": "Gem Pool (~1068m)", "extra_loss": 20}
-         if GEM_POOL else
-         {"lat": 44.26768, "lon": -71.32647,
-          "label": "Gem Pool (~1068m)", "extra_loss": 20}),
-        ({"lat": TREELINE_AMMO[0], "lon": TREELINE_AMMO[1],
-          "label": "Ammo treeline (~1200m)", "extra_loss": 5}
-         if TREELINE_AMMO else
-         {"lat": 44.26622, "lon": -71.32359,
-          "label": "Ammo treeline (~1200m)", "extra_loss": 5}),
-        {"lat": 44.25872, "lon": -71.31915,
-         "label": "Lakes of the Clouds Hut (1528m)", "extra_loss": 3},
-        ({"lat": TREELINE_JEWELL[0], "lon": TREELINE_JEWELL[1],
-          "label": "Jewell treeline (~1200m)", "extra_loss": 5}
-         if TREELINE_JEWELL else
-         {"lat": 44.28375, "lon": -71.33587,
-          "label": "Jewell treeline (~1200m)", "extra_loss": 5}),
-        {"lat": 44.28259, "lon": -71.31689,
-         "label": "Jewell–Gulfside Junction (1648m)", "extra_loss": 3},
-    ]
-    for p in placements:
-        d_km = haversine_km(*SUMMIT, p["lat"], p["lon"])
-        rssi  = pred_rssi(d_km, p["extra_loss"])
-        popup = (f"<b>{p['label']}</b><br>"
-                 f"Distance from summit: {d_km:.1f} km<br>"
-                 f"Terrain loss: +{p['extra_loss']} dB<br>"
-                 f"Predicted RSSI: {rssi:.0f} dBm<br>"
-                 f"Quality: {rssi_to_label(rssi)}")
-        folium.Marker(
-            [p["lat"], p["lon"]],
-            tooltip=f"{p['label']} — {rssi:.0f} dBm predicted",
-            popup=folium.Popup(popup, max_width=260),
-            icon=folium.Icon(color="orange" if rssi > -105 else "red",
-                             icon="map-marker"),
-        ).add_to(trail_fg)
-    trail_fg.add_to(m)
+    # ── Build animation data ────────────────────────────────────────────────
+    # Combined trail: Ammo ascent → Jewell descent (with elevation for terrain model)
+    anim_trail = AMMO_ANIM + JEWELL_ANIM  # [(lat, lon, elev_m), ...]
 
-    # Prediction layers — all show=False; custom JS control manages visibility
-    # Dot grid: tight area around the summit for close-in terrain comparison
-    lat_range = np.arange(44.220, 44.330, grid_step_deg)
-    lon_range = np.arange(-71.370, -71.200, grid_step_deg)
-    # Heatmap: covers the full NH/VT/ME/MA region visible at the default zoom.
-    # Step of 0.025° ≈ 2.5 km — coarse enough to be fast, fine enough to blend
-    # smoothly with radius=32 px at zoom 8.
-    heat_step = 0.025
-    heat_lat  = np.arange(42.0, 45.6, heat_step)
-    heat_lon  = np.arange(-73.6, -69.0, heat_step)
-    heat_gradient = {
-        0.0: "#B71C1C", 0.35: "#FF6D00",
-        0.6: "#FFD600", 0.85: "#00C853", 1.0: "#00E676",
-    }
-    rssi_min, rssi_max = -130.0, -60.0
-    layer_map: dict[str, str] = {}
+    # Serialise nodes for JS — include hop plausibility metadata
+    nodes_js = {}
+    for mid, n in KNOWN_NODES.items():
+        d_sum  = haversine_km(*SUMMIT, n["lat"], n["lon"])
+        obs    = n.get("obs_rssi")
+        brg    = bearing_deg(*SUMMIT, n["lat"], n["lon"])
+        cdir   = compass_label(brg)
+        if obs is not None:
+            _, hop_label, _ = hop_plausibility(d_sum, obs)
+        else:
+            hop_label = "No data"
+        nodes_js[mid] = {
+            "lat": n["lat"], "lon": n["lon"],
+            "packets": n["packets"],
+            "obs_rssi": obs,
+            "dist_summit_km": round(d_sum, 1),
+            "bearing": round(brg, 0),
+            "compass": cdir,
+            "hop_label": hop_label,
+            "elev_m": n.get("elev_m"),
+        }
 
-    for head_name, head in HEAD_POSITIONS.items():
+    trail_js = [[round(lat, 6), round(lon, 6), round(elev, 0)]
+                for lat, lon, elev in anim_trail]
 
-        # Dot grid — one layer per terrain class
-        for terrain_label, extra_loss in TERRAIN_LOSS.items():
-            key = f"dots__{head_name}__{terrain_label}"
-            fg = folium.FeatureGroup(name=key, show=False)
-            for lat in lat_range:
-                for lon in lon_range:
-                    d_km = haversine_km(head["lat"], head["lon"], lat, lon)
-                    rssi = pred_rssi(d_km, extra_loss)
-                    if rssi < -130:
-                        continue
-                    dot_tip = folium.Tooltip(f"""
-<div style="font-family:monospace;font-size:11px">
-<b>Coverage prediction grid point</b><br>
-Head position: {head_name} ({head['elev_m']} m)<br>
-Distance from HEAD: {d_km:.1f} km<br>
-Terrain model: {terrain_label} (+{extra_loss} dB over free space)<br>
-Predicted received RSSI: <b>{rssi:.0f} dBm</b> ({rssi_to_label(rssi)})<br>
-<hr style="margin:3px 0">
-<i style="color:#555">RSSI is the signal level a receiver at this point would see
-from the HEAD. Below −120 dBm the link is outside SF12 sensitivity
-and packets are lost. This is FSPL — real terrain adds more loss.</i>
-</div>""", sticky=False)
-                    folium.CircleMarker(
-                        location=[lat, lon], radius=6, weight=0,
-                        color=rssi_to_color(rssi), fill=True,
-                        fill_color=rssi_to_color(rssi), fill_opacity=0.55,
-                        tooltip=dot_tip,
-                    ).add_to(fg)
-            folium.Marker(
-                [head["lat"], head["lon"]],
-                tooltip=f"HEAD: {head_name} ({head['elev_m']} m)",
-                icon=folium.Icon(color="blue", icon="tower", prefix="fa"),
-            ).add_to(fg)
-            fg.add_to(m)
-            layer_map[key] = fg.get_name()
+    nodes_json = _json.dumps(nodes_js)
+    trail_json = _json.dumps(trail_js)
 
-        # Heatmap — alpine terrain, one per HEAD
-        key = f"heatmap__{head_name}"
-        hm_fg = folium.FeatureGroup(name=key, show=False)
-        heat_data = []
-        for lat in heat_lat:
-            for lon in heat_lon:
-                d_km = haversine_km(head["lat"], head["lon"], lat, lon)
-                rssi = pred_rssi(d_km, extra_loss_db=3)
-                if rssi <= rssi_min:
-                    continue
-                w = max(0.0, min(1.0, (rssi - rssi_min) / (rssi_max - rssi_min)))
-                heat_data.append([lat, lon, w])
-        folium.plugins.HeatMap(
-            heat_data, min_opacity=0.4, radius=32, blur=24,
-            gradient=heat_gradient,
-        ).add_to(hm_fg)
-        folium.Marker(
-            [head["lat"], head["lon"]],
-            tooltip=f"HEAD: {head_name} ({head['elev_m']} m)",
-            icon=folium.Icon(color="blue", icon="tower", prefix="fa"),
-        ).add_to(hm_fg)
-        hm_fg.add_to(m)
-        layer_map[key] = hm_fg.get_name()
-
-    # Info panel (bottom-left, always visible)
-    m.get_root().html.add_child(folium.Element(f"""
-    <div style="position:fixed;bottom:20px;left:20px;z-index:1000;background:white;
-                padding:14px 16px;border-radius:10px;border:1px solid #bbb;
-                font-size:12px;font-family:sans-serif;max-width:310px;
-                box-shadow:2px 2px 6px rgba(0,0,0,0.15);">
-
-      <b style="font-size:13px">Resilient Emergency MANET — Mt. Washington</b><br>
-      <span style="color:#555;font-size:11px">915 MHz LoRa (Meshtastic SF12) &nbsp;·&nbsp;
-        TX {TX_POWER_DBM:.0f} dBm &nbsp;·&nbsp; Dipole &nbsp;·&nbsp;
-        RX sens {RX_SENS_DBM:.0f} dBm</span>
-      <hr style="margin:6px 0">
-
-      <b>What this map shows</b><br>
-      <b style="color:#1565C0">★ Blue star</b> — HEAD node (meshradiohead2) on the summit.
-        This Pi + LoRa radio collected all data.<br><br>
-
-      <b>Colored dots (known nodes)</b> — other Meshtastic devices heard from the summit
-        or from home base. Color = predicted signal quality if you tried to reach them
-        from the summit using FSPL (free-space path loss).<br><br>
-
-      <b>Heatmap / dot grid layers</b> — predicted coverage footprint of the HEAD at
-        each terrain class. Shows how far a signal can travel before it falls below
-        the SF12 receiver sensitivity floor (−120 dBm).<br><br>
-
-      <b>Hop plausibility layer</b> — nodes recolored by whether their observed RSSI
-        is physically consistent with a direct single-hop link.
-        Red = signal is impossibly strong for that distance → packet was relayed.
-
-      <hr style="margin:6px 0">
-      <b>Signal quality scale</b><br>
-      <span style="color:#00C853">&#9632;</span> &ge;&minus;90 dBm &nbsp; Strong &nbsp;&nbsp;
-      <span style="color:#FFD600">&#9632;</span> &minus;105 &nbsp; Good<br>
-      <span style="color:#FF6D00">&#9632;</span> &minus;120 &nbsp; Marginal &nbsp;&nbsp;
-      <span style="color:#B71C1C">&#9632;</span> &lt;&minus;120 &nbsp; Out of range<br>
-
-      <hr style="margin:6px 0">
-      <b>Hop plausibility scale</b><br>
-      <span style="color:#43A047">&#9632;</span> Plausible direct link (&le;20 dB above FSPL)<br>
-      <span style="color:#FB8C00">&#9632;</span> Possibly relayed (20–40 dB above FSPL)<br>
-      <span style="color:#E53935">&#9632;</span> Almost certainly relayed (&gt;40 dB above FSPL)<br>
-
-      <hr style="margin:6px 0">
-      <span style="color:#777;font-size:10px">
-        FSPL = Free Space Path Loss (Rappaport 2002). Terrain adds 3 dB (alpine),
-        15 dB (sub-alpine), 25 dB (dense forest). Hop counts from Meshtastic packet
-        headers will replace the FSPL proxy once collected.
-      </span>
-    </div>"""))
-
-    # Save to temp → inject custom control → write final output
+    # ── Save base map then inject animation JS ──────────────────────────────
     tmp_path = out_path.with_suffix(".tmp.html")
     m.save(str(tmp_path))
     html = tmp_path.read_text(encoding="utf-8")
@@ -764,8 +646,296 @@ and packets are lost. This is FSPL — real terrain adds more loss.</i>
     match = re.search(r"var (map_[a-f0-9]+)\s*=\s*L\.map\(", html)
     map_var = match.group(1) if match else "map_unknown"
 
-    ctrl = _build_custom_control(layer_map, map_var)
-    html = html.replace("</body>", ctrl + "\n</body>")
+    anim_js = f"""
+<style>
+#anim-panel {{
+  position: fixed;
+  bottom: 20px; right: 20px;
+  z-index: 1000;
+  background: rgba(255,255,255,0.97);
+  border: 1px solid #bbb;
+  border-radius: 10px;
+  padding: 14px 16px;
+  font-family: sans-serif;
+  font-size: 12px;
+  width: 310px;
+  box-shadow: 2px 2px 8px rgba(0,0,0,0.18);
+}}
+#anim-panel h3 {{ margin: 0 0 8px; font-size: 13px; }}
+#anim-controls {{ display: flex; gap: 6px; align-items: center; margin: 8px 0; flex-wrap: wrap; }}
+#anim-controls button {{
+  padding: 5px 12px; border: none; border-radius: 5px; cursor: pointer;
+  font-size: 12px; font-weight: bold;
+}}
+#btn-play  {{ background: #1565C0; color: white; }}
+#btn-reset {{ background: #546E7A; color: white; }}
+#speed-label {{ font-size: 11px; color: #555; }}
+#progress-wrap {{
+  height: 6px; background: #e0e0e0; border-radius: 3px;
+  margin: 6px 0; cursor: pointer;
+}}
+#progress-bar {{ height: 100%; background: #1565C0; border-radius: 3px; width: 0%; transition: width 0.05s; }}
+#anim-stats {{
+  font-size: 11px; line-height: 1.6; color: #333;
+  border-top: 1px solid #eee; padding-top: 6px; margin-top: 4px;
+}}
+#node-list {{ max-height: 140px; overflow-y: auto; margin-top: 4px; }}
+#node-list table {{ width: 100%; border-collapse: collapse; font-size: 10.5px; }}
+#node-list td {{ padding: 1px 4px; }}
+.nl-hdr {{ font-weight: bold; background: #f5f5f5; }}
+#legend-box {{
+  position: fixed; bottom: 20px; left: 20px; z-index: 1000;
+  background: rgba(255,255,255,0.96); border: 1px solid #bbb; border-radius: 10px;
+  padding: 12px 14px; font-family: sans-serif; font-size: 11px;
+  max-width: 260px; box-shadow: 2px 2px 6px rgba(0,0,0,0.14);
+}}
+</style>
+
+<div id="anim-panel">
+  <h3>&#128247; Hike Playback — LoRa Link Quality</h3>
+  <div style="font-size:10.5px;color:#555;margin-bottom:6px;">
+    Press Play to simulate the HEAD node moving along the trail.
+    Lines show the <b>predicted LoRa link quality</b> to every known Meshtastic node
+    at each point in the hike, using free-space path loss (FSPL) adjusted for terrain
+    elevation. Colors update in real time as elevation and terrain change.
+  </div>
+  <div id="anim-controls">
+    <button id="btn-play">&#9654; Play</button>
+    <button id="btn-reset">&#8635; Reset</button>
+    <label id="speed-label">Speed:
+      <select id="speed-select" style="font-size:11px">
+        <option value="200">Slow</option>
+        <option value="100" selected>Normal</option>
+        <option value="40">Fast</option>
+        <option value="15">Max</option>
+      </select>
+    </label>
+  </div>
+  <div id="progress-wrap"><div id="progress-bar"></div></div>
+  <div id="anim-stats">
+    <b>Position:</b> <span id="stat-phase">Trailhead (start)</span><br>
+    <b>Elevation:</b> <span id="stat-elev">—</span> &nbsp;|&nbsp;
+    <b>Terrain:</b> <span id="stat-terrain">—</span><br>
+    <b>Step:</b> <span id="stat-step">0</span> / <span id="stat-total">—</span><br>
+    <b>Nodes in range (&ge;&minus;120 dBm):</b> <span id="stat-in-range">—</span>
+    &nbsp; <b>Strong (&ge;&minus;90):</b> <span id="stat-strong">—</span>
+    <div id="node-list">
+      <table>
+        <tr class="nl-hdr"><td>Node</td><td>Dir</td><td>km</td><td>Pred RSSI</td><td>Quality</td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="legend-box">
+  <b style="font-size:12px">Resilient Emergency MANET</b><br>
+  <span style="color:#555">915 MHz LoRa · SF12 · TX 22 dBm · Dipole</span>
+  <hr style="margin:5px 0">
+  <b>Connection line color = predicted RSSI</b><br>
+  <span style="color:#00C853">&#9644;</span> &ge;&#8722;90 dBm &nbsp; <b>Strong</b> — reliable link<br>
+  <span style="color:#FFD600">&#9644;</span> &#8722;105 &nbsp; <b>Good</b> — usable, some packet loss<br>
+  <span style="color:#FF6D00">&#9644;</span> &#8722;120 &nbsp; <b>Marginal</b> — intermittent<br>
+  <span style="color:#B71C1C">&#9644;</span> &lt;&#8722;120 &nbsp; <b>Out of range</b> — below SF12 sensitivity<br>
+  <hr style="margin:5px 0">
+  <b>Node dot color = hop plausibility</b><br>
+  <span style="color:#43A047">&#9679;</span> Plausible direct link<br>
+  <span style="color:#FB8C00">&#9679;</span> Possibly relayed<br>
+  <span style="color:#E53935">&#9679;</span> Almost certainly relayed<br>
+  <hr style="margin:5px 0">
+  <span style="color:#555;font-size:10px">
+    Gray lines = trail route (Ammo ascent / Jewell descent).<br>
+    Green dots on trail = treeline crossings (~1200 m).<br>
+    FSPL model: Rappaport (2002). Terrain: &gt;1500 m = +3 dB,
+    1200&#8211;1500 m = +15 dB, &lt;1200 m = +25 dB (forest).
+  </span>
+</div>
+
+<script>
+(function() {{
+  const TX_DBM     = {TX_POWER_DBM};
+  const ANT_GAIN   = {ANT_GAIN_DBI};
+  const FREQ_MHZ   = {FREQ_MHZ};
+  const RX_SENS    = {RX_SENS_DBM};
+
+  const TRAIL   = {trail_json};
+  const NODES   = {nodes_json};
+  const MAP_VAR = {map_var};
+
+  function haversineKm(lat1, lon1, lat2, lon2) {{
+    const R = 6371.0, dLat = (lat2-lat1)*Math.PI/180,
+          dLon = (lon2-lon1)*Math.PI/180;
+    const a = Math.sin(dLat/2)**2
+            + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }}
+  function fsplDb(dKm) {{
+    return 32.44 + 20*Math.log10(Math.max(dKm, 0.001)) + 20*Math.log10(FREQ_MHZ);
+  }}
+  function predRssi(dKm, extraDb) {{
+    return TX_DBM + 2*ANT_GAIN - fsplDb(dKm) - extraDb;
+  }}
+  function terrainLoss(elevM) {{
+    if (elevM >= 1500) return 3;
+    if (elevM >= 1200) return 15;
+    return 25;
+  }}
+  function terrainLabel(elevM) {{
+    if (elevM >= 1500) return 'Alpine (open, above treeline)';
+    if (elevM >= 1200) return 'Sub-alpine (sparse trees)';
+    return 'Dense forest (below treeline)';
+  }}
+  function hikePhase(idx) {{
+    const ammoLen = {len(AMMO_ANIM)};
+    if (idx < ammoLen) return 'Ascending — Ammonoosuc Ravine Trail';
+    return 'Descending — Jewell Trail';
+  }}
+  function rssiColor(r) {{
+    if (r >= -90)  return '#00C853';
+    if (r >= -105) return '#FFD600';
+    if (r >= -120) return '#FF6D00';
+    return '#B71C1C';
+  }}
+  function rssiWeight(r) {{
+    if (r >= -90)  return 3.5;
+    if (r >= -105) return 2.5;
+    if (r >= -120) return 1.5;
+    return 0.8;
+  }}
+  function rssiOpacity(r) {{
+    if (r >= -90)  return 0.92;
+    if (r >= -105) return 0.78;
+    if (r >= -120) return 0.55;
+    return 0.18;
+  }}
+  function rssiLabel(r) {{
+    if (r >= -90)  return 'Strong';
+    if (r >= -105) return 'Good';
+    if (r >= -120) return 'Marginal';
+    return 'Out of range';
+  }}
+
+  // HEAD marker — blue pulsing circle
+  const headIcon = L.divIcon({{
+    html: '<div style="width:16px;height:16px;border-radius:50%;'
+        + 'background:#1E88E5;border:3px solid white;'
+        + 'box-shadow:0 0 8px rgba(30,136,229,0.8)"></div>',
+    iconSize: [16,16], iconAnchor: [8,8], className: ''
+  }});
+  const headMarker = L.marker([TRAIL[0][0], TRAIL[0][1]], {{icon: headIcon}})
+    .bindTooltip('HEAD node (meshradiohead2)', {{sticky:false}})
+    .addTo(MAP_VAR);
+
+  // Connection lines — one per known node
+  const lines = {{}};
+  Object.entries(NODES).forEach(([id, nd]) => {{
+    lines[id] = L.polyline(
+      [[TRAIL[0][0], TRAIL[0][1]], [nd.lat, nd.lon]],
+      {{color: '#B71C1C', weight: 0.8, opacity: 0.18}}
+    ).addTo(MAP_VAR);
+  }});
+
+  // Animation state
+  let frame = 0, playing = false, timer = null;
+
+  function renderFrame(f) {{
+    const pt = TRAIL[f];
+    const lat = pt[0], lon = pt[1], elev = pt[2];
+    const loss = terrainLoss(elev);
+
+    headMarker.setLatLng([lat, lon]);
+    headMarker.setTooltipContent(
+      'HEAD — ' + Math.round(elev) + ' m — ' + terrainLabel(elev)
+    );
+
+    let inRange = 0, strong = 0;
+    const rows = [];
+    Object.entries(NODES).forEach(([id, nd]) => {{
+      const dKm = haversineKm(lat, lon, nd.lat, nd.lon);
+      const rssi = predRssi(dKm, loss);
+      const col  = rssiColor(rssi);
+      lines[id].setLatLngs([[lat, lon], [nd.lat, nd.lon]]);
+      lines[id].setStyle({{color: col, weight: rssiWeight(rssi), opacity: rssiOpacity(rssi)}});
+      lines[id].setTooltipContent(
+        '<b>' + id + '</b> | ' + nd.compass + ' | ' + dKm.toFixed(0) + ' km<br>'
+        + 'Predicted RSSI: <b>' + rssi.toFixed(0) + ' dBm</b> (' + rssiLabel(rssi) + ')<br>'
+        + 'Terrain at HEAD: ' + terrainLabel(elev) + ' (+' + loss + ' dB)<br>'
+        + 'Observed best: ' + (nd.obs_rssi !== null ? nd.obs_rssi + ' dBm' : '—') + '<br>'
+        + 'Hop assessment: ' + nd.hop_label
+      );
+      if (rssi >= -120) inRange++;
+      if (rssi >= -90)  strong++;
+      rows.push([id, nd.compass, dKm, rssi]);
+    }});
+
+    // Sort by RSSI descending
+    rows.sort((a,b) => b[3]-a[3]);
+    let tableHtml = '<table><tr class="nl-hdr"><td>Node</td><td>Dir</td>'
+                  + '<td>km</td><td>RSSI</td><td>Quality</td></tr>';
+    rows.forEach(r => {{
+      const col = rssiColor(r[3]);
+      tableHtml += '<tr>'
+        + '<td style="color:' + col + ';font-weight:bold">' + r[0] + '</td>'
+        + '<td>' + r[1] + '</td>'
+        + '<td>' + r[2].toFixed(0) + '</td>'
+        + '<td style="color:' + col + '">' + r[3].toFixed(0) + '</td>'
+        + '<td style="color:' + col + '">' + rssiLabel(r[3]) + '</td>'
+        + '</tr>';
+    }});
+    tableHtml += '</table>';
+
+    document.getElementById('stat-phase').textContent   = hikePhase(f);
+    document.getElementById('stat-elev').textContent    = Math.round(elev) + ' m';
+    document.getElementById('stat-terrain').textContent = terrainLabel(elev);
+    document.getElementById('stat-step').textContent    = f + 1;
+    document.getElementById('stat-total').textContent   = TRAIL.length;
+    document.getElementById('stat-in-range').textContent = inRange;
+    document.getElementById('stat-strong').textContent   = strong;
+    document.getElementById('node-list').innerHTML       = tableHtml;
+    document.getElementById('progress-bar').style.width
+      = ((f / (TRAIL.length-1)) * 100) + '%';
+  }}
+
+  function play() {{
+    if (frame >= TRAIL.length-1) frame = 0;
+    playing = true;
+    document.getElementById('btn-play').innerHTML = '&#9646;&#9646; Pause';
+    const ms = parseInt(document.getElementById('speed-select').value);
+    timer = setInterval(() => {{
+      if (frame >= TRAIL.length-1) {{ pause(); return; }}
+      frame++;
+      renderFrame(frame);
+    }}, ms);
+  }}
+  function pause() {{
+    playing = false;
+    clearInterval(timer);
+    document.getElementById('btn-play').innerHTML = '&#9654; Play';
+  }}
+
+  document.getElementById('btn-play').addEventListener('click', () => {{
+    if (playing) pause(); else play();
+  }});
+  document.getElementById('btn-reset').addEventListener('click', () => {{
+    pause(); frame = 0; renderFrame(0);
+  }});
+  document.getElementById('speed-select').addEventListener('change', () => {{
+    if (playing) {{ pause(); play(); }}
+  }});
+  document.getElementById('progress-wrap').addEventListener('click', function(e) {{
+    const rect = this.getBoundingClientRect();
+    const pct  = (e.clientX - rect.left) / rect.width;
+    frame = Math.round(pct * (TRAIL.length-1));
+    renderFrame(frame);
+  }});
+
+  // Wire tooltips on lines
+  Object.values(lines).forEach(l => l.bindTooltip('', {{sticky: true}}));
+
+  renderFrame(0);
+}})();
+</script>"""
+
+    html = html.replace("</body>", anim_js + "\n</body>")
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(html, encoding="utf-8")
     print(f"  map  → {out_path}")
@@ -870,7 +1040,7 @@ def main() -> None:
     print(f"  Link budget: {LINK_BUDGET_DB:.1f} dB  "
           f"({TX_POWER_DBM} dBm TX + {2*ANT_GAIN_DBI:.1f} dB antenna − {RX_SENS_DBM} dBm sens)")
 
-    build_map(out_dir / "coverage_map.html", grid_step_deg=args.grid_step)
+    build_map(out_dir / "coverage_map.html")
     build_distance_plot(out_dir / "rssi_vs_distance.png")
 
     print("\nDone. Open in browser:")
