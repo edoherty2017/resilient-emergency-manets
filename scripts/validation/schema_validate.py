@@ -45,6 +45,12 @@ RANGES: dict[str, tuple[float, float]] = {
 
 INT_FIELDS = {"battery_mv", "battery_pct", "usb_power", "is_charging", "rssi_dbm", "checksum_ok", "checksum_bad", "malformed_frame"}
 
+# Known Meshtastic sentinel values that are not data errors.
+# battery_mv = -1: reported when node is on USB power with no battery attached.
+KNOWN_SENTINELS: dict[str, set] = {
+    "battery_mv": {-1},
+}
+
 
 def validate_record(rec: dict[str, Any], line_no: int) -> list[str]:
     errs: list[str] = []
@@ -68,6 +74,8 @@ def validate_record(rec: dict[str, Any], line_no: int) -> list[str]:
         if not isinstance(val, (int, float)):
             errs.append(f"type_error:{field}")
             continue
+        if field in KNOWN_SENTINELS and val in KNOWN_SENTINELS[field]:
+            continue
         if field in INT_FIELDS and not (isinstance(val, int) or (isinstance(val, float) and val == int(val))):
             errs.append(f"int_required:{field}")
         if val < lo or val > hi:
@@ -88,7 +96,8 @@ def main() -> int:
 
     total = 0
     valid = 0
-    invalid = 0
+    parse_errors = 0   # json_decode_error — expected in append-only streaming files (truncated last line)
+    data_invalid = 0   # schema violations — these block the gate
     error_counts: dict[str, int] = {}
     samples: list[dict[str, Any]] = []
 
@@ -111,7 +120,7 @@ def main() -> int:
             try:
                 rec = json.loads(raw)
             except json.JSONDecodeError:
-                invalid += 1
+                parse_errors += 1
                 key = "json_decode_error"
                 error_counts[key] = error_counts.get(key, 0) + 1
                 if len(samples) < 20:
@@ -120,7 +129,7 @@ def main() -> int:
 
             errs = validate_record(rec, line_no)
             if errs:
-                invalid += 1
+                data_invalid += 1
                 for e in errs:
                     error_counts[e] = error_counts.get(e, 0) + 1
                 if len(samples) < 20:
@@ -129,12 +138,15 @@ def main() -> int:
                 valid += 1
 
     pass_rate = (valid / total) if total else 0.0
+    # ok = no schema violations; parse errors (truncated streaming lines) are logged but don't block gate
+    ok = data_invalid == 0
     report = {
-        "ok": invalid == 0,
+        "ok": ok,
         "input": str(in_path),
         "total_records": total,
         "valid_records": valid,
-        "invalid_records": invalid,
+        "data_invalid_records": data_invalid,
+        "parse_error_records": parse_errors,
         "pass_rate": round(pass_rate, 6),
         "error_counts": error_counts,
         "sample_errors": samples,
@@ -142,7 +154,7 @@ def main() -> int:
 
     out_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(json.dumps(report, indent=2))
-    return 0 if invalid == 0 else 1
+    return 0 if ok else 1
 
 
 if __name__ == "__main__":

@@ -69,7 +69,8 @@ def main() -> int:
             "gate": "PASS" if schema_rep.get("ok") else "FAIL",
             "key_metrics": {
                 "total_records": schema_rep.get("total_records"),
-                "invalid_records": schema_rep.get("invalid_records"),
+                "data_invalid_records": schema_rep.get("data_invalid_records", schema_rep.get("invalid_records", 0)),
+                "parse_error_records": schema_rep.get("parse_error_records", 0),
                 "pass_rate": schema_rep.get("pass_rate"),
             },
         },
@@ -191,7 +192,11 @@ def main() -> int:
         "Weather guard uses synthetic defaults (no live weather feed wired yet).",
     ]
 
-    overall_gate = "PASS" if p6_idx.get("gates", {}).get("overall_ok") else "FAIL"
+    # Compute overall_gate from individual step results (p6_artifact_index.json is
+    # not yet written when this script runs as the last p6 step — reading it would
+    # see the previous run's state).
+    step_gates = [s["gate"] for s in pipeline]
+    overall_gate = "PASS" if all(g == "PASS" for g in step_gates) else "FAIL"
 
     index = {
         "generated_at_utc": now.isoformat(),
@@ -230,7 +235,8 @@ def main() -> int:
     for s in pipeline:
         km = s["key_metrics"]
         if s["step"] == "schema_validation":
-            kstr = f"{km['total_records']} rows, {km['invalid_records']} invalid, {km['pass_rate']:.1%} pass"
+            kstr = (f"{km['total_records']} rows, {km['data_invalid_records']} data-invalid, "
+                    f"{km['parse_error_records']} parse-errors, {km['pass_rate']:.1%} pass")
         elif s["step"] == "airmap_live_trial":
             kstr = f"n={km['rows_with_rssi']}, RMSE={km['rmse_db']:.1f} dB, MAE={km['mae_db']:.1f} dB ({km['metric_source']})"
         elif s["step"] == "dataset_sentinel":
