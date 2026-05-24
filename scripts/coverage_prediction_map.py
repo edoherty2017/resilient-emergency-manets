@@ -162,6 +162,19 @@ def rssi_to_label(rssi: float) -> str:
     return "Out of range"
 
 
+def bearing_deg(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
+    x = math.sin(lon2 - lon1) * math.cos(lat2)
+    y = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(lat2) * math.cos(lon2 - lon1)
+    return (math.degrees(math.atan2(x, y)) + 360) % 360
+
+
+def compass_label(b: float) -> str:
+    dirs = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
+            "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
+    return dirs[int((b + 11.25) // 22.5) % 16]
+
+
 # FSPL-based hop plausibility.
 # Expected direct-link RSSI = TX_POWER + 2*ANT_GAIN - FSPL(d_km).
 # If obs_rssi is more than RELAY_THRESHOLD_DB above this prediction,
@@ -414,69 +427,149 @@ def build_map(out_path: Path, grid_step_deg: float = 0.008) -> None:
     hop_fg = folium.FeatureGroup(name="Known nodes — hop plausibility", show=False)
 
     for mid, n in KNOWN_NODES.items():
-        d_km  = haversine_km(*SUMMIT, n["lat"], n["lon"])
-        pred  = pred_rssi(d_km, extra_loss_db=3)
-        obs   = n.get("obs_rssi")
-        elev_str = f"{n['elev_m']}m" if n.get("elev_m") else "elev unknown"
+        d_km    = haversine_km(*SUMMIT, n["lat"], n["lon"])
+        pred    = pred_rssi(d_km, extra_loss_db=3)
+        fspl_direct = pred_rssi(d_km, extra_loss_db=0)
+        obs     = n.get("obs_rssi")
+        elev_str = f"{n['elev_m']} m" if n.get("elev_m") else "unknown"
+        brg     = bearing_deg(*SUMMIT, n["lat"], n["lon"])
+        cdir    = compass_label(brg)
 
-        # Coverage layer colour (based on predicted RSSI from summit)
         cov_color = rssi_to_color(pred)
 
-        # Hop plausibility: compare obs_rssi to FSPL expectation at this distance
         if obs is not None:
             hop_color, hop_label, hop_detail = hop_plausibility(d_km, obs)
+            delta_db = obs - fspl_direct
+            if delta_db > RELAY_THRESHOLD_CERTAIN_DB:
+                hop_explain = (
+                    f"Observed {obs} dBm is {delta_db:+.0f} dB stronger than the "
+                    f"free-space prediction of {fspl_direct:.0f} dBm at {d_km:.0f} km. "
+                    f"Even a high-gain antenna setup cannot account for this — the packet "
+                    f"was almost certainly relayed through a physically nearby node before "
+                    f"reaching the HEAD. The GPS in the packet is the original sender's "
+                    f"location; the RSSI is from the last relay hop."
+                )
+            elif delta_db > RELAY_THRESHOLD_LIKELY_DB:
+                hop_explain = (
+                    f"Observed {obs} dBm is {delta_db:+.0f} dB above the free-space "
+                    f"prediction of {fspl_direct:.0f} dBm at {d_km:.0f} km. This is "
+                    f"suspicious — possible explanations include a high-gain antenna, "
+                    f"strong terrain reflection, or a relay hop through a closer node."
+                )
+            else:
+                hop_explain = (
+                    f"Observed {obs} dBm is {delta_db:+.0f} dB vs the free-space "
+                    f"prediction of {fspl_direct:.0f} dBm at {d_km:.0f} km. This "
+                    f"deviation is within the expected range for a direct single-hop "
+                    f"link over varied terrain (±20 dB is typical)."
+                )
         else:
-            hop_color, hop_label, hop_detail = "#9E9E9E", "No obs RSSI", "—"
+            hop_color, hop_label, hop_detail = "#9E9E9E", "No observed RSSI", "—"
+            hop_explain = "No RSSI data recorded for this node."
 
-        popup_html = (
-            f"<b>{mid}</b><br>"
-            f"Elevation: {elev_str}<br>"
-            f"Packets heard: {n['packets']}<br>"
-            f"Best observed RSSI: {obs if obs is not None else '—'} dBm<br>"
-            f"<b>Distance from summit: {d_km:.1f} km</b><br>"
-            f"<b>Predicted RSSI from summit: {pred:.0f} dBm</b><br>"
-            f"Reachable from summit: {'✓ YES' if pred > -120 else '✗ NO'}<br>"
-            f"<hr style='margin:4px 0'>"
-            f"<b>Hop plausibility:</b> {hop_label}<br>"
-            f"Expected direct RSSI at this dist: {pred_rssi(d_km):.0f} dBm<br>"
-            f"Deviation: {hop_detail}"
-        )
+        shared_popup = f"""
+<div style="font-family:monospace;font-size:12px;min-width:300px">
+<b style="font-size:14px">{mid}</b><br>
+<span style="color:#555">Meshtastic node heard from Mt. Washington summit</span>
+<hr style="margin:5px 0">
+<b>Location</b><br>
+&nbsp;GPS: ({n['lat']:.4f}°N, {abs(n['lon']):.4f}°W)<br>
+&nbsp;Elevation: {elev_str}<br>
+&nbsp;Direction from summit: {cdir} ({brg:.0f}°)<br>
+&nbsp;Distance from summit: <b>{d_km:.1f} km</b>
+<hr style="margin:5px 0">
+<b>Observed signal</b><br>
+&nbsp;Best RSSI: <b>{obs if obs is not None else '—'} dBm</b>
+  ({rssi_to_label(obs) if obs is not None else '—'})<br>
+&nbsp;Total packets heard: {n['packets']}<br>
+&nbsp;Session(s): 2026-05-20 home base + 2026-05-23 hike
+<hr style="margin:5px 0">
+<b>Coverage prediction from summit</b><br>
+&nbsp;FSPL at {d_km:.0f} km (no terrain): {fspl_direct:.0f} dBm<br>
+&nbsp;With open/alpine terrain (+3 dB): {pred:.0f} dBm<br>
+&nbsp;Summit-to-here reachable: {'<b style="color:green">YES</b>' if pred > -120 else '<b style="color:red">NO (beyond link budget)</b>'}
+<hr style="margin:5px 0">
+<b>Hop plausibility: <span style="color:{hop_color}">{hop_label}</span></b><br>
+<span style="font-size:11px;color:#333">{hop_explain}</span><br>
+<span style="font-size:10px;color:#888;font-style:italic">
+  Once hop_limit/hops_away fields are collected, this will be replaced
+  with ground-truth hop count from the Meshtastic packet header.
+</span>
+</div>"""
 
-        # Coverage layer marker
+        # ── Coverage layer ──────────────────────────────────────────────────
+        cov_tip = folium.Tooltip(f"""
+<div style="font-family:monospace;font-size:12px">
+<b>{mid}</b> &nbsp;|&nbsp; {cdir} &nbsp;|&nbsp; {d_km:.0f} km from summit<br>
+Predicted RSSI (summit→here): <b>{pred:.0f} dBm</b> ({rssi_to_label(pred)})<br>
+Best observed RSSI: {obs if obs is not None else '—'} dBm &nbsp;·&nbsp; {n['packets']} packet(s)<br>
+<i>Click for hop plausibility analysis</i>
+</div>""", sticky=False)
+
         folium.CircleMarker(
             location=[n["lat"], n["lon"]], radius=10,
             color=cov_color, fill=True, fill_color=cov_color,
             fill_opacity=0.85, weight=2,
-            tooltip=f"{mid} — {d_km:.0f} km — pred {pred:.0f} dBm",
-            popup=folium.Popup(popup_html, max_width=300),
+            tooltip=cov_tip,
+            popup=folium.Popup(shared_popup, max_width=340),
         ).add_to(known_fg)
         folium.PolyLine(
             [list(SUMMIT), [n["lat"], n["lon"]]],
             color=cov_color, weight=1.5, opacity=0.4,
+            tooltip=f"{d_km:.0f} km to {cdir}",
         ).add_to(known_fg)
 
-        # Hop plausibility layer marker
+        # ── Hop plausibility layer ──────────────────────────────────────────
         hop_radius = 12 if hop_color == "#E53935" else (10 if hop_color == "#FB8C00" else 8)
+        hop_tip = folium.Tooltip(f"""
+<div style="font-family:monospace;font-size:12px">
+<b>{mid}</b> &nbsp;|&nbsp; {cdir} &nbsp;|&nbsp; {d_km:.0f} km<br>
+<b style="color:{hop_color}">{hop_label}</b><br>
+Observed: {obs if obs is not None else '—'} dBm &nbsp;·&nbsp;
+Free-space predicted: {fspl_direct:.0f} dBm &nbsp;·&nbsp;
+Deviation: {hop_detail}<br>
+<i>Click for full analysis</i>
+</div>""", sticky=False)
+
         folium.CircleMarker(
             location=[n["lat"], n["lon"]], radius=hop_radius,
             color=hop_color, fill=True, fill_color=hop_color,
             fill_opacity=0.9, weight=2,
-            tooltip=f"{mid} — {hop_label} — obs {obs} dBm @ {d_km:.0f} km",
-            popup=folium.Popup(popup_html, max_width=300),
+            tooltip=hop_tip,
+            popup=folium.Popup(shared_popup, max_width=340),
         ).add_to(hop_fg)
         folium.PolyLine(
             [list(SUMMIT), [n["lat"], n["lon"]]],
             color=hop_color, weight=1.5, opacity=0.5,
+            tooltip=f"{d_km:.0f} km — {hop_label}",
         ).add_to(hop_fg)
 
     known_fg.add_to(m)
     hop_fg.add_to(m)
 
     # Summit star marker (always visible)
+    summit_tip = folium.Tooltip(f"""
+<div style="font-family:monospace;font-size:12px">
+<b>Mt. Washington Summit — HEAD Node (meshradiohead2)</b><br>
+Elevation: 1917 m (6,288 ft) &nbsp;·&nbsp; GPS: 44.2703°N, 71.3033°W<br>
+<hr style="margin:4px 0">
+Radio: Heltec V3 · 915 MHz · SF12 · BW 125 kHz<br>
+TX power: {TX_POWER_DBM:.0f} dBm · Dipole antenna · RX sensitivity: {RX_SENS_DBM:.0f} dBm<br>
+Link budget: {LINK_BUDGET_DB:.0f} dB (theoretical max range ~1700 km in free space)<br>
+<hr style="margin:4px 0">
+This node collects all Meshtastic telemetry and is the reference point
+for all distance/RSSI calculations on this map.
+</div>""", sticky=False)
+
     folium.Marker(
         list(SUMMIT),
-        tooltip="Mt. Washington Summit — HEAD position tomorrow",
-        popup="HEAD node (meshradiohead2)<br>1917 m",
+        tooltip=summit_tip,
+        popup=folium.Popup(
+            f"<b>meshradiohead2 — HEAD node</b><br>"
+            f"Elevation: 1917 m<br>"
+            f"Freq: 915 MHz · SF12 · TX {TX_POWER_DBM:.0f} dBm<br>"
+            f"Link budget: {LINK_BUDGET_DB:.0f} dB",
+            max_width=240),
         icon=folium.Icon(color="blue", icon="star"),
     ).add_to(m)
 
@@ -534,12 +627,15 @@ def build_map(out_path: Path, grid_step_deg: float = 0.008) -> None:
     trail_fg.add_to(m)
 
     # Prediction layers — all show=False; custom JS control manages visibility
+    # Dot grid: tight area around the summit for close-in terrain comparison
     lat_range = np.arange(44.220, 44.330, grid_step_deg)
     lon_range = np.arange(-71.370, -71.200, grid_step_deg)
-    # Heatmap uses a finer grid — just numbers, no DOM cost
-    heat_step = min(grid_step_deg / 4, 0.002)
-    heat_lat  = np.arange(44.220, 44.330, heat_step)
-    heat_lon  = np.arange(-71.370, -71.200, heat_step)
+    # Heatmap: covers the full NH/VT/ME/MA region visible at the default zoom.
+    # Step of 0.025° ≈ 2.5 km — coarse enough to be fast, fine enough to blend
+    # smoothly with radius=32 px at zoom 8.
+    heat_step = 0.025
+    heat_lat  = np.arange(42.0, 45.6, heat_step)
+    heat_lon  = np.arange(-73.6, -69.0, heat_step)
     heat_gradient = {
         0.0: "#B71C1C", 0.35: "#FF6D00",
         0.6: "#FFD600", 0.85: "#00C853", 1.0: "#00E676",
@@ -559,12 +655,23 @@ def build_map(out_path: Path, grid_step_deg: float = 0.008) -> None:
                     rssi = pred_rssi(d_km, extra_loss)
                     if rssi < -130:
                         continue
+                    dot_tip = folium.Tooltip(f"""
+<div style="font-family:monospace;font-size:11px">
+<b>Coverage prediction grid point</b><br>
+Head position: {head_name} ({head['elev_m']} m)<br>
+Distance from HEAD: {d_km:.1f} km<br>
+Terrain model: {terrain_label} (+{extra_loss} dB over free space)<br>
+Predicted received RSSI: <b>{rssi:.0f} dBm</b> ({rssi_to_label(rssi)})<br>
+<hr style="margin:3px 0">
+<i style="color:#555">RSSI is the signal level a receiver at this point would see
+from the HEAD. Below −120 dBm the link is outside SF12 sensitivity
+and packets are lost. This is FSPL — real terrain adds more loss.</i>
+</div>""", sticky=False)
                     folium.CircleMarker(
                         location=[lat, lon], radius=6, weight=0,
                         color=rssi_to_color(rssi), fill=True,
                         fill_color=rssi_to_color(rssi), fill_opacity=0.55,
-                        tooltip=(f"{rssi:.0f} dBm ({rssi_to_label(rssi)}) — "
-                                 f"{d_km:.1f} km from {head_name}"),
+                        tooltip=dot_tip,
                     ).add_to(fg)
             folium.Marker(
                 [head["lat"], head["lon"]],
@@ -587,7 +694,7 @@ def build_map(out_path: Path, grid_step_deg: float = 0.008) -> None:
                 w = max(0.0, min(1.0, (rssi - rssi_min) / (rssi_max - rssi_min)))
                 heat_data.append([lat, lon, w])
         folium.plugins.HeatMap(
-            heat_data, min_opacity=0.35, radius=18, blur=14,
+            heat_data, min_opacity=0.4, radius=32, blur=24,
             gradient=heat_gradient,
         ).add_to(hm_fg)
         folium.Marker(
@@ -598,18 +705,54 @@ def build_map(out_path: Path, grid_step_deg: float = 0.008) -> None:
         hm_fg.add_to(m)
         layer_map[key] = hm_fg.get_name()
 
-    # Legend (bottom-left, always visible)
-    m.get_root().html.add_child(folium.Element("""
-    <div style="position:fixed;bottom:40px;left:40px;z-index:1000;background:white;
-                padding:12px;border-radius:8px;border:1px solid #ccc;font-size:13px;">
-      <b>Predicted RSSI (915 MHz LoRa)</b><br>
-      <span style="color:#00C853">&#9632;</span> &ge; &minus;90 dBm &nbsp; Strong<br>
-      <span style="color:#FFD600">&#9632;</span> &minus;105 to &minus;90 &nbsp; Good<br>
-      <span style="color:#FF6D00">&#9632;</span> &minus;120 to &minus;105 &nbsp; Marginal<br>
-      <span style="color:#B71C1C">&#9632;</span> &lt; &minus;120 dBm &nbsp; Out of range<br>
+    # Info panel (bottom-left, always visible)
+    m.get_root().html.add_child(folium.Element(f"""
+    <div style="position:fixed;bottom:20px;left:20px;z-index:1000;background:white;
+                padding:14px 16px;border-radius:10px;border:1px solid #bbb;
+                font-size:12px;font-family:sans-serif;max-width:310px;
+                box-shadow:2px 2px 6px rgba(0,0,0,0.15);">
+
+      <b style="font-size:13px">Resilient Emergency MANET — Mt. Washington</b><br>
+      <span style="color:#555;font-size:11px">915 MHz LoRa (Meshtastic SF12) &nbsp;·&nbsp;
+        TX {TX_POWER_DBM:.0f} dBm &nbsp;·&nbsp; Dipole &nbsp;·&nbsp;
+        RX sens {RX_SENS_DBM:.0f} dBm</span>
       <hr style="margin:6px 0">
-      <small>TX 22 dBm &bull; Dipole &bull; SF12 &bull; FSPL only<br>
-      Dense forest adds ~25 dB &bull; Sub-alpine ~15 dB</small>
+
+      <b>What this map shows</b><br>
+      <b style="color:#1565C0">★ Blue star</b> — HEAD node (meshradiohead2) on the summit.
+        This Pi + LoRa radio collected all data.<br><br>
+
+      <b>Colored dots (known nodes)</b> — other Meshtastic devices heard from the summit
+        or from home base. Color = predicted signal quality if you tried to reach them
+        from the summit using FSPL (free-space path loss).<br><br>
+
+      <b>Heatmap / dot grid layers</b> — predicted coverage footprint of the HEAD at
+        each terrain class. Shows how far a signal can travel before it falls below
+        the SF12 receiver sensitivity floor (−120 dBm).<br><br>
+
+      <b>Hop plausibility layer</b> — nodes recolored by whether their observed RSSI
+        is physically consistent with a direct single-hop link.
+        Red = signal is impossibly strong for that distance → packet was relayed.
+
+      <hr style="margin:6px 0">
+      <b>Signal quality scale</b><br>
+      <span style="color:#00C853">&#9632;</span> &ge;&minus;90 dBm &nbsp; Strong &nbsp;&nbsp;
+      <span style="color:#FFD600">&#9632;</span> &minus;105 &nbsp; Good<br>
+      <span style="color:#FF6D00">&#9632;</span> &minus;120 &nbsp; Marginal &nbsp;&nbsp;
+      <span style="color:#B71C1C">&#9632;</span> &lt;&minus;120 &nbsp; Out of range<br>
+
+      <hr style="margin:6px 0">
+      <b>Hop plausibility scale</b><br>
+      <span style="color:#43A047">&#9632;</span> Plausible direct link (&le;20 dB above FSPL)<br>
+      <span style="color:#FB8C00">&#9632;</span> Possibly relayed (20–40 dB above FSPL)<br>
+      <span style="color:#E53935">&#9632;</span> Almost certainly relayed (&gt;40 dB above FSPL)<br>
+
+      <hr style="margin:6px 0">
+      <span style="color:#777;font-size:10px">
+        FSPL = Free Space Path Loss (Rappaport 2002). Terrain adds 3 dB (alpine),
+        15 dB (sub-alpine), 25 dB (dense forest). Hop counts from Meshtastic packet
+        headers will replace the FSPL proxy once collected.
+      </span>
     </div>"""))
 
     # Save to temp → inject custom control → write final output
