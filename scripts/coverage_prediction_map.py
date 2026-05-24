@@ -751,7 +751,7 @@ for all distance/RSSI calculations on this map.
 </div>
 
 <script>
-(function() {{
+window.addEventListener('load', function() {{
   const TX_DBM     = {TX_POWER_DBM};
   const ANT_GAIN   = {ANT_GAIN_DBI};
   const FREQ_MHZ   = {FREQ_MHZ};
@@ -932,7 +932,7 @@ for all distance/RSSI calculations on this map.
   Object.values(lines).forEach(l => l.bindTooltip('', {{sticky: true}}));
 
   renderFrame(0);
-}})();
+}});
 </script>"""
 
     html = html.replace("</body>", anim_js + "\n</body>")
