@@ -607,6 +607,108 @@ for all distance/RSSI calculations on this map.
         icon=folium.Icon(color="blue", icon="star"),
     ).add_to(m)
 
+    # ── Trail connectivity coloring ─────────────────────────────────────────
+    # Color each trail segment by predicted mesh connectivity at that position.
+    # Metric: best RSSI to any known node + count bonus (10*log10(nodes_marginal)).
+    # This is a prediction (no HEAD GPS from the hike), but uses real node
+    # positions from the collected data.
+    if AMMO_ANIM and JEWELL_ANIM:
+        conn_fg = folium.FeatureGroup(name="Connectivity along route (predicted)", show=False)
+
+        def _conn_color(score: float) -> str:
+            """
+            Smooth gradient: black → very dark red → dark red → red →
+            orange → amber → yellow-green → green.
+            Covers the range from completely isolated to well-connected.
+            """
+            STOPS = [
+                (-135, (0,   0,   0)),    # black — nothing reachable
+                (-128, (55,  0,   0)),    # near-black dark red
+                (-121, (130, 10,  0)),    # dark red
+                (-114, (200, 40,  0)),    # medium red
+                (-107, (240, 100, 0)),    # red-orange
+                (-100, (255, 175, 0)),    # amber
+                ( -93, (210, 230, 0)),    # yellow-green
+                ( -84, (40,  200, 60)),   # green
+            ]
+            if score >= STOPS[-1][0]:
+                r, g, b = STOPS[-1][1]
+                return f"#{r:02x}{g:02x}{b:02x}"
+            if score <= STOPS[0][0]:
+                return "#000000"
+            for i in range(len(STOPS) - 1):
+                lo_s, lo_c = STOPS[i]
+                hi_s, hi_c = STOPS[i + 1]
+                if lo_s <= score < hi_s:
+                    t = (score - lo_s) / (hi_s - lo_s)
+                    r = int(lo_c[0] + t * (hi_c[0] - lo_c[0]))
+                    g = int(lo_c[1] + t * (hi_c[1] - lo_c[1]))
+                    b = int(lo_c[2] + t * (hi_c[2] - lo_c[2]))
+                    return f"#{r:02x}{g:02x}{b:02x}"
+            return "#000000"
+
+        anim_full = AMMO_ANIM + JEWELL_ANIM
+        ammo_len  = len(AMMO_ANIM)
+
+        # Sample at step=4 — ~580 segments, fast render, still smooth
+        step = 4
+        pts = anim_full[::step]
+        # Always include the last point so the trail ends properly
+        if anim_full[-1] not in pts:
+            pts = list(pts) + [anim_full[-1]]
+
+        for i in range(len(pts) - 1):
+            pt_a = pts[i]
+            pt_b = pts[i + 1]
+            lat  = (pt_a[0] + pt_b[0]) / 2
+            lon  = (pt_a[1] + pt_b[1]) / 2
+            elev = (pt_a[2] + pt_b[2]) / 2
+
+            loss = terrain_loss_db(elev)
+            node_scores = []
+            for mid, nd in KNOWN_NODES.items():
+                d_km = haversine_km(lat, lon, nd["lat"], nd["lon"])
+                node_scores.append((mid, pred_rssi(d_km, loss)))
+
+            node_scores.sort(key=lambda x: x[1], reverse=True)
+            best_rssi  = node_scores[0][1] if node_scores else -999
+            best_node  = node_scores[0][0] if node_scores else "—"
+            marginal_n = sum(1 for _, r in node_scores if r >= -120)
+            good_n     = sum(1 for _, r in node_scores if r >= -105)
+
+            # Count bonus: each 10× increase in reachable nodes = +10 dB
+            count_bonus = 10 * math.log10(max(1, marginal_n))
+            score = best_rssi + count_bonus
+
+            color = _conn_color(score)
+
+            # Terrain and phase labels for tooltip
+            if loss == 3:
+                terrain_str = "Alpine / open (+3 dB)"
+            elif loss == 15:
+                terrain_str = "Sub-alpine / sparse trees (+15 dB)"
+            else:
+                terrain_str = "Dense forest (+25 dB)"
+
+            phase = "Ascending Ammonoosuc" if (i * step) < ammo_len else "Descending Jewell"
+
+            tip = (
+                f"<b>Phase:</b> {phase}<br>"
+                f"<b>Elevation:</b> {elev:.0f} m &nbsp;|&nbsp; {terrain_str}<br>"
+                f"<b>Best predicted RSSI:</b> {best_rssi:.0f} dBm → {best_node}<br>"
+                f"<b>Nodes ≥−105 dBm (Good):</b> {good_n}<br>"
+                f"<b>Nodes ≥−120 dBm (Marginal):</b> {marginal_n}<br>"
+                f"<b>Score (RSSI + count bonus):</b> {score:.1f}"
+            )
+
+            folium.PolyLine(
+                [pt_a[:2], pt_b[:2]],
+                color=color, weight=7, opacity=0.88,
+                tooltip=folium.Tooltip(tip, sticky=True),
+            ).add_to(conn_fg)
+
+        conn_fg.add_to(m)
+
     # ── Relay node predictions ──────────────────────────────────────────────
     # Two fixed relay nodes at each treeline crossing.  These are the minimum
     # set that gives complete Good-quality trail coverage regardless of where
