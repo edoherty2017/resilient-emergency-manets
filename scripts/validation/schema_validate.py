@@ -41,9 +41,12 @@ RANGES: dict[str, tuple[float, float]] = {
     "checksum_ok": (0, 1),
     "checksum_bad": (0, 1),
     "malformed_frame": (0, 1),
+    "hop_limit": (0, 7),
+    "hop_start": (0, 7),
+    "hops_away": (0, 7),
 }
 
-INT_FIELDS = {"battery_mv", "battery_pct", "usb_power", "is_charging", "rssi_dbm", "checksum_ok", "checksum_bad", "malformed_frame"}
+INT_FIELDS = {"battery_mv", "battery_pct", "usb_power", "is_charging", "rssi_dbm", "checksum_ok", "checksum_bad", "malformed_frame", "hop_limit", "hop_start", "hops_away"}
 
 # Known Meshtastic sentinel values that are not data errors.
 # battery_mv = -1: reported when node is on USB power with no battery attached.

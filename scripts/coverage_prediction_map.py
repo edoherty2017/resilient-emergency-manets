@@ -162,6 +162,28 @@ def rssi_to_label(rssi: float) -> str:
     return "Out of range"
 
 
+# FSPL-based hop plausibility.
+# Expected direct-link RSSI = TX_POWER + 2*ANT_GAIN - FSPL(d_km).
+# If obs_rssi is more than RELAY_THRESHOLD_DB above this prediction,
+# the signal cannot have traveled that distance in one hop — it was relayed.
+# With our link budget (22 dBm TX, 2 dBi each end) and conservative ±20 dB
+# for terrain/antenna variance, anything >20 dB above prediction is suspect;
+# >40 dB is almost certainly relayed.
+RELAY_THRESHOLD_LIKELY_DB  = 20   # yellow — suspicious
+RELAY_THRESHOLD_CERTAIN_DB = 40   # red — almost certainly relayed
+
+
+def hop_plausibility(d_km: float, obs_rssi: float) -> tuple[str, str, str]:
+    """Return (color, label, detail) for FSPL-vs-observed deviation."""
+    expected = pred_rssi(d_km)
+    delta = obs_rssi - expected  # positive = stronger than expected
+    if delta > RELAY_THRESHOLD_CERTAIN_DB:
+        return "#E53935", "Almost certainly relayed", f"+{delta:.0f} dB above FSPL"
+    if delta > RELAY_THRESHOLD_LIKELY_DB:
+        return "#FB8C00", "Possibly relayed", f"+{delta:.0f} dB above FSPL"
+    return "#43A047", "Plausible direct link", f"{delta:+.0f} dB vs FSPL"
+
+
 # ---------------------------------------------------------------------------
 # Nodes observed from Mt. Washington (combined: 2026-05-20 + 2026-05-23 hike)
 #
@@ -386,35 +408,69 @@ def build_map(out_path: Path, grid_step_deg: float = 0.008) -> None:
         folium.Marker([lat, lon], tooltip=label,
                       icon=folium.Icon(color="gray", icon="info-sign")).add_to(m)
 
-    # Known nodes layer (always visible)
-    known_fg = folium.FeatureGroup(name="Known nodes (heard from home base)", show=True)
+    # Known nodes — predicted coverage layer (coloured by summit predicted RSSI)
+    known_fg = folium.FeatureGroup(name="Known nodes — predicted coverage", show=True)
+    # Known nodes — hop plausibility layer (coloured by FSPL vs observed RSSI)
+    hop_fg = folium.FeatureGroup(name="Known nodes — hop plausibility", show=False)
+
     for mid, n in KNOWN_NODES.items():
-        d_km = haversine_km(*SUMMIT, n["lat"], n["lon"])
-        pred = pred_rssi(d_km, extra_loss_db=3)
+        d_km  = haversine_km(*SUMMIT, n["lat"], n["lon"])
+        pred  = pred_rssi(d_km, extra_loss_db=3)
+        obs   = n.get("obs_rssi")
         elev_str = f"{n['elev_m']}m" if n.get("elev_m") else "elev unknown"
+
+        # Coverage layer colour (based on predicted RSSI from summit)
+        cov_color = rssi_to_color(pred)
+
+        # Hop plausibility: compare obs_rssi to FSPL expectation at this distance
+        if obs is not None:
+            hop_color, hop_label, hop_detail = hop_plausibility(d_km, obs)
+        else:
+            hop_color, hop_label, hop_detail = "#9E9E9E", "No obs RSSI", "—"
+
         popup_html = (
             f"<b>{mid}</b><br>"
             f"Elevation: {elev_str}<br>"
             f"Packets heard: {n['packets']}<br>"
-            f"RSSI from home base (MA): {n['obs_rssi']} dBm<br>"
+            f"Best observed RSSI: {obs if obs is not None else '—'} dBm<br>"
             f"<b>Distance from summit: {d_km:.1f} km</b><br>"
             f"<b>Predicted RSSI from summit: {pred:.0f} dBm</b><br>"
-            f"Reachable from summit: {'✓ YES' if pred > -120 else '✗ NO'}"
+            f"Reachable from summit: {'✓ YES' if pred > -120 else '✗ NO'}<br>"
+            f"<hr style='margin:4px 0'>"
+            f"<b>Hop plausibility:</b> {hop_label}<br>"
+            f"Expected direct RSSI at this dist: {pred_rssi(d_km):.0f} dBm<br>"
+            f"Deviation: {hop_detail}"
         )
-        color = rssi_to_color(pred)
+
+        # Coverage layer marker
         folium.CircleMarker(
             location=[n["lat"], n["lon"]], radius=10,
-            color=color, fill=True, fill_color=color,
+            color=cov_color, fill=True, fill_color=cov_color,
             fill_opacity=0.85, weight=2,
-            tooltip=f"{mid} — {d_km:.0f} km from summit — pred {pred:.0f} dBm",
-            popup=folium.Popup(popup_html, max_width=280),
+            tooltip=f"{mid} — {d_km:.0f} km — pred {pred:.0f} dBm",
+            popup=folium.Popup(popup_html, max_width=300),
         ).add_to(known_fg)
         folium.PolyLine(
             [list(SUMMIT), [n["lat"], n["lon"]]],
-            color=color, weight=1.5, opacity=0.4,
-            tooltip=f"{d_km:.0f} km",
+            color=cov_color, weight=1.5, opacity=0.4,
         ).add_to(known_fg)
+
+        # Hop plausibility layer marker
+        hop_radius = 12 if hop_color == "#E53935" else (10 if hop_color == "#FB8C00" else 8)
+        folium.CircleMarker(
+            location=[n["lat"], n["lon"]], radius=hop_radius,
+            color=hop_color, fill=True, fill_color=hop_color,
+            fill_opacity=0.9, weight=2,
+            tooltip=f"{mid} — {hop_label} — obs {obs} dBm @ {d_km:.0f} km",
+            popup=folium.Popup(popup_html, max_width=300),
+        ).add_to(hop_fg)
+        folium.PolyLine(
+            [list(SUMMIT), [n["lat"], n["lon"]]],
+            color=hop_color, weight=1.5, opacity=0.5,
+        ).add_to(hop_fg)
+
     known_fg.add_to(m)
+    hop_fg.add_to(m)
 
     # Summit star marker (always visible)
     folium.Marker(
@@ -578,43 +634,70 @@ def build_map(out_path: Path, grid_step_deg: float = 0.008) -> None:
 
 def build_distance_plot(out_path: Path) -> None:
     sns.set_theme(style="darkgrid", palette="muted")
-    fig, ax = plt.subplots(figsize=(10, 6))
+    fig, ax = plt.subplots(figsize=(12, 7))
 
-    distances = np.linspace(0.05, 25.0, 500)
+    # Extend range to cover all known nodes
+    max_d = max((haversine_km(*SUMMIT, n["lat"], n["lon"]) for n in KNOWN_NODES.values()), default=25)
+    max_d = max(max_d * 1.08, 25)
+    distances = np.linspace(0.05, max_d, 800)
 
+    # FSPL baseline (free-space, no terrain penalty)
+    fspl_rssi = [pred_rssi(d, 0) for d in distances]
+    ax.plot(distances, fspl_rssi, color="#546E7A", linewidth=2, linestyle="-",
+            label="FSPL baseline (free space)", zorder=3)
+
+    # Terrain curves (showing typical trail penalties)
     for terrain_label, extra_loss in TERRAIN_LOSS.items():
         rssi_vals = [pred_rssi(d, extra_loss) for d in distances]
-        ax.plot(distances, rssi_vals,
-                label=f"{terrain_label} (+{extra_loss} dB)",
-                color=TERRAIN_COLORS[terrain_label], linewidth=2.5)
+        ax.plot(distances, rssi_vals, linestyle="--",
+                label=f"{terrain_label} (+{extra_loss} dB loss)",
+                color=TERRAIN_COLORS[terrain_label], linewidth=1.5, alpha=0.7)
 
-    ax.axhline(-90,  color="#00C853", linestyle="--", linewidth=1.2, alpha=0.8, label="–90 dBm (strong)")
-    ax.axhline(-105, color="#FFD600", linestyle="--", linewidth=1.2, alpha=0.8, label="–105 dBm (marginal)")
-    ax.axhline(-120, color="#B71C1C", linestyle="--", linewidth=1.2, alpha=0.8, label="–120 dBm (link budget limit)")
+    # Reference lines
+    ax.axhline(-90,  color="#00C853", linestyle=":", linewidth=1.0, alpha=0.7, label="–90 dBm strong")
+    ax.axhline(-105, color="#FFD600", linestyle=":", linewidth=1.0, alpha=0.7, label="–105 dBm marginal")
+    ax.axhline(-120, color="#B71C1C", linestyle=":", linewidth=1.0, alpha=0.7, label="–120 dBm RX floor")
 
-    for terrain_label, extra_loss in TERRAIN_LOSS.items():
-        for d in distances:
-            if pred_rssi(d, extra_loss) < -120:
-                ax.annotate(
-                    f"{d:.1f} km",
-                    xy=(d, -120),
-                    xytext=(d + 0.3, -116),
-                    fontsize=8,
-                    color=TERRAIN_COLORS[terrain_label],
-                    arrowprops=dict(arrowstyle="->", color=TERRAIN_COLORS[terrain_label], lw=1),
-                )
-                break
+    # Known nodes — scatter coloured by hop plausibility
+    for mid, n in KNOWN_NODES.items():
+        obs = n.get("obs_rssi")
+        if obs is None:
+            continue
+        d_km = haversine_km(*SUMMIT, n["lat"], n["lon"])
+        color, label, detail = hop_plausibility(d_km, obs)
+        ax.scatter(d_km, obs, color=color, s=60, zorder=5,
+                   edgecolors="white", linewidths=0.6)
+        ax.annotate(
+            mid.replace("!", ""),
+            xy=(d_km, obs), xytext=(4, 3),
+            textcoords="offset points",
+            fontsize=6.5, color=color, alpha=0.9,
+        )
 
-    ax.set_xlabel("Distance from HEAD (km)", fontsize=12)
-    ax.set_ylabel("Predicted RSSI (dBm)", fontsize=12)
+    # Legend entries for plausibility colours
+    from matplotlib.lines import Line2D
+    legend_extra = [
+        Line2D([0], [0], marker="o", color="w", markerfacecolor="#43A047", markersize=8,
+               label="● Plausible direct link (obs within 20 dB of FSPL)"),
+        Line2D([0], [0], marker="o", color="w", markerfacecolor="#FB8C00", markersize=8,
+               label="● Possibly relayed (obs 20–40 dB above FSPL)"),
+        Line2D([0], [0], marker="o", color="w", markerfacecolor="#E53935", markersize=8,
+               label="● Almost certainly relayed (obs >40 dB above FSPL)"),
+    ]
+
+    ax.set_xlabel("Distance from Mt. Washington Summit (km)", fontsize=12)
+    ax.set_ylabel("Observed / Predicted RSSI (dBm)", fontsize=12)
     ax.set_title(
-        "Mt. Washington — Predicted LoRa Link Quality vs Distance\n"
+        "Mt. Washington — Observed RSSI vs FSPL Prediction  (hop plausibility validation)\n"
         f"915 MHz · TX {TX_POWER_DBM:.0f} dBm · Dipole · SF12 · RX sens {RX_SENS_DBM:.0f} dBm",
-        fontsize=12,
+        fontsize=11,
     )
-    ax.set_xlim(0, 25)
+    ax.set_xlim(0, max_d)
     ax.set_ylim(-140, -50)
-    ax.legend(loc="upper right", fontsize=9)
+
+    handles, labels = ax.get_legend_handles_labels()
+    ax.legend(handles + legend_extra, labels + [e.get_label() for e in legend_extra],
+              loc="upper right", fontsize=8, framealpha=0.9)
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     fig.tight_layout()
