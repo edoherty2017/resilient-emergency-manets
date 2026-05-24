@@ -196,6 +196,12 @@ RELAY_THRESHOLD_LIKELY_DB  = 20   # yellow — suspicious
 RELAY_THRESHOLD_CERTAIN_DB = 40   # red — almost certainly relayed
 
 
+def terrain_loss_db(elev_m: float) -> int:
+    if elev_m >= 1500: return 3
+    if elev_m >= 1200: return 15
+    return 25
+
+
 def hop_plausibility(d_km: float, obs_rssi: float) -> tuple[str, str, str]:
     """Return (color, label, detail) for FSPL-vs-observed deviation."""
     expected = pred_rssi(d_km)
@@ -600,6 +606,169 @@ for all distance/RSSI calculations on this map.
             max_width=240),
         icon=folium.Icon(color="blue", icon="star"),
     ).add_to(m)
+
+    # ── Relay node predictions ──────────────────────────────────────────────
+    # Two fixed relay nodes at each treeline crossing.  These are the minimum
+    # set that gives complete Good-quality trail coverage regardless of where
+    # the HEAD node is on the trail.
+    if TREELINE_AMMO and TREELINE_JEWELL and AMMO_ANIM and JEWELL_ANIM:
+        relay_fg = folium.FeatureGroup(name="Proposed relay nodes", show=False)
+        cov_fg   = folium.FeatureGroup(name="Trail coverage (relays active)", show=False)
+
+        anim_combined = AMMO_ANIM + JEWELL_ANIM  # [(lat, lon, elev_m), ...]
+
+        # Trailhead = first Ammo point; Jewell bottom = last Jewell anim point
+        ammo_trailhead  = (AMMO_ANIM[0][0],    AMMO_ANIM[0][1])
+        jewell_trailhead= (JEWELL_ANIM[-1][0],  JEWELL_ANIM[-1][1])
+
+        PROPOSED = [
+            {
+                "lat": TREELINE_AMMO[0],   "lon": TREELINE_AMMO[1],   "elev_m": 1205,
+                "name": "Relay A — Ammo Treeline",
+                "trail_side": "Ammonoosuc Ravine Trail",
+                "km_info": "~4.0 km from Ammo trailhead",
+                "forest_anchor": ammo_trailhead,
+                "forest_anchor_label": "Ammo trailhead (762 m)",
+            },
+            {
+                "lat": TREELINE_JEWELL[0], "lon": TREELINE_JEWELL[1], "elev_m": 1199,
+                "name": "Relay B — Jewell Treeline",
+                "trail_side": "Jewell Trail",
+                "km_info": "~3.9 km from Jewell trailhead",
+                "forest_anchor": jewell_trailhead,
+                "forest_anchor_label": "Jewell trailhead (~750 m)",
+            },
+        ]
+
+        relay_latlons = [(r["lat"], r["lon"], r["elev_m"]) for r in PROPOSED]
+
+        for rly in PROPOSED:
+            d_sum = haversine_km(rly["lat"], rly["lon"], *SUMMIT)
+            d_fst = haversine_km(rly["lat"], rly["lon"], *rly["forest_anchor"])
+            rssi_up   = pred_rssi(d_sum, 3)    # relay→summit: open alpine on both sides
+            rssi_down = pred_rssi(d_fst, 25)   # forest→relay: forest loss (worst side)
+            two_hop   = min(rssi_up, rssi_down)
+
+            # Baseline: direct forest trailhead → summit with no relay
+            d_direct    = haversine_km(*rly["forest_anchor"], *SUMMIT)
+            rssi_direct = pred_rssi(d_direct, 25)
+            gain_db     = two_hop - rssi_direct
+
+            popup_html = f"""
+<div style="font-family:monospace;font-size:12px;min-width:320px">
+<b style="font-size:14px">{rly['name']}</b><br>
+<span style="color:#7B1FA2">&#9679; Proposed fixed relay node</span>
+<hr style="margin:5px 0">
+<b>Location</b><br>
+&nbsp;GPS: ({rly['lat']:.4f}°N, {abs(rly['lon']):.4f}°W)<br>
+&nbsp;Elevation: ~{rly['elev_m']} m (treeline crossing)<br>
+&nbsp;Trail position: {rly['km_info']} on {rly['trail_side']}
+<hr style="margin:5px 0">
+<b>Why here?</b><br>
+The treeline (~1200 m) is the single best relay location because it sits
+exactly at the terrain transition. Dense forest below (+25 dB loss) limits
+range to ~5 km. Open alpine above (+3 dB) gives ~68 km range. A node here
+bridges both regimes with the shortest possible hop on each side.
+<hr style="margin:5px 0">
+<b>Link quality (both hops of the relay path)</b><br>
+&nbsp;Hop 1 &mdash; {rly['forest_anchor_label']} &rarr; this relay:<br>
+&nbsp;&nbsp;&nbsp;<b style="color:{rssi_to_color(rssi_down)}">{rssi_down:.0f} dBm</b>
+  &nbsp;{rssi_to_label(rssi_down)} &nbsp;({d_fst:.1f} km, +25 dB forest)
+<br>
+&nbsp;Hop 2 &mdash; This relay &rarr; Summit (1917 m):<br>
+&nbsp;&nbsp;&nbsp;<b style="color:{rssi_to_color(rssi_up)}">{rssi_up:.0f} dBm</b>
+  &nbsp;{rssi_to_label(rssi_up)} &nbsp;({d_sum:.1f} km, +3 dB alpine)
+<br>
+&nbsp;Two-hop weakest link: <b style="color:{rssi_to_color(two_hop)}">{two_hop:.0f} dBm</b><br>
+&nbsp;Direct trailhead&rarr;summit (no relay): <b style="color:{rssi_to_color(rssi_direct)}">{rssi_direct:.0f} dBm</b><br>
+&nbsp;Relay improvement: <b>+{gain_db:.0f} dB</b>
+<hr style="margin:5px 0">
+<b>Hardware</b><br>
+Same Heltec V3 as HEAD node. No GPS required (position is fixed and recorded).
+Weatherproof case + large LiPo or small solar panel. Place at the treeline
+before the hike; collect on the way down.
+</div>"""
+
+            folium.CircleMarker(
+                location=[rly["lat"], rly["lon"]],
+                radius=13, color="#6A1B9A", fill=True,
+                fill_color="#CE93D8", fill_opacity=0.92, weight=3,
+                tooltip=folium.Tooltip(
+                    f"<b>{rly['name']}</b><br>"
+                    f"Proposed fixed relay &mdash; click for link analysis",
+                    sticky=False),
+                popup=folium.Popup(popup_html, max_width=370),
+            ).add_to(relay_fg)
+
+            # Dashed line: this relay → summit (alpine hop)
+            folium.PolyLine(
+                [[rly["lat"], rly["lon"]], list(SUMMIT)],
+                color=rssi_to_color(rssi_up), weight=2.5, opacity=0.8,
+                dash_array="10 5",
+                tooltip=(
+                    f"{rly['name']} → Summit: {rssi_up:.0f} dBm "
+                    f"({rssi_to_label(rssi_up)}) — {d_sum:.1f} km, alpine (+3 dB)"
+                ),
+            ).add_to(relay_fg)
+
+            # Dashed line: relay → forest trailhead (forest hop)
+            folium.PolyLine(
+                [[rly["lat"], rly["lon"]], list(rly["forest_anchor"])],
+                color=rssi_to_color(rssi_down), weight=2.5, opacity=0.8,
+                dash_array="10 5",
+                tooltip=(
+                    f"Trailhead → {rly['name']}: {rssi_down:.0f} dBm "
+                    f"({rssi_to_label(rssi_down)}) — {d_fst:.1f} km, forest (+25 dB)"
+                ),
+            ).add_to(relay_fg)
+
+        # ── Trail segment coloring by relay coverage ────────────────────────
+        # Color each trail segment by the best RSSI it gets from any fixed relay
+        # (independent of HEAD position — shows where relays alone keep the
+        # mesh connected even when the HEAD is elsewhere on the trail).
+        step = max(1, len(anim_combined) // 120)
+        sampled = anim_combined[::step]
+
+        prev_seg_color = None
+        seg_pts: list = []
+
+        def flush_seg(pts, color):
+            if len(pts) >= 2:
+                folium.PolyLine(
+                    [p[:2] for p in pts],
+                    color=color, weight=5, opacity=0.75,
+                ).add_to(cov_fg)
+
+        for i, pt in enumerate(sampled):
+            lat, lon, elev = pt
+            # Best RSSI from any proposed relay to this point
+            best = max(
+                pred_rssi(
+                    haversine_km(lat, lon, r[0], r[1]),
+                    max(terrain_loss_db(elev), terrain_loss_db(r[2])),
+                )
+                for r in relay_latlons
+            )
+            if best >= -90:
+                seg_color = "#00C853"   # strong — well within relay range
+            elif best >= -105:
+                seg_color = "#FFD600"   # good — usable relay link
+            elif best >= -120:
+                seg_color = "#FF6D00"   # marginal
+            else:
+                seg_color = "#B71C1C"   # below sensitivity — relay gap
+
+            if seg_color != prev_seg_color:
+                flush_seg(seg_pts, prev_seg_color or seg_color)
+                seg_pts = [pt]
+                prev_seg_color = seg_color
+            else:
+                seg_pts.append(pt)
+
+        flush_seg(seg_pts, prev_seg_color or "#888")
+
+        relay_fg.add_to(m)
+        cov_fg.add_to(m)
 
     known_fg.add_to(m)
     hop_fg.add_to(m)
