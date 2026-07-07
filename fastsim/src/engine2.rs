@@ -1,0 +1,683 @@
+//! Event handlers + run loop.
+
+use crate::inputs::*;
+use crate::sim::*;
+use crate::solar::solar_power_w;
+use std::cmp::Reverse;
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
+
+const RX_GATE_DB: f64 = 220.0;
+
+impl Sim {
+    fn sched(&mut self, dt: f64, ev: Ev) -> u64 {
+        self.seq += 1;
+        let seq = self.seq;
+        self.heap.push(Reverse(Sched { t: self.now + dt, seq, ev }));
+        seq
+    }
+
+    pub fn run(&mut self) {
+        let end = self.p.days * 86400.0;
+        while let Some(Reverse(s)) = self.heap.pop() {
+            if s.t > end {
+                break;
+            }
+            self.now = s.t;
+            self.handle(s.ev, s.seq);
+        }
+        self.now = end;
+        self.final_prune();
+    }
+
+    fn handle(&mut self, ev: Ev, seq: u64) {
+        match ev {
+            Ev::Telemetry { node } => {
+                if self.nodes[node as usize].alive {
+                    let b = self.cfg.traffic.telemetry_payload_b;
+                    let f = self.new_flight2(node, Kind::Tel, b, Dest::Mqtt, false);
+                    self.csma2(node, f);
+                }
+                let iv = self.p.telemetry_iv * self.rng.uniform(0.9, 1.1);
+                self.sched(iv, Ev::Telemetry { node });
+            }
+            Ev::Beacon { node } => {
+                let n = &self.nodes[node as usize];
+                if n.alive && !n.docked && self.walking(node) {
+                    let b = self.cfg.traffic.position_payload_b;
+                    let f = self.new_flight2(node, Kind::Pos, b, Dest::Mqtt, false);
+                    self.csma2(node, f);
+                }
+                let iv = self.p.beacon_iv * self.rng.uniform(0.9, 1.1);
+                self.sched(iv, Ev::Beacon { node });
+            }
+            Ev::Family { node } => {
+                let n = &self.nodes[node as usize];
+                if n.alive && !n.docked && self.walking(node) {
+                    let b = self.cfg.traffic.sos_payload_b;
+                    let f = self.new_flight2(node, Kind::Fam, b, Dest::Mqtt, false);
+                    self.csma2(node, f);
+                }
+                let iv = self.rng.uniform(2700.0, 5400.0);
+                self.sched(iv, Ev::Family { node });
+            }
+            Ev::MsgPair { route, wa, wb, turn } => {
+                let ra = self.walkers[wa as usize].radio;
+                let rb = self.walkers[wb as usize].radio;
+                let mut next_turn = turn;
+                if let (Some(ra), Some(rb)) = (ra, rb) {
+                    let (a, b) = (&self.nodes[ra as usize], &self.nodes[rb as usize]);
+                    if a.alive && b.alive && !a.docked && !b.docked
+                        && self.walking(ra) && self.walking(rb)
+                    {
+                        let (src, dst) = if turn % 2 == 0 { (ra, rb) } else { (rb, ra) };
+                        let bytes = self.cfg.traffic.sos_payload_b;
+                        let f = self.new_flight2(src, Kind::Msg, bytes,
+                                                 Dest::Node(dst), true);
+                        self.csma2(src, f);
+                        next_turn += 1;
+                    }
+                }
+                let iv = self.rng.uniform(1800.0, 3600.0);
+                self.sched(iv, Ev::MsgPair { route, wa, wb, turn: next_turn });
+            }
+            Ev::SosDay { day } => {
+                let next_day_t = (day as f64 + 1.0) * 86400.0;
+                if self.rng.f64() <= 0.5 {
+                    let t_sos = day as f64 * 86400.0 + self.rng.uniform(13.0, 19.0) * 3600.0;
+                    let dt = (t_sos - self.now).max(0.0);
+                    self.sched(dt, Ev::SosSend { node: u32::MAX, sos_id: 0, stage: 0 });
+                }
+                if ((day + 1) as f64) < self.p.days.ceil() {
+                    self.sched((next_day_t - self.now).max(0.0),
+                               Ev::SosDay { day: day + 1 });
+                }
+            }
+            Ev::SosSend { node, sos_id, stage } => {
+                self.handle_sos(node, sos_id, stage);
+            }
+            Ev::TxAttempt { node, flight, tries, post_difs } => {
+                self.handle_tx_attempt(node, flight, tries, post_difs);
+            }
+            Ev::TxEnd { idx } => {
+                self.handle_tx_end(idx);
+            }
+            Ev::RebroadcastFire { node, key, seq: _, flight } => {
+                let n = &mut self.nodes[node as usize];
+                if n.pending.get(&key) == Some(&seq) {
+                    n.pending.remove(&key);
+                    self.csma2(node, flight);
+                }
+            }
+            Ev::EnergyStep => {
+                self.handle_energy();
+                self.sched(self.p.energy_step_s, Ev::EnergyStep);
+            }
+            Ev::SocSample => {
+                let mut socs: Vec<f64> = self.nodes.iter()
+                    .filter(|n| n.solar)
+                    .map(|n| n.soc_wh / n.cap_wh)
+                    .collect();
+                socs.sort_by(f64::total_cmp);
+                if !socs.is_empty() {
+                    let q = |p: f64| socs[((socs.len() - 1) as f64 * p) as usize];
+                    let mean = socs.iter().sum::<f64>() / socs.len() as f64;
+                    let var = socs.iter().map(|x| (x - mean).powi(2)).sum::<f64>()
+                        / socs.len() as f64;
+                    self.soc_series.push((self.now / 86400.0, q(0.10), q(0.50),
+                                          q(0.90), var.sqrt()));
+                }
+                self.sched(21600.0, Ev::SocSample);
+            }
+            Ev::Prune => {
+                let cutoff = self.now - 600.0;
+                let settled: Vec<u64> = self.pkt_meta.iter()
+                    .filter(|(_, m)| m.t0 < cutoff)
+                    .map(|(k, _)| *k)
+                    .collect();
+                for id in settled {
+                    let m = self.pkt_meta.remove(&id).unwrap();
+                    let e = self.agg.entry(m.origin).or_insert((0, 0, Vec::new()));
+                    e.0 += 1;
+                    if m.delivered {
+                        e.1 += 1;
+                        if e.2.len() < 2000 {
+                            e.2.push(m.latency);
+                        }
+                    }
+                }
+                for n in &mut self.nodes {
+                    if n.seen.len() > 20000 {
+                        n.seen.clear();
+                    }
+                }
+                self.sched(3600.0, Ev::Prune);
+            }
+            Ev::Dispatch { walker } => {
+                self.handle_dispatch(walker);
+            }
+            Ev::WalkEnd { walker } => {
+                let w = &mut self.walkers[walker as usize];
+                if let Some(radio) = w.radio.take() {
+                    let ret = w.return_kiosk;
+                    let n = &mut self.nodes[radio as usize];
+                    n.docked = true;
+                    n.kiosk = Some(ret);
+                    n.route = None;
+                }
+            }
+            Ev::Shuttle => {
+                self.handle_shuttle();
+                self.sched(86400.0, Ev::Shuttle);
+            }
+        }
+    }
+
+    fn walking(&self, node: u32) -> bool {
+        self.track_t2(node).is_some()
+    }
+
+    fn track_t2(&self, node: u32) -> Option<f64> {
+        let n = &self.nodes[node as usize];
+        let ri = n.route? as usize;
+        let tt = (self.now % 86400.0) - n.start_s;
+        if tt >= 0.0 && tt <= self.routes[ri].duration_s { Some(tt) } else { None }
+    }
+
+    fn handle_sos(&mut self, node: u32, sos_id: u64, stage: u32) {
+        if stage == 0 {
+            // pick whoever is actually out hiking right now
+            let out: Vec<u32> = (self.n_fixed..self.nodes.len())
+                .map(|i| i as u32)
+                .filter(|&i| {
+                    let n = &self.nodes[i as usize];
+                    n.alive && !n.docked && n.route.is_some()
+                })
+                .collect();
+            if out.is_empty() {
+                return;
+            }
+            let origin = out[self.rng.below(out.len())];
+            let bytes = self.cfg.traffic.sos_payload_b;
+            let mut f = self.new_flight2(origin, Kind::Sos, bytes, Dest::Mqtt, true);
+            let sid = f.id;
+            f.sos_id = sid;
+            self.sos_incidents.insert(sid, (self.now, 1, false, 0.0));
+            self.csma2(origin, f);
+            self.sched(30.0, Ev::SosSend { node: origin, sos_id: sid, stage: 100 });
+            self.sched(60.0, Ev::SosSend { node: origin, sos_id: sid, stage: 101 });
+            if self.p.sos_retry {
+                self.sched(300.0, Ev::SosSend { node: origin, sos_id: sid, stage: 1 });
+            }
+            return;
+        }
+        let n = &self.nodes[node as usize];
+        if !n.alive || n.docked {
+            return;
+        }
+        if stage >= 100 {
+            // beacon repeats (same incident, fresh transmission of a clone)
+            let bytes = self.cfg.traffic.sos_payload_b;
+            let mut f = self.new_flight2(node, Kind::Sos, bytes, Dest::Mqtt, true);
+            f.sos_id = sos_id;
+            self.csma2(node, f);
+            return;
+        }
+        // 5-minute retries until ACK, up to 24
+        if self.sos_acked.contains(&sos_id) || stage > 24 {
+            return;
+        }
+        if let Some(inc) = self.sos_incidents.get_mut(&sos_id) {
+            inc.1 += 1;
+        }
+        let bytes = self.cfg.traffic.sos_payload_b;
+        let mut f = self.new_flight2(node, Kind::Sos, bytes, Dest::Mqtt, true);
+        f.sos_id = sos_id;
+        self.csma2(node, f);
+        self.sched(300.0, Ev::SosSend { node, sos_id, stage: stage + 1 });
+    }
+
+    fn handle_tx_attempt(&mut self, node: u32, flight: Flight, tries: u32,
+                         post_difs: bool) {
+        if !self.nodes[node as usize].alive {
+            return;
+        }
+        let prio = flight.okind == Kind::Sos;
+        let max_tries = if prio { 200 } else { 30 };
+        if tries >= max_tries {
+            return;
+        }
+        let busy = self.channel_busy_at2(node);
+        if !post_difs {
+            if busy {
+                let d = self.rng.uniform(1.0, if prio { 2.0 } else { 8.0 }) * SLOT_S;
+                self.sched(d, Ev::TxAttempt { node, flight, tries: tries + 1,
+                                              post_difs: false });
+            } else {
+                let d = self.rng.uniform(0.0, if prio { 1.0 } else { 3.0 }) * SLOT_S;
+                self.sched(d, Ev::TxAttempt { node, flight, tries, post_difs: true });
+            }
+            return;
+        }
+        if busy {
+            self.sched(0.0, Ev::TxAttempt { node, flight, tries: tries + 1,
+                                            post_difs: false });
+            return;
+        }
+        self.transmit(node, flight);
+    }
+
+    fn transmit(&mut self, sender: u32, flight: Flight) {
+        let mut air = self.airtime_s2(flight.bytes);
+        if self.p.mode.is_duty() {
+            air += self.rng.uniform(0.0, T_SNIFF_S);
+        }
+        let mut rssi_at = Vec::new();
+        for j in 0..self.nodes.len() as u32 {
+            if j == sender {
+                continue;
+            }
+            let nj = &self.nodes[j as usize];
+            if !nj.alive || nj.docked {
+                continue;
+            }
+            let loss = self.loss_db(sender, j);
+            if loss > RX_GATE_DB {
+                continue;
+            }
+            let sh = self.shadow_sample2(sender, j);
+            rssi_at.push((j, self.cfg.radio.eirp_dbm - loss + sh));
+        }
+        let end = self.now + air;
+        let idx = self.next_tx_idx;
+        self.next_tx_idx += 1;
+        self.active.insert(idx, ActiveTx {
+            start: self.now, end, sender, rssi_at, flight: flight.clone(),
+        });
+        {
+            let e = &self.cfg.energy;
+            let etx = (e.tx_current_ma - e.rx_listen_ma) / 1000.0 * e.battery_v
+                * air / 3600.0;
+            let n = &mut self.nodes[sender as usize];
+            n.tx_until = end;
+            n.stats.tx += 1;
+            n.stats.tx_airtime_s += air;
+            n.stats.energy_tx_wh += etx;
+            if flight.is_fwd {
+                n.fwd_ewma = 0.995 * n.fwd_ewma + 1.0;
+            }
+            if !n.grid {
+                n.soc_wh -= etx;
+            }
+        }
+        self.total_airtime_s += air;
+        self.sched(air, Ev::TxEnd { idx });
+    }
+
+    fn handle_tx_end(&mut self, idx: u64) {
+        let Some(tx) = self.active.remove(&idx) else { return };
+        let noise = self.noise_dbm2();
+        let r = &self.cfg.radio;
+        let (sens, demod, capture) =
+            (r.rx_sensitivity_dbm, r.snr_demod_threshold_db, r.capture_threshold_db);
+        let sender_fixed = !self.nodes[tx.sender as usize].is_radio;
+        for &(rx, rssi) in &tx.rssi_at {
+            let node = &self.nodes[rx as usize];
+            if !node.alive {
+                continue;
+            }
+            if node.tx_until > tx.start {
+                continue; // half-duplex
+            }
+            let mut worst_i = f64::NEG_INFINITY;
+            for other in self.active.values() {
+                if other.sender != rx && other.start < tx.end && other.end > tx.start {
+                    if let Some(&(_, ri)) =
+                        other.rssi_at.iter().find(|(n, _)| *n == rx)
+                    {
+                        worst_i = worst_i.max(ri);
+                    }
+                }
+            }
+            let snr = rssi - noise;
+            let ok = rssi >= sens && snr >= demod;
+            if sender_fixed && !self.nodes[rx as usize].is_radio {
+                let key = if tx.sender < rx { (tx.sender, rx) } else { (rx, tx.sender) };
+                let lh = self.link_health.entry(key)
+                    .or_insert(LinkHealth { tries: 0, ok: 0, margin_sum: 0.0 });
+                lh.tries += 1;
+                lh.margin_sum += rssi - sens;
+                if ok && worst_i <= rssi - capture {
+                    lh.ok += 1;
+                }
+            }
+            if ok && worst_i > rssi - capture {
+                self.nodes[rx as usize].stats.collisions += 1;
+                continue;
+            }
+            if !ok {
+                continue;
+            }
+            self.nodes[rx as usize].stats.rx_ok += 1;
+            self.on_receive(rx, &tx.flight, snr);
+        }
+    }
+
+    fn on_receive(&mut self, rx: u32, flight: &Flight, snr: f64) {
+        let key = (flight.origin, flight.id);
+        {
+            let node = &mut self.nodes[rx as usize];
+            if node.seen.contains(&key) {
+                if node.pending.remove(&key).is_some() {
+                    node.stats.dup_suppressed += 1;
+                }
+                return;
+            }
+            node.seen.insert(key);
+        }
+        let k0 = flight.okind;
+        let node_mqtt = self.nodes[rx as usize].mqtt;
+        let arrived = match flight.dest {
+            Dest::Mqtt => node_mqtt,
+            Dest::Node(d) => rx == d,
+        };
+        if k0 == Kind::Ack && matches!(flight.dest, Dest::Node(d) if d == rx) {
+            self.sos_acked.insert(flight.ack_for);
+        }
+        if arrived {
+            let mut first_delivery = false;
+            if let Some(m) = self.pkt_meta.get_mut(&flight.id) {
+                if !m.delivered {
+                    m.delivered = true;
+                    m.latency = self.now - m.t0;
+                    first_delivery = true;
+                }
+            }
+            if first_delivery && k0 == Kind::Sos {
+                if let Some(inc) = self.sos_incidents.get_mut(&flight.sos_id) {
+                    if !inc.2 {
+                        inc.2 = true;
+                        inc.3 = self.now - inc.0;
+                    }
+                }
+            }
+            if first_delivery && self.p.sos_retry && k0 == Kind::Sos && node_mqtt {
+                let mut ack = self.new_flight2(rx, Kind::Ack, 16,
+                                               Dest::Node(flight.origin), true);
+                ack.hop_limit = 6;
+                ack.ack_for = flight.sos_id;
+                self.csma2(rx, ack);
+            }
+        }
+        if self.p.mode == Mode::Flood || flight.flood {
+            let is_radio = self.nodes[rx as usize].is_radio;
+            if flight.hop_limit > 0 && !is_radio {
+                let mut fwd = flight.clone();
+                fwd.hop_limit -= 1;
+                fwd.is_fwd = true;
+                let slots = if k0 == Kind::Sos {
+                    1.2
+                } else {
+                    2.0 + 6.0 * ((snr + 20.0) / 30.0).clamp(0.0, 1.0)
+                };
+                let delay = self.rng.uniform(1.0, slots.max(1.0001)) * SLOT_S * 8.0;
+                let reg = self.sched(delay, Ev::RebroadcastFire {
+                    node: rx, key, seq: 0, flight: fwd,
+                });
+                self.nodes[rx as usize].pending.insert(key, reg);
+            }
+        } else if let Some(route) = &flight.route {
+            if let Some(pos) = route.iter().position(|&n| n == rx) {
+                if pos + 1 < route.len() && flight.hop_limit > 0 {
+                    let mut fwd = flight.clone();
+                    fwd.hop_limit -= 1;
+                    fwd.is_fwd = true;
+                    self.csma2(rx, fwd);
+                }
+            }
+        }
+    }
+
+    fn handle_energy(&mut self) {
+        let step = self.p.energy_step_s;
+        let day = self.day2();
+        let (kt, snow) = self.kt_snow2(day);
+        let doy = 1 + (self.start_doy as usize + day - 1) % 365;
+        let e_batt_v = self.cfg.energy.battery_v;
+        let rx_w = self.cfg.energy.rx_listen_ma / 1000.0 * e_batt_v;
+        let sleep_w = self.cfg.energy.light_sleep_ma / 1000.0 * e_batt_v;
+        let gps_w = self.cfg.energy.gps_active_ma / 1000.0 * e_batt_v;
+        let sec_of_day = self.now % 86400.0;
+        let mut tree_dirty = false;
+        for i in 0..self.nodes.len() {
+            let (is_grid, is_docked) = {
+                let n = &self.nodes[i];
+                (n.grid, n.docked)
+            };
+            if is_grid {
+                continue;
+            }
+            if is_docked {
+                let n = &mut self.nodes[i];
+                n.soc_wh = (n.soc_wh + KIOSK_CHARGE_W * step / 3600.0).min(n.cap_wh);
+                if !n.alive && n.soc_wh >= REVIVE_FRACTION * n.cap_wh {
+                    n.alive = true;
+                    tree_dirty = true;
+                }
+                continue;
+            }
+            let (duty, is_radio, is_solar, lat, lon) = {
+                let n = &self.nodes[i];
+                (n.duty, n.is_radio, n.solar, n.lat, n.lon)
+            };
+            let mut drain = (duty * rx_w + (1.0 - duty) * sleep_w) / 3600.0 * step;
+            if is_radio {
+                drain += gps_w / 3600.0 * step;
+            }
+            if is_solar {
+                let gain = {
+                    let n = &self.nodes[i];
+                    n.site_solar.as_ref().map_or(0.0, |ss| {
+                        snow * solar_power_w(lat, lon, doy as u32, sec_of_day, kt,
+                                             &n.horizon, ss,
+                                             self.cfg.solar.panel_w_nominal,
+                                             self.cfg.solar.system_efficiency)
+                    }) * step / 3600.0
+                };
+                let n = &mut self.nodes[i];
+                n.soc_wh = (n.soc_wh + gain).min(n.cap_wh);
+                n.stats.solar_wh += gain;
+            }
+            let n = &mut self.nodes[i];
+            if n.alive {
+                n.soc_wh -= drain;
+                if n.soc_wh <= 0.0 {
+                    n.soc_wh = 0.0;
+                    n.alive = false;
+                    n.stats.deaths += 1;
+                    n.death_score = 0.7 * n.death_score + 1.0;
+                    tree_dirty = true;
+                }
+            } else if n.soc_wh >= REVIVE_FRACTION * n.cap_wh {
+                n.alive = true;
+                tree_dirty = true;
+            }
+        }
+        if tree_dirty {
+            self.route_tree_t = -1e18;
+        }
+    }
+
+    fn handle_dispatch(&mut self, walker: u32) {
+        let w = &self.walkers[walker as usize];
+        let (kiosk, route, start_s) = (w.kiosk, w.route, w.start_s);
+        self.rental.walker_days += 1;
+        let pool: Vec<u32> = (self.n_fixed..self.nodes.len())
+            .map(|i| i as u32)
+            .filter(|&i| {
+                let n = &self.nodes[i as usize];
+                n.docked && n.kiosk == Some(kiosk)
+            })
+            .collect();
+        if pool.is_empty() {
+            self.rental.starved += 1;
+            self.sched(86400.0, Ev::Dispatch { walker });
+            return;
+        }
+        let best = *pool.iter()
+            .max_by(|&&a, &&b| self.nodes[a as usize].soc_wh
+                .total_cmp(&self.nodes[b as usize].soc_wh))
+            .unwrap();
+        self.rental.served += 1;
+        self.rental.checkout_soc_sum +=
+            self.nodes[best as usize].soc_wh / self.nodes[best as usize].cap_wh;
+        {
+            let n = &mut self.nodes[best as usize];
+            n.docked = false;
+            n.route = Some(route);
+            n.start_s = start_s;
+        }
+        self.walkers[walker as usize].radio = Some(best);
+        let dur = self.routes[route as usize].duration_s;
+        self.sched(dur, Ev::WalkEnd { walker });
+        self.sched(86400.0, Ev::Dispatch { walker });
+    }
+
+    fn handle_shuttle(&mut self) {
+        let mut demand: HashMap<u32, i64> = HashMap::new();
+        for w in &self.walkers {
+            *demand.entry(w.kiosk).or_insert(0) += 1;
+        }
+        let mut docked: HashMap<u32, Vec<u32>> = HashMap::new();
+        for i in self.n_fixed..self.nodes.len() {
+            let n = &self.nodes[i];
+            if n.docked {
+                if let Some(k) = n.kiosk {
+                    docked.entry(k).or_default().push(i as u32);
+                }
+            }
+        }
+        let mut kiosks: Vec<u32> = demand.keys().copied().collect();
+        kiosks.sort();
+        for kiosk in kiosks {
+            let need = demand[&kiosk];
+            loop {
+                let have = docked.get(&kiosk).map_or(0, |v| v.len() as i64);
+                if have >= need {
+                    break;
+                }
+                // donor: kiosk with the largest surplus
+                let donor = docked.iter()
+                    .filter(|(k, v)| **k != kiosk
+                        && (v.len() as i64) > *demand.get(k).unwrap_or(&0))
+                    .max_by_key(|(k, v)| v.len() as i64 - *demand.get(k).unwrap_or(&0))
+                    .map(|(k, _)| *k);
+                let Some(src) = donor else { break };
+                // move the worst-charged surplus radio
+                let radio = {
+                    let pool = docked.get_mut(&src).unwrap();
+                    let (pos, _) = pool.iter().enumerate()
+                        .min_by(|(_, &a), (_, &b)| self.nodes[a as usize].soc_wh
+                            .total_cmp(&self.nodes[b as usize].soc_wh))
+                        .unwrap();
+                    pool.swap_remove(pos)
+                };
+                self.nodes[radio as usize].kiosk = Some(kiosk);
+                docked.entry(kiosk).or_default().push(radio);
+            }
+        }
+    }
+
+    pub fn final_prune(&mut self) {
+        let ids: Vec<u64> = self.pkt_meta.keys().copied().collect();
+        for id in ids {
+            let m = self.pkt_meta.remove(&id).unwrap();
+            let e = self.agg.entry(m.origin).or_insert((0, 0, Vec::new()));
+            e.0 += 1;
+            if m.delivered {
+                e.1 += 1;
+                if e.2.len() < 2000 {
+                    e.2.push(m.latency);
+                }
+            }
+        }
+    }
+
+    // thin aliases so sim.rs fields stay private-ish to this module pair
+    fn day2(&self) -> usize { (self.now / 86400.0) as usize }
+    fn kt_snow2(&self, day: usize) -> (f64, f64) {
+        let i = day.min(self.weather.len().saturating_sub(1));
+        self.weather[i]
+    }
+    fn channel_busy_at2(&self, node: u32) -> bool {
+        for tx in self.active.values() {
+            if tx.start <= self.now && self.now < tx.end
+                && tx.rssi_at.iter().any(|(n, r)| *n == node && *r >= CARRIER_SENSE_DBM)
+            {
+                return true;
+            }
+        }
+        false
+    }
+    fn airtime_s2(&mut self, bytes: u32) -> f64 {
+        let r = &self.cfg.radio;
+        if let Some(&v) = self.airtime_lut.get(&bytes) {
+            return v;
+        }
+        let v = airtime_ms(bytes, r.sf, r.bw_hz, r.cr, r.preamble_syms) / 1000.0;
+        self.airtime_lut.insert(bytes, v);
+        v
+    }
+    fn noise_dbm2(&self) -> f64 {
+        -174.0 + 10.0 * self.cfg.radio.bw_hz.log10() + self.cfg.radio.noise_figure_db
+    }
+    fn shadow_sample2(&mut self, a: u32, b: u32) -> f64 {
+        let key = if a < b { (a, b) } else { (b, a) };
+        let sh_sigma = self.cfg.shadowing.sigma_db;
+        let sh_fast = self.cfg.shadowing.fast_fading_db;
+        let sh_tau = self.cfg.shadowing.coherence_s;
+        let z1 = self.rng.normal();
+        let z2 = self.rng.normal();
+        let val = match self.shadow.get(&key) {
+            None => z1 * sh_sigma,
+            Some(&(v0, t0)) => {
+                let rho = (-(self.now - t0).max(0.0) / sh_tau).exp();
+                rho * v0 + (1.0 - rho * rho).sqrt() * sh_sigma * z1
+            }
+        };
+        self.shadow.insert(key, (val, self.now));
+        val + sh_fast * z2
+    }
+    fn new_flight2(&mut self, origin: u32, kind: Kind, bytes: u32,
+                   dest: Dest, flood: bool) -> Flight {
+        self.pkt_seq += 1;
+        let id = self.pkt_seq;
+        self.pkt_meta.insert(id, PktMeta {
+            origin, t0: self.now, delivered: false, latency: 0.0,
+        });
+        let mut route = None;
+        if self.p.mode.is_routed() && !flood && matches!(dest, Dest::Mqtt) {
+            route = self.route_to_mqtt2(origin).map(Arc::new);
+        }
+        {
+            let node = &mut self.nodes[origin as usize];
+            node.seen.insert((origin, id));
+        }
+        if self.nodes[origin as usize].mqtt && matches!(dest, Dest::Mqtt) {
+            if let Some(m) = self.pkt_meta.get_mut(&id) {
+                m.delivered = true;
+            }
+        }
+        Flight {
+            id, origin, okind: kind, bytes,
+            hop_limit: self.cfg.radio.hop_limit,
+            dest, flood, route, sos_id: 0, ack_for: 0, is_fwd: false,
+        }
+    }
+    fn csma2(&mut self, node: u32, flight: Flight) {
+        self.sched(0.0, Ev::TxAttempt { node, flight, tries: 0, post_difs: false });
+    }
+    fn route_to_mqtt2(&mut self, origin: u32) -> Option<Vec<u32>> {
+        self.route_to_mqtt_public(origin)
+    }
+}
