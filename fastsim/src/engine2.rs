@@ -170,6 +170,14 @@ impl Sim {
                 self.handle_shuttle();
                 self.sched(86400.0, Ev::Shuttle);
             }
+            Ev::OutageStart { node } => {
+                self.nodes[node as usize].alive = false;
+                self.route_tree_t = -1e18;
+            }
+            Ev::OutageEnd { node } => {
+                self.nodes[node as usize].alive = true;
+                self.route_tree_t = -1e18;
+            }
         }
     }
 
@@ -279,6 +287,10 @@ impl Sim {
             }
             let nj = &self.nodes[j as usize];
             if !nj.alive || nj.docked {
+                continue;
+            }
+            if self.p.regional_channels
+                && nj.channel != self.nodes[sender as usize].channel {
                 continue;
             }
             let loss = self.loss_db(sender, j);
@@ -444,7 +456,10 @@ impl Sim {
         let (kt, snow) = self.kt_snow2(day);
         let doy = 1 + (self.start_doy as usize + day - 1) % 365;
         let e_batt_v = self.cfg.energy.battery_v;
-        let rx_w = self.cfg.energy.rx_listen_ma / 1000.0 * e_batt_v;
+        let relay_ma = if self.p.relay_rx_ma > 0.0 { self.p.relay_rx_ma }
+                       else { self.cfg.energy.rx_listen_ma };
+        let hiker_ma = if self.p.hiker_rx_ma > 0.0 { self.p.hiker_rx_ma }
+                       else { self.cfg.energy.rx_listen_ma };
         let sleep_w = self.cfg.energy.light_sleep_ma / 1000.0 * e_batt_v;
         let gps_w = self.cfg.energy.gps_active_ma / 1000.0 * e_batt_v;
         let sec_of_day = self.now % 86400.0;
@@ -470,6 +485,8 @@ impl Sim {
                 let n = &self.nodes[i];
                 (n.duty, n.is_radio, n.solar, n.lat, n.lon)
             };
+            let rx_w = (if is_radio { hiker_ma } else { relay_ma })
+                / 1000.0 * e_batt_v;
             let mut drain = (duty * rx_w + (1.0 - duty) * sleep_w) / 3600.0 * step;
             if is_radio {
                 drain += gps_w / 3600.0 * step;
@@ -532,10 +549,12 @@ impl Sim {
         self.rental.checkout_soc_sum +=
             self.nodes[best as usize].soc_wh / self.nodes[best as usize].cap_wh;
         {
+            let ch = self.nodes[kiosk as usize].channel;
             let n = &mut self.nodes[best as usize];
             n.docked = false;
             n.route = Some(route);
             n.start_s = start_s;
+            n.channel = ch;
         }
         self.walkers[walker as usize].radio = Some(best);
         let dur = self.routes[route as usize].duration_s;

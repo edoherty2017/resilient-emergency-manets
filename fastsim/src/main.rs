@@ -68,6 +68,19 @@ fn main() {
         beacon_iv: arg(&args, "beacon-interval-s", "900").parse().unwrap(),
         route_refresh_s: arg(&args, "route-refresh-s", "3600").parse().unwrap(),
         energy_step_s: arg(&args, "energy-step-s", "600").parse().unwrap(),
+        relay_rx_ma: arg(&args, "relay-rx-ma", "0").parse().unwrap(),
+        hiker_rx_ma: arg(&args, "hiker-rx-ma", "0").parse().unwrap(),
+        regional_channels: flags.iter().any(|f| f == "regional-channels"),
+        outages: arg(&args, "outage", "")
+            .split(',')
+            .filter(|s| !s.is_empty())
+            .filter_map(|spec| {
+                let p: Vec<&str> = spec.split(':').collect();
+                (p.len() == 3).then(|| (p[0].to_string(),
+                    p[1].parse().ok()?, p[2].parse().ok()?).into())
+                    .and_then(|t: Option<(String, f64, f64)>| t)
+            })
+            .collect(),
     };
     let mode_name = arg(&args, "mode", "lb_energy");
     let out_path = arg(&args, "out", "fastsim_summary.json");

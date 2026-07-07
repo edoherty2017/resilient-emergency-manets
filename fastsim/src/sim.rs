@@ -102,6 +102,7 @@ pub struct Node {
     pub docked: bool,
     pub duty: f64,
     pub is_radio: bool,
+    pub channel: u8,
     pub kiosk: Option<u32>,          // fixed-site index of current box
     pub route: Option<u32>,
     pub start_s: f64,
@@ -145,6 +146,8 @@ pub enum Ev {
     Dispatch { walker: u32 },
     WalkEnd { walker: u32 },
     Shuttle,
+    OutageStart { node: u32 },
+    OutageEnd { node: u32 },
 }
 
 pub struct Sched {
@@ -190,6 +193,10 @@ pub struct Params {
     pub beacon_iv: f64,
     pub route_refresh_s: f64,
     pub energy_step_s: f64,
+    pub relay_rx_ma: f64,   // fixed-site listen current (0 = config value)
+    pub hiker_rx_ma: f64,   // rental-radio listen current (0 = config value)
+    pub regional_channels: bool,
+    pub outages: Vec<(String, f64, f64)>, // (site, start_day, end_day)
 }
 
 pub struct Sim {

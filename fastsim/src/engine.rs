@@ -46,7 +46,7 @@ impl Sim {
                 soc_wh: cfg.battery.capacity_wh * cfg.battery.usable_fraction
                     * cfg.battery.start_soc,
                 alive: true, docked: false, duty: 1.0,
-                is_radio: false, kiosk: None, route: None, start_s: 0.0,
+                is_radio: false, channel: 0, kiosk: None, route: None, start_s: 0.0,
                 tx_until: -1.0, fwd_ewma: 0.0, death_score: 0.0,
                 seen: HashSet::new(), pending: HashMap::new(),
                 stats: NodeStats::default(),
@@ -70,6 +70,32 @@ impl Sim {
             if margin >= 3.0 {
                 fixed_adj[ia as usize].push((ib, margin));
                 fixed_adj[ib as usize].push((ia, margin));
+            }
+        }
+
+        // regional channels: connected components of the usable-link graph
+        // (each gateway region = one frequency; MQTT backhaul bridges them)
+        let mut comp = vec![u32::MAX; n_fixed];
+        let mut next_comp = 0u32;
+        for start in 0..n_fixed {
+            if comp[start] != u32::MAX {
+                continue;
+            }
+            let mut stack = vec![start];
+            comp[start] = next_comp;
+            while let Some(u) = stack.pop() {
+                for &(v, _) in &fixed_adj[u] {
+                    if comp[v as usize] == u32::MAX {
+                        comp[v as usize] = next_comp;
+                        stack.push(v as usize);
+                    }
+                }
+            }
+            next_comp += 1;
+        }
+        if p.regional_channels {
+            for i in 0..n_fixed {
+                nodes[i].channel = (comp[i] % 250) as u8;
             }
         }
 
@@ -121,7 +147,8 @@ impl Sim {
                     cap_wh: cfg.battery.capacity_wh * cfg.battery.usable_fraction,
                     soc_wh: cfg.battery.capacity_wh * cfg.battery.usable_fraction,
                     alive: true, docked: true, duty: 1.0,
-                    is_radio: true, kiosk: Some(kiosk), route: None, start_s: 0.0,
+                    is_radio: true, channel: 0, kiosk: Some(kiosk), route: None,
+                    start_s: 0.0,
                     tx_until: -1.0, fwd_ewma: 0.0, death_score: 0.0,
                     seen: HashSet::new(), pending: HashMap::new(),
                     stats: NodeStats::default(),
@@ -194,6 +221,15 @@ impl Sim {
             self.push(t0, Ev::Dispatch { walker: wi as u32 });
         }
         self.push(0.0, Ev::SosDay { day: 0 });
+        let outages = self.p.outages.clone();
+        for (site, d0, d1) in outages {
+            if let Some(&idx) = self.name_to_idx.get(&site) {
+                self.push(d0 * 86400.0, Ev::OutageStart { node: idx });
+                self.push(d1 * 86400.0, Ev::OutageEnd { node: idx });
+            } else {
+                eprintln!("outage site not found: {site}");
+            }
+        }
         self.push(self.p.energy_step_s, Ev::EnergyStep);
         self.push(21600.0, Ev::SocSample);
         self.push(3600.0, Ev::Prune);
