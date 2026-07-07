@@ -1,0 +1,5 @@
+{
+  "node": "meshnode1",
+  "ok": false,
+  "error": "jsonl not found: /tmp/manet_ingest/meshnode1/jsonl/telemetry_stream.jsonl"
+}

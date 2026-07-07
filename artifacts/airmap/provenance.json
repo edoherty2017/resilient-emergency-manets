@@ -1,10 +1,10 @@
 {
-  "run_id": "dryrun-20260517T040159Z",
-  "git_commit": "7ebaf0262ec4482c4d69e2817833ed1528d7dbcc",
-  "model_name": "itm_longley_rice_baseline",
-  "model_version": "0.1.0",
-  "model_hash": "TBD_PINNED_HASH",
-  "feature_recipe_version": "v0.1.0",
-  "calibration_version": "v0.1.0",
-  "generated_at_utc": "2026-05-17T04:01:59.815962+00:00"
+  "run_id": "dryrun-20260615T140220Z",
+  "git_commit": "1e247ad3b1d4d9129530459f164df1ec766fc957",
+  "model_name": "fspl_baseline",
+  "model_version": "1.0.0",
+  "model_hash": "cfbfb162025dbe815381cb3db71f0f41883ec6da0201758c79a610d0e1936dee",
+  "feature_recipe_version": "v1.0.0",
+  "calibration_version": "v1.0.0",
+  "generated_at_utc": "2026-06-15T14:02:20.196409+00:00"
 }

@@ -37,6 +37,16 @@ def _file_entry(rel: str) -> dict:
     return {"path": rel, "exists": p.exists(), "size_bytes": p.stat().st_size if p.exists() else 0}
 
 
+def _fmt(value, spec: str = "", default: str = "—") -> str:
+    """None-safe number formatting for the markdown tables."""
+    if value is None:
+        return default
+    try:
+        return format(value, spec) if spec else str(value)
+    except (ValueError, TypeError):
+        return str(value)
+
+
 def main() -> int:
     out_dir = ROOT / "artifacts/release"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -59,6 +69,15 @@ def main() -> int:
     overlay_s   = _read_json(ROOT / "artifacts/overlay/overlay_summary.json")
     transition  = _read_json(ROOT / "artifacts/overlay/transition_window_summary.json")
     p6_idx      = _read_json(ROOT / "artifacts/release/p6_artifact_index.json")
+    itm_sum     = _read_json(ROOT / "artifacts/itm/itm_summary.json")
+    airtime     = _read_json(ROOT / "artifacts/itm/lora_airtime.json")
+    pdr_sum     = _read_json(ROOT / "artifacts/pdr/pdr_summary.json")
+
+    # Calibration-eligible block is the only evidence-grade error number; the
+    # top-level mae/rmse in metrics_global is the all-matched shakeout view.
+    cal_elig = metrics_g.get("calibration_eligible", {}) if isinstance(metrics_g, dict) else {}
+    held_out = (cal.get("blocked_cv") or {}).get("held_out_rmse_db", {}) if cal else {}
+    fit = cal.get("floating_intercept") if cal else None
 
     pipeline = [
         {
@@ -93,14 +112,14 @@ def main() -> int:
             ],
             "gate": "PASS" if quality_g.get("passed") else "FAIL",
             "key_metrics": {
-                "rows_total": metrics_g.get("n") and join_q.get("matched_count") and (
-                    join_q["matched_count"] + join_q.get("missing_observation_metric_count", 0)
-                ),
-                "rows_with_rssi": metrics_g.get("n"),
-                "metric_source": metrics_g.get("metric_target"),
-                "mae_db": metrics_g.get("mae"),
-                "rmse_db": metrics_g.get("rmse"),
-                "residual_bias_db": cal.get("residual_bias_db"),
+                "rows_with_metric": metrics_g.get("n"),
+                "calibration_eligible_n": cal_elig.get("n"),
+                "baseline_predictor": cal.get("baseline_predictor"),
+                "calibration_method": cal.get("calibration_method"),
+                "path_loss_exponent": (fit or {}).get("path_loss_exponent"),
+                "shadowing_sigma_db": (fit or {}).get("sigma_db"),
+                "held_out_rmse_db": held_out,
+                "eligible_rmse_db": cal_elig.get("rmse"),
                 "join_matched_pct": join_q.get("matched_pct"),
                 "model_name": provenance.get("model_name"),
                 "model_version": provenance.get("model_version"),
@@ -184,12 +203,49 @@ def main() -> int:
         },
     ]
 
+    # ── Standalone analyses (not part of the per-row pipeline gate) ───────────
+    itm_links = itm_sum.get("links", []) if isinstance(itm_sum, dict) else []
+    itm_gap = itm_sum.get("gap_segment") if isinstance(itm_sum, dict) else None
+    analyses = {
+        "itm_terrain_link_analysis": {
+            "script": "scripts/itm_relay_links.py (+ dem_3dep.py)",
+            "model": itm_sum.get("model"),
+            "n_links": len(itm_links),
+            "gap_pct_meets_planning_threshold": (itm_gap or {}).get("pct_meets_planning_threshold"),
+            "gap_pct_meets_sensitivity": (itm_gap or {}).get("pct_meets_sensitivity"),
+            "outputs": [
+                _file_entry("artifacts/itm/relay_links_itm.csv"),
+                _file_entry("artifacts/itm/gap_segment_itm_coverage.csv"),
+                _file_entry("artifacts/itm/itm_summary.json"),
+            ],
+        },
+        "lora_airtime_capacity": {
+            "script": "scripts/lora_airtime.py",
+            "sos_text_airtime_ms": (airtime.get("airtime_ms") or {}).get("sos_text_~64B"),
+            "sos_chain_serial_ms": (airtime.get("sos_chain") or {}).get("serial_airtime_ms"),
+            "per_node_utilization_pct": (airtime.get("channel_utilization") or {}).get("per_node_utilization_pct"),
+            "outputs": [_file_entry("artifacts/itm/lora_airtime.json")],
+        },
+        "pdr_controlled_beacon": {
+            "script": "scripts/pdr_analysis.py",
+            "available": bool(pdr_sum),
+            "pdr_overall": pdr_sum.get("pdr_overall"),
+            "pdr_overall_wilson95": pdr_sum.get("pdr_overall_wilson95"),
+            "note": None if pdr_sum else "no controlled-beacon trial run yet (Trial 2 deliverable)",
+            "outputs": [
+                _file_entry("artifacts/pdr/pdr_summary.json"),
+                _file_entry("artifacts/pdr/pdr_stratified.csv"),
+            ],
+        },
+    }
+
     known_limitations = [
-        "rsrp_dbm is null for all records — pipeline runs on rssi_dbm fallback and labels it in all artifacts.",
-        "GNSS fix rate is low (1143/64001 rows = 1.8%) — location-stratified analysis uses synthetic route interpolation.",
-        "Starlink data covers only the last ~2.5h of a 4-day collection window (106 connected rows); density will grow with each session.",
-        "meshnode1 (hiker node) is offline (SD card fault, being reflashed) — all data is single-node; multi-hop propagation analysis pending.",
-        "Weather guard uses synthetic defaults (no live weather feed wired yet).",
+        "rsrp_dbm is null for all LoRa records — RSSI/ESP is the correct metric; RSRP is a cellular concept (category error). Proposal scope amendment pending.",
+        "No calibration-grade rows from Trial 1 (no hop telemetry, no controlled links) — error metrics and path-loss-exponent fit await Trial 2.",
+        "ITM predictions use a real USGS 3DEP DEM but model terrain diffraction only; vegetation/canopy excess loss is budgeted separately, not modeled.",
+        "Cellular leg of the Mesh-vs-World comparison: collector built (cellular_ping_collector.py); no field data collected yet.",
+        "Weather stratification: Open-Meteo archive feed available (weather_enrich.py); rerun required to replace any legacy synthetic tags.",
+        "All RF data is single-node (meshradiohead2); multi-hop propagation analysis pending a second deployed node.",
     ]
 
     # Compute overall_gate from individual step results (p6_artifact_index.json is
@@ -205,6 +261,7 @@ def main() -> int:
         "trial_id": "trial-live",
         "node_id": "meshradiohead2",
         "pipeline": pipeline,
+        "standalone_analyses": analyses,
         "known_limitations": known_limitations,
         "artifact_count": p6_idx.get("artifact_count"),
         "p6_artifact_index": "artifacts/release/p6_artifact_index.json",
@@ -238,43 +295,67 @@ def main() -> int:
             kstr = (f"{km['total_records']} rows, {km['data_invalid_records']} data-invalid, "
                     f"{km['parse_error_records']} parse-errors, {km['pass_rate']:.1%} pass")
         elif s["step"] == "airmap_live_trial":
-            kstr = f"n={km['rows_with_rssi']}, RMSE={km['rmse_db']:.1f} dB, MAE={km['mae_db']:.1f} dB ({km['metric_source']})"
+            ho = km.get("held_out_rmse_db") or {}
+            best = km.get("baseline_predictor") or "fspl"
+            kstr = (f"eligible n={_fmt(km.get('calibration_eligible_n'))}, "
+                    f"predictor={best}, n̂={_fmt(km.get('path_loss_exponent'), '.2f')}, "
+                    f"held-out RMSE itm={_fmt(ho.get('itm'), '.1f')}/fi={_fmt(ho.get('floating_intercept'), '.1f')} dB")
         elif s["step"] == "dataset_sentinel":
-            kstr = f"{km['accepted_pct']:.1f}% accepted, {km['anomaly_rows']} anomalies"
+            kstr = f"{_fmt(km.get('accepted_pct'), '.1f')}% accepted, {_fmt(km.get('anomaly_rows'))} anomalies"
         elif s["step"] == "error_quantifier":
-            kstr = f"n={km['n']}, RMSE={km['rmse_db']:.1f} dB (threshold {km['max_rmse_threshold_db']} dB)"
+            kstr = f"n={_fmt(km.get('n'))}, RMSE={_fmt(km.get('rmse_db'), '.1f')} dB (threshold {_fmt(km.get('max_rmse_threshold_db'))} dB)"
         elif s["step"] == "weather_guard":
             kstr = f"{km['risk_state']} → {km['recommendation']}"
         elif s["step"] == "coverage_overlay":
-            m = km.get("coverage_mode_counts", {})
-            kstr = f"GPS rows={km['rows_with_gps']}, MESH={m.get('MESH',0)}, SAT={m.get('SATELLITE',0)}, NONE={m.get('NONE',0)}"
+            m = km.get("coverage_mode_counts") or {}
+            kstr = (f"GPS rows={_fmt(km.get('rows_with_gps'))}, MESH={m.get('MESH',0)}, "
+                    f"SAT={m.get('SATELLITE',0)}, NONE={m.get('NONE',0)}")
         else:
             kstr = ""
         lines.append(f"| {s['step']} | `{s['script']}` | {gate_badge(s['gate'])} | {kstr} |")
 
+    am = analyses["itm_terrain_link_analysis"]
+    at = analyses["lora_airtime_capacity"]
     lines += [
         f"",
         f"---",
         f"",
-        f"## RF Model Performance",
+        f"## RF Model Performance (calibration-eligible rows only)",
         f"",
         f"| Metric | Value |",
         f"|---|---|",
-        f"| Samples (rssi_dbm) | {metrics_g.get('n', '?')} |",
-        f"| MAE | {metrics_g.get('mae', 0):.2f} dB |",
-        f"| RMSE | {metrics_g.get('rmse', 0):.2f} dB |",
-        f"| Residual bias (post-calibration) | {cal.get('residual_bias_db', 0):.3f} dB |",
-        f"| Sentinel accepted | {sentinel_s.get('accepted_pct', 0):.2f}% |",
-        f"| Join match rate | {join_q.get('matched_pct', 0):.1f}% |",
+        f"| Calibration-eligible samples | {_fmt(cal_elig.get('n'))} |",
+        f"| Baseline predictor | {_fmt(cal.get('baseline_predictor'))} |",
+        f"| Path-loss exponent n̂ | {_fmt((fit or {}).get('path_loss_exponent'), '.2f')} |",
+        f"| Shadowing σ̂ | {_fmt((fit or {}).get('sigma_db'), '.2f')} dB |",
+        f"| Held-out RMSE — ITM | {_fmt(held_out.get('itm'), '.2f')} dB |",
+        f"| Held-out RMSE — floating-intercept | {_fmt(held_out.get('floating_intercept'), '.2f')} dB |",
+        f"| Held-out RMSE — FSPL baseline | {_fmt(held_out.get('fspl'), '.2f')} dB |",
+        f"| Join match rate | {_fmt(join_q.get('matched_pct'), '.1f')}% |",
         f"",
-        f"**Metric:** FSPL baseline with residual calibration, rssi\\_dbm fallback (rsrp\\_dbm unavailable in current LoRa-first path).",
+        f"**Metric:** ESP (RSSI+SNR) where available; floating-intercept log-distance fit and "
+        f"ITM-over-real-DEM compared by contiguous-time blocked cross-validation. No "
+        f"calibration-grade rows ⇒ values show as —.",
+        f"",
+        f"---",
+        f"",
+        f"## Terrain Link Analysis (ITM / Longley–Rice)",
+        f"",
+        f"Model: {_fmt(am.get('model'))}  ",
+        f"Proposed links evaluated: {_fmt(am.get('n_links'))}  ",
+        f"Collector-gap coverage: {_fmt(am.get('gap_pct_meets_planning_threshold'), '.0f')}% above planning "
+        f"threshold, {_fmt(am.get('gap_pct_meets_sensitivity'), '.0f')}% above sensitivity  ",
+        f"Airtime: SOS text {_fmt(at.get('sos_text_airtime_ms'), '.0f')} ms, 3-hop "
+        f"{_fmt(at.get('sos_chain_serial_ms'), '.0f')} ms serial; {_fmt(at.get('per_node_utilization_pct'), '.2f')}% "
+        f"channel per beaconing node  ",
+        f"Artifacts: `artifacts/itm/relay_links_itm.csv`, `artifacts/itm/itm_summary.json`",
         f"",
         f"---",
         f"",
         f"## Connectivity Coverage (Transition Windows)",
         f"",
-        f"| Control-Plane Mode | Rows | Covered | Coverage % | Pass |",
-        f"|---|---|---|---|---|",
+        f"| Control-Plane Mode | Rows | Covered | Coverage % | 95% Wilson CI | Pass |",
+        f"|---|---|---|---|---|---|",
     ]
 
     for mode in ["IP_FULL", "IP_DEGRADED", "MESH_ONLY"]:
@@ -282,8 +363,10 @@ def main() -> int:
         n = t.get("n_rows", 0)
         cov = t.get("covered_rows", 0)
         pct = t.get("coverage_pct", 0.0)
+        ci = t.get("coverage_pct_wilson95")
+        ci_str = f"[{ci[0]:.1f}, {ci[1]:.1f}]%" if ci else "—"
         p = "✅" if t.get("pass", True) else "❌"
-        lines.append(f"| {mode} | {n} | {cov} | {pct:.1f}% | {p} |")
+        lines.append(f"| {mode} | {n} | {cov} | {pct:.1f}% | {ci_str} | {p} |")
 
     lines += [
         f"",

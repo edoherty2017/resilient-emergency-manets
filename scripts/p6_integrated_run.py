@@ -102,8 +102,10 @@ def main() -> int:
             "artifacts/eval",
             "--min-samples",
             "200",
+            # Falsifiable gate: a 60 dB RMSE threshold could be passed by predicting
+            # the mean; 12 dB reflects a usable model (literature sigma 6-8 dB).
             "--max-rmse-db",
-            "60",
+            "12",
         ],
         ["python3", "scripts/weather_guard.py", "--telemetry", "artifacts/qa/sentinel_scored.parquet", "--out-dir", "artifacts/weather"],
         [
@@ -131,6 +133,7 @@ def main() -> int:
     artifact_globs = [
         "artifacts/airmap/**/*",
         "artifacts/dem/**/*",
+        "artifacts/itm/**/*",
         "artifacts/qa/**/*",
         "artifacts/eval/**/*",
         "artifacts/weather/**/*",

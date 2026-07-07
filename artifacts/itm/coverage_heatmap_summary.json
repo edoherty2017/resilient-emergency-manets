@@ -1,0 +1,19 @@
+{
+  "generated_at_utc": "2026-06-15T17:48:33.927821+00:00",
+  "transmitter": {
+    "lat": 44.26616,
+    "lon": -71.32348,
+    "tx_h_m": 3.0
+  },
+  "freq_mhz": 915.0,
+  "grid_size": 60,
+  "predicted_rssi_dbm": {
+    "min": -173.2747200355169,
+    "max": -43.23981869695598,
+    "pct_above_planning_threshold": 10.805555555555555,
+    "pct_above_sensitivity": 34.27777777777778
+  },
+  "residual_actual_minus_predicted": null,
+  "out_png": "artifacts/itm/coverage_heatmap.png",
+  "out_html": "artifacts/itm/coverage_map.html"
+}

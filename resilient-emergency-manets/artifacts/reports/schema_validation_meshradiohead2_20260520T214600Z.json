@@ -1,0 +1,143 @@
+{
+  "ok": false,
+  "input": "/tmp/manet_ingest/meshradiohead2/jsonl/telemetry_stream.jsonl",
+  "total_records": 64001,
+  "valid_records": 19826,
+  "invalid_records": 44175,
+  "pass_rate": 0.309776,
+  "error_counts": {
+    "int_required:usb_power": 3004,
+    "int_required:rssi_dbm": 10796,
+    "int_required:battery_mv": 3719,
+    "int_required:battery_pct": 3713,
+    "int_required:is_charging": 2984,
+    "int_required:checksum_ok": 38532,
+    "int_required:checksum_bad": 38532,
+    "int_required:malformed_frame": 38532,
+    "range_error:battery_pct:101.0": 710
+  },
+  "sample_errors": [
+    {
+      "line": 130,
+      "errors": [
+        "int_required:usb_power"
+      ]
+    },
+    {
+      "line": 149,
+      "errors": [
+        "int_required:rssi_dbm"
+      ]
+    },
+    {
+      "line": 155,
+      "errors": [
+        "int_required:rssi_dbm"
+      ]
+    },
+    {
+      "line": 156,
+      "errors": [
+        "int_required:rssi_dbm"
+      ]
+    },
+    {
+      "line": 164,
+      "errors": [
+        "int_required:rssi_dbm"
+      ]
+    },
+    {
+      "line": 170,
+      "errors": [
+        "int_required:rssi_dbm"
+      ]
+    },
+    {
+      "line": 174,
+      "errors": [
+        "int_required:rssi_dbm"
+      ]
+    },
+    {
+      "line": 177,
+      "errors": [
+        "int_required:rssi_dbm"
+      ]
+    },
+    {
+      "line": 186,
+      "errors": [
+        "int_required:rssi_dbm"
+      ]
+    },
+    {
+      "line": 191,
+      "errors": [
+        "int_required:rssi_dbm"
+      ]
+    },
+    {
+      "line": 213,
+      "errors": [
+        "int_required:rssi_dbm"
+      ]
+    },
+    {
+      "line": 215,
+      "errors": [
+        "int_required:rssi_dbm"
+      ]
+    },
+    {
+      "line": 218,
+      "errors": [
+        "int_required:rssi_dbm"
+      ]
+    },
+    {
+      "line": 222,
+      "errors": [
+        "int_required:rssi_dbm"
+      ]
+    },
+    {
+      "line": 224,
+      "errors": [
+        "int_required:rssi_dbm"
+      ]
+    },
+    {
+      "line": 227,
+      "errors": [
+        "int_required:rssi_dbm"
+      ]
+    },
+    {
+      "line": 231,
+      "errors": [
+        "int_required:rssi_dbm"
+      ]
+    },
+    {
+      "line": 233,
+      "errors": [
+        "int_required:rssi_dbm"
+      ]
+    },
+    {
+      "line": 236,
+      "errors": [
+        "int_required:rssi_dbm"
+      ]
+    },
+    {
+      "line": 263,
+      "errors": [
+        "int_required:rssi_dbm"
+      ]
+    }
+  ],
+  "node": "meshradiohead2",
+  "source": "local"
+}

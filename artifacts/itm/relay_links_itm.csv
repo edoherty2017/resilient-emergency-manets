@@ -1,0 +1,6 @@
+link,distance_km,endpoint_a_elev_m,endpoint_b_elev_m,fspl_itm_db,loss_db_q50,loss_db_q90,loss_db_q99,path_type,geometric_los,worst_fresnel_fraction,worst_obstruction_dist_m,fraction_path_below_treeline,pred_rssi_dbm_q50,pred_rssi_dbm_q90,pred_rssi_dbm_q99,meets_planning_threshold_q90,meets_sensitivity_q99
+ammo_relay->summit,1.681,1200.1,1913.2,96.2,158.5,158.6,158.6,line_of_sight,False,-5.343,1335.758,0.0,-132.2,-132.3,-132.3,False,False
+jewell_relay->summit,2.975,1197.6,1913.2,101.1,145.0,145.0,145.1,line_of_sight,False,-1.903,225.35,0.116,-118.7,-118.7,-118.8,False,True
+ammo_relay->gateway,2.976,1200.1,760.7,101.1,102.9,102.9,102.9,line_of_sight,True,0.888,1142.12,0.995,-76.6,-76.6,-76.6,True,True
+jewell_relay->gateway,2.727,1197.6,760.7,100.4,100.4,100.4,100.4,line_of_sight,True,1.188,15.064,1.0,-74.1,-74.1,-74.1,True,True
+ammo_relay->jewell_relay,2.19,1200.1,1197.6,98.5,156.4,156.5,156.5,line_of_sight,False,-4.509,825.056,0.646,-130.1,-130.2,-130.2,False,True

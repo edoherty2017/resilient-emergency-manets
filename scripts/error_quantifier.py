@@ -47,7 +47,12 @@ def main() -> int:
     ap.add_argument("--input", default="artifacts/qa/sentinel_scored.parquet")
     ap.add_argument("--out-dir", default="artifacts/eval")
     ap.add_argument("--min-samples", type=int, default=200)
-    ap.add_argument("--max-rmse-db", type=float, default=15.0)
+    # Falsifiable threshold: post-calibration held-in RMSE for a usable propagation
+    # model. Literature shadowing sigma for mountain LoRa is 6-8 dB (Bianco et al.
+    # 2021); 12 dB allows headroom. A gate that cannot fail is not evidence — never
+    # raise this to make a run pass.
+    ap.add_argument("--max-rmse-db", type=float, default=12.0)
+    ap.add_argument("--min-stratum-samples", type=int, default=30)
     args = ap.parse_args()
 
     in_path = Path(args.input)
@@ -64,6 +69,18 @@ def main() -> int:
     # accepted QA tiers only
     if "quality_tier" in df.columns:
         df = df[df["quality_tier"].isin(["high", "medium"])].copy()
+
+    # Evidence-grade error metrics use calibration-eligible rows only (GPS both
+    # ends, verified direct link, plausible power — see airmap_live_trial.py).
+    # Rows lacking the column (legacy artifacts) are treated as ineligible-unknown
+    # and kept, but the output records that the eligibility filter was unavailable.
+    eligibility_filtered = False
+    excluded_ineligible = 0
+    if "calibration_eligible" in df.columns:
+        eligible_mask = df["calibration_eligible"].fillna(False).astype(bool)
+        excluded_ineligible = int((~eligible_mask).sum())
+        df = df[eligible_mask].copy()
+        eligibility_filtered = True
 
     pred = pd.to_numeric(df.get("pred_rssi_dbm"), errors="coerce")
     obs_rsrp = pd.to_numeric(df.get("rsrp_dbm"), errors="coerce") if "rsrp_dbm" in df.columns else pd.Series([np.nan] * len(df))
@@ -83,6 +100,8 @@ def main() -> int:
             "mae": None,
             "rmse": None,
             "source_counts": {"rsrp_dbm": 0, "rssi_dbm": 0, "none": int(len(df))},
+            "eligibility_filter_applied": eligibility_filtered,
+            "excluded_ineligible_rows": excluded_ineligible,
         }
         (out_dir / "metrics_global.json").write_text(json.dumps(global_metrics, indent=2), encoding="utf-8")
         (out_dir / "metrics_stratified.csv").write_text("", encoding="utf-8")
@@ -104,6 +123,8 @@ def main() -> int:
             "rssi_dbm": int((m["obs_metric_source"] == "rssi_dbm").sum()),
             "none": int((m["obs_metric_source"] == "none").sum()),
         },
+        "eligibility_filter_applied": eligibility_filtered,
+        "excluded_ineligible_rows": excluded_ineligible,
     }
 
     strata_cols = ["topography_class", "weather_tag", "distance_bin", "satellite_link_status"]
@@ -126,6 +147,10 @@ def main() -> int:
         )
         .reset_index()
     )
+    # Strata below the minimum sample count are noise cells: flag them and
+    # suppress their error stats so they cannot be cited.
+    strat["meets_min_n"] = strat["n"] >= int(args.min_stratum_samples)
+    strat.loc[~strat["meets_min_n"], ["mae", "rmse"]] = np.nan
 
     outliers = m.sort_values("abs_error_db", ascending=False).head(50).copy()
     keep_cols = [

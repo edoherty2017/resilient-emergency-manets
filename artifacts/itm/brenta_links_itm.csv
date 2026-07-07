@@ -1,0 +1,16 @@
+link,primary,distance_km,elev_a_m,elev_b_m,path_type,geometric_los,worst_fresnel_fraction,pred_rssi_dbm_q50,pred_rssi_dbm_q90,pred_rssi_dbm_q99,meets_planning_q90,meets_sensitivity_q90
+agostini->molveno,True,7.27,2405.0,853.0,line_of_sight,False,-27.34,-179.6,-179.6,-179.7,False,False
+alimonta->agostini,True,3.91,2588.0,2405.0,line_of_sight,False,-26.57,-171.4,-171.5,-171.5,False,False
+campiglio->groste,True,5.96,1498.0,2443.0,line_of_sight,False,-16.85,-141.1,-141.2,-141.3,False,False
+groste->molveno,True,9.42,2443.0,853.0,line_of_sight,False,-27.2,-159.5,-159.8,-160.0,False,False
+groste->tuckett,True,3.05,2443.0,2255.0,line_of_sight,False,-14.55,-145.5,-145.5,-145.5,False,False
+tuckett->alimonta,True,2.15,2255.0,2588.0,line_of_sight,False,-40.87,-174.5,-174.5,-174.5,False,False
+alimonta->molveno,False,6.56,2588.0,853.0,line_of_sight,False,-22.21,-169.4,-169.4,-169.5,False,False
+campiglio->agostini,False,9.95,1498.0,2405.0,line_of_sight,False,-33.51,-180.9,-181.1,-181.3,False,False
+campiglio->alimonta,False,7.73,1498.0,2588.0,line_of_sight,False,-27.31,-177.8,-177.9,-177.9,False,False
+campiglio->molveno,False,14.14,1498.0,853.0,line_of_sight,False,-54.57,-191.1,-191.3,-191.5,False,False
+campiglio->tuckett,False,5.75,1498.0,2255.0,line_of_sight,False,-11.97,-139.1,-139.2,-139.3,False,False
+groste->agostini,False,8.52,2443.0,2405.0,line_of_sight,False,-30.64,-177.1,-177.4,-177.6,False,False
+groste->alimonta,False,4.7,2443.0,2588.0,line_of_sight,False,-31.94,-171.4,-171.5,-171.5,False,False
+tuckett->agostini,False,5.6,2255.0,2405.0,line_of_sight,False,-38.61,-180.8,-180.9,-180.9,False,False
+tuckett->molveno,False,8.39,2255.0,853.0,line_of_sight,False,-50.73,-190.1,-190.2,-190.2,False,False

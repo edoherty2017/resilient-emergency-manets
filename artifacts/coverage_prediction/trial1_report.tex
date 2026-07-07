@@ -1,0 +1,557 @@
+\documentclass[11pt,letterpaper]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{parskip}
+\usepackage{microtype}
+
+\definecolor{mainblue}{RGB}{26,74,138}
+\definecolor{relayorange}{RGB}{180,80,0}
+\definecolor{gatewaypurple}{RGB}{130,50,170}
+\definecolor{issured}{RGB}{180,40,40}
+\definecolor{okgreen}{RGB}{20,120,50}
+
+\hypersetup{
+  colorlinks=true, linkcolor=mainblue, urlcolor=mainblue, citecolor=mainblue
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{\small Mt.\ Washington MANET Trial 1 --- 2026-05-23}
+\lhead{\small Ethan Doherty, CS Directed Study, Summer 2026}
+\cfoot{\thepage}
+
+\titleformat{\section}{\large\bfseries\color{mainblue}}{}{0em}{}[\titlerule]
+\titleformat{\subsection}{\normalsize\bfseries\color{mainblue}}{}{0em}{}
+
+\begin{document}
+
+% ─────────────────────────────────────────────────────────────────
+\begin{center}
+  {\LARGE\bfseries\color{mainblue} Mt.\ Washington MANET Field Trial}\\[4pt]
+  {\large Trial 1 --- 2026-05-23}\\[6pt]
+  {\normalsize Ethan Doherty \quad CS Graduate Directed Study, Summer 2026}\\[2pt]
+  {\small Ammonoosuc Ravine Trail (ascent) $\cdot$ Jewell Trail (descent) $\cdot$
+  915\,MHz LoRa $\cdot$ Meshtastic mesh}
+\end{center}
+
+\vspace{6pt}
+\hrule
+\vspace{12pt}
+
+% ─────────────────────────────────────────────────────────────────
+\section{Overview}
+
+This report documents the first empirical field trial of a Meshtastic-based LoRa mesh radio
+network on Mt.\ Washington, NH. The primary objective was to characterize LoRa signal
+propagation along a full 10-hour ascent/descent route and assess the feasibility of a
+low-cost fixed-relay infrastructure for autonomous wilderness emergency communications.
+
+A Raspberry Pi running a custom telemetry collector served as the mesh HEAD node,
+logging all received RF packets (RSSI, SNR, mesh node ID, GPS coordinates, UTC
+timestamp) to an append-only JSONL stream. GPS ground truth was independently provided
+by a Garmin wearable GPS unit carried simultaneously.
+
+% ─────────────────────────────────────────────────────────────────
+\section{Timeline of Events}
+
+\begin{center}
+\begin{tabular}{@{}lp{10.5cm}@{}}
+\toprule
+\textbf{Time (EDT)} & \textbf{Event} \\
+\midrule
+08:06 & Departed trailhead (Base Rd, $\approx$764\,m). Garmin GPS active. Collector not yet online. \\
+09:36 & Collector came online briefly, then entered reconnect loop. \\
+\textcolor{issured}{09:36 -- 12:24} & \textcolor{issured}{\textbf{Collector offline} (2\,h 48\,m). Meshtastic Python library lost serial connection and looped silently. No RF packets logged. GPS track unaffected.} \\
+12:24 & Collector reconnected. Active RF telemetry resumed. \\
+14:23 & Summit reached --- 1917\,m. Peak node density: $\sim$22 unique nodes in rolling 30-min window. \\
+14:23 -- 18:33 & Descent via Jewell Trail. Signal quality tracked in 5-min RSSI windows. \\
+18:33 & Collector stopped. 686 total packets logged across 6\,h 9\,m of active collection. \\
+18:40 & Returned to trailhead. \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+% ─────────────────────────────────────────────────────────────────
+\section{Observed RF Performance}
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Metric} & \textbf{Value} \\
+\midrule
+Total packets logged          & 686 \\
+Active collection window      & 12:24 -- 18:33 EDT (6\,h 9\,m) \\
+Unique source nodes heard     & 50 \\
+Nodes with GPS position       & 24 (per mesh catalog; from received \texttt{POSITION\_APP} packets) \\
+Peak concurrent nodes (30-min window) & $\sim$22 (at summit) \\
+Best RSSI observed            & $-38$\,dBm \\
+5-min windows with $\geq$1 packet received (descent) & \textcolor{okgreen}{\textbf{100\%}} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+In every 5-minute window of the 6\,h\,9\,m descent, the HEAD node demodulated at least one
+Meshtastic packet from \emph{some} source --- any of $\sim$50 ambient mesh nodes at unknown
+distances, potentially relayed. This is evidence of ambient 915\,MHz mesh activity reaching
+forested sub-alpine terrain below 1200\,m; it is \emph{not} evidence of bidirectional
+coverage, of reachability to any particular gateway, or of any specific link's viability.
+Those claims require the controlled-link methodology planned for Trial~2
+(Section~\ref{sec:forward}).
+
+% ─────────────────────────────────────────────────────────────────
+\section{Issues Encountered}
+
+\subsection*{Issue 1 --- Collector outage (2\,h 48\,m)}
+The Meshtastic Python library (\texttt{meshtastic.serial\_interface}) lost its serial connection
+to the LoRa radio and entered a silent reconnect loop. No exception was raised; the gap
+was discovered post-hike via timestamp analysis of the JSONL stream. This is a
+library-level reconnection behavior, not a hardware failure. The gap covered the entire
+Ammonoosuc Ravine ascent above treeline --- the highest-risk terrain segment.
+
+\subsection*{Issue 2 --- No GPS pairing before departure}
+The operator's phone GPS was not paired with the Meshtastic network before leaving the
+parking lot. The HEAD node's own position was therefore not broadcast into the mesh
+during the trial, limiting the ability to compute precise source-to-receiver distances
+for observed packets.
+
+\subsection*{Issue 3 --- No hop-count ground truth}
+The collector version deployed during Trial~1 predated the addition of
+\texttt{hop\_limit} and \texttt{hop\_start} fields. It is therefore not possible to
+determine whether any given packet was a direct link or a mesh relay hop. Trial~2 will
+address this with a dual-radio setup (see Section~\ref{sec:forward}).
+
+% ─────────────────────────────────────────────────────────────────
+\section{Propagation Model}
+
+\subsection{Log-Distance Path Loss}
+
+The standard log-distance path loss model used across LoRa mountain SAR research
+\cite{bianco2021, review2024} is:
+
+\begin{equation}
+  PL(d) = PL(d_0) + 10n \log_{10}\!\left(\frac{d}{d_0}\right) + X_\sigma
+  \label{eq:logdist}
+\end{equation}
+
+where $d_0$ is a reference distance, $n$ is the path loss exponent, and $X_\sigma$ is a
+zero-mean Gaussian random variable with standard deviation $\sigma$ (dB) representing
+log-normal shadowing. An alternative floating-intercept form \cite{review2024} is:
+
+\begin{equation}
+  PL(d) = \alpha + 10\beta \log_{10}(d) + X_\sigma
+  \label{eq:floating}
+\end{equation}
+
+where $\alpha$ and $\beta$ are fitted from measurements. The two forms are related by
+$\beta = n$ and $\alpha = PL(d_0) - 10\beta\log_{10}(d_0)$; anchoring the reference
+distance in free space gives $PL(d_0) = 20\log_{10}(4\pi d_0/\lambda)$.
+
+\medskip
+
+Bianco et al.\ \cite{bianco2021} measured $n \approx 2.0$--$3.5$ in mountainous terrain
+with $\sigma \approx 6$--$8$\,dB, and found that standard propagation models
+significantly underpredict path loss at 915\,MHz relative to measurements, with $\alpha$
+values deviating by up to 10\,dB over the full LoRa radio range.
+
+\subsection{Free-Space Path Loss Baseline}
+
+The free-space path loss ($n = 2$, $X_\sigma = 0$) at 915\,MHz serves as the lower
+bound on path loss in this model:
+
+\begin{equation}
+  FSPL(d) = 32.44 + 20\log_{10}(d_{\mathrm{km}}) + 20\log_{10}(f_{\mathrm{MHz}})
+  \label{eq:fspl}
+\end{equation}
+
+At 915\,MHz this evaluates to $FSPL(d) = 91.65 + 20\log_{10}(d_{\mathrm{km}})$\,dB.
+
+\subsection{Terrain Loss Augmentation}
+
+Because standard propagation models are insufficient for heterogeneous mountain terrain
+\cite{review2024}, an empirical terrain-class loss term $L_T$ is added to
+Eq.~\eqref{eq:fspl}:
+
+\begin{equation}
+  PL_{\mathrm{aug}}(d, z) = FSPL(d) + L_T(z)
+\end{equation}
+
+where the terrain class is determined by elevation $z$:
+
+\begin{equation}
+  L_T(z) =
+  \begin{cases}
+    3\,\mathrm{dB}  & z \geq 1500\,\mathrm{m} \quad (\text{alpine, open}) \\
+    15\,\mathrm{dB} & 1200 \leq z < 1500\,\mathrm{m} \quad (\text{sub-alpine transition}) \\
+    25\,\mathrm{dB} & z < 1200\,\mathrm{m} \quad (\text{forested})
+  \end{cases}
+  \label{eq:terrain}
+\end{equation}
+
+The forested value of 25\,dB is consistent with the body of literature on
+vegetation attenuation at 900\,MHz-band frequencies, where canopy excess loss of
+20--30\,dB is commonly reported for dense mixed forest at ranges beyond 1\,km
+\cite{review2024}.
+
+\subsection{Received Signal Power and Link Budget}
+
+The predicted received signal power is:
+
+\begin{equation}
+  P_r(d, z) = P_t + G_t + G_r - PL_{\mathrm{aug}}(d, z)
+  \label{eq:rxpower}
+\end{equation}
+
+where $P_t = 22$\,dBm (Heltec LoRa32 V3 maximum TX power), and $G_t = G_r = 2.15$\,dBi
+(dipole antenna gains). The total link budget is:
+
+\begin{equation}
+  \mathcal{L} = P_t + G_t + G_r - P_{\mathrm{sens}} = 22 + 2(2.15) - (-131) = 157.3\,\mathrm{dB}
+  \label{eq:budget}
+\end{equation}
+
+The receiver sensitivity $P_{\mathrm{sens}} \approx -131$\,dBm corresponds to SF11,
+BW\,=\,250\,kHz, CR\,=\,4/5 --- the Meshtastic \textit{LongFast} modem preset used during
+this trial (Meshtastic documents a 153\,dB link budget at 22\,dBm TX with 0\,dBi antennas,
+implying $P_{\mathrm{sens}} \approx -131$\,dBm, consistent with the Semtech SX1262
+datasheet). Note that SF12/BW\,125\,kHz is the \emph{deprecated LongSlow} preset, not
+LongFast.
+
+\subsection{LoRa Physical Layer Parameters}
+
+The data rate of a LoRa symbol is determined by the spreading factor and bandwidth
+\cite{pdr2021}:
+
+\begin{equation}
+  R_s = \frac{BW}{2^{SF}}
+  \label{eq:symrate}
+\end{equation}
+
+\begin{equation}
+  DR = SF \cdot \frac{BW}{2^{SF}} \cdot CR
+  \label{eq:datarate}
+\end{equation}
+
+Each unit increase in SF provides approximately 2--3\,dB improvement in SNR sensitivity
+at the cost of a halved data rate \cite{pdr2021}. The LongFast preset (SF11,
+BW\,=\,250\,kHz, CR\,=\,4/5) yields a data rate of $\approx$1.07\,kbps and a sensitivity
+floor of $\approx -131$\,dBm; the deprecated SF12/BW\,125\,kHz LongSlow preset would
+yield $\approx$0.18\,kbps at $\approx -137$\,dBm.
+
+\subsection{Packet Delivery Ratio}
+
+Bianco et al.\ \cite{bianco2021} reported that the path loss at the 50\% packet delivery
+ratio (PDR) threshold is approximately 135\,dB in mountainous canyon terrain.
+The measured range at $\geq$50\% PDR was 300\,m in worst-case canyon geometry --- more
+than five times the operating range of standard ARVA avalanche beacons under the same
+conditions. In open alpine terrain, ranges extended to several kilometres.
+
+The effective signal power for LoRa when $SNR < 0$\,dB is given by \cite{review2024}:
+
+\begin{equation}
+  ESP = RSS + SNR - 10\log_{10}\!\left(1 + 10^{0.1 \cdot SNR}\right)
+  \label{eq:esp}
+\end{equation}
+
+% ─────────────────────────────────────────────────────────────────
+\section{Proposed Relay Infrastructure}
+
+\subsection{Node Placement}
+
+Three fixed nodes are proposed at GPS-derived locations corresponding to the treeline
+crossings on each trail. Each relay sits at the terrain transition where it has
+simultaneous line-of-sight both uphill (toward summit) and downhill (toward trailhead),
+maximizing coverage with a single node.
+
+\begin{center}
+\begin{tabular}{@{}lllll@{}}
+\toprule
+\textbf{Node} & \textbf{Role} & \textbf{Latitude} & \textbf{Longitude} & \textbf{Elev.} \\
+\midrule
+\textcolor{relayorange}{Ammo Relay}    & Treeline relay    & 44.26616°N & 71.32348°W & 1201\,m \\
+\textcolor{relayorange}{Jewell Relay}  & Treeline relay    & 44.28376°N & 71.33583°W & 1199\,m \\
+\textcolor{gatewaypurple}{Trailhead Gateway} & Starlink uplink & 44.26700°N & 71.36083°W & 764\,m \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Predicted Link Performance}
+
+Applying Eq.~\eqref{eq:rxpower} with the terrain augmentation of Eq.~\eqref{eq:terrain}:
+
+\begin{center}
+\begin{tabular}{@{}lllll@{}}
+\toprule
+\textbf{Link} & \textbf{Distance} & \textbf{Terrain} & \textbf{Predicted RSSI} & \textbf{Margin above $P_\mathrm{sens}$} \\
+\midrule
+Ammo Relay $\to$ Summit  & 1.68\,km & Alpine  & $-72.9$\,dBm & 58.1\,dB \\
+Jewell Relay $\to$ Summit & 2.98\,km & Alpine  & $-77.9$\,dBm & 53.1\,dB \\
+Ammo Relay $\to$ Gateway  & 2.98\,km & Forest  & $-99.8$\,dBm & 31.2\,dB \\
+Jewell Relay $\to$ Gateway & 2.73\,km & Forest & $-99.1$\,dBm & 31.9\,dB \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+All predicted links clear the receiver sensitivity floor ($-131$\,dBm) by more than
+31\,dB. Applying the shadowing standard deviation of $\sigma \approx 7$\,dB from
+\cite{bianco2021}, the worst-case link (Ammo $\to$ Gateway) retains a margin of
+$31.2 - 3\sigma = 10.2$\,dB at the 99.87th percentile of shadowing.
+
+\textbf{Model limitation.} Eq.~\eqref{eq:rxpower} with the elevation-class loss of
+Eq.~\eqref{eq:terrain} contains no terrain-profile geometry: no line-of-sight test, no
+Fresnel-zone clearance, and no knife-edge diffraction. These link predictions are
+therefore \emph{screening estimates only}. Section~\ref{sec:itm} re-evaluates every
+proposed link with the Longley--Rice ITM model over real USGS 3DEP terrain --- and
+\textbf{reverses the conclusions of this table for the summit-facing links}.
+
+\subsection{Maximum Planning Range}
+
+Range is computed against an explicit \emph{planning threshold}
+$P_{\mathrm{thr}} = -100$\,dBm rather than the absolute sensitivity floor. The
+$\approx$31\,dB standoff from $P_{\mathrm{sens}} \approx -131$\,dBm provides a fade
+margin covering $>3\sigma$ log-normal shadowing ($\sigma \approx 7$\,dB
+\cite{bianco2021}) plus interference and hardware aging. Setting
+$P_r = P_{\mathrm{thr}}$ in Eq.~\eqref{eq:rxpower}, with
+$PL_{\max} = P_t + G_t + G_r - P_{\mathrm{thr}} = 126.3$\,dB:
+
+\begin{equation}
+  d_{\max} = 10^{\,\frac{PL_{\max} - L_T - 91.65}{20}}\,\mathrm{km}
+  \label{eq:dmax}
+\end{equation}
+
+\begin{align*}
+  d_{\max}^{\,\text{alpine}} &= 10^{(126.3 - 3 - 91.65)/20} = 38.2\,\mathrm{km} \\
+  d_{\max}^{\,\text{forest}} &= 10^{(126.3 - 25 - 91.65)/20} = 3.0\,\mathrm{km}
+\end{align*}
+
+(Solving instead for $P_r = P_{\mathrm{sens}}$ gives FSPL-only ranges exceeding
+1{,}000\,km --- a physically meaningless extrapolation, since free space with a flat
+terrain-class constant ignores diffraction and terrain blockage entirely; this is why
+a planning threshold is used.) Under this model the 2\,h 48\,m collector gap would have
+been covered: the Ammo Relay at 1.68\,km from the summit lies well within
+$d_{\max}^{\,\text{alpine}}$, with a predicted link margin of 58.1\,dB --- subject to
+the terrain-profile caveat above, since parts of the gap segment are inside the ravine
+and may be non-line-of-sight to the relay.
+
+\subsection{Automation Chain}
+
+With the proposed infrastructure, an SOS event follows the chain:
+\[
+  \underbrace{\text{Hiker triggers SOS}}_{\text{Meshtastic button}}
+  \;\xrightarrow{\text{LoRa hop}}\;
+  \underbrace{\text{Relay node}}_{\text{treeline}}
+  \;\xrightarrow{\text{LoRa hop}}\;
+  \underbrace{\text{Gateway Pi}}_{\text{trailhead}}
+  \;\xrightarrow{\text{Starlink}}\;
+  \underbrace{\text{NH Fish \& Game dispatch}}_{\text{SMS / email}}
+\]
+
+Target end-to-end latency: $<$30\,seconds. Total one-time hardware cost: $\approx\$690$
+(two relay nodes at $\sim\$120$ each, gateway Pi + radio $\sim\$150$, Starlink Mini
+$\sim\$300$). Where AMC huts already provide Starlink connectivity at the trailhead,
+new hardware cost reduces to $\approx\$240$.
+
+% ─────────────────────────────────────────────────────────────────
+\section{Terrain-Profile Verification (ITM/Longley--Rice)}
+\label{sec:itm}
+
+Every proposed link was re-evaluated with the Longley--Rice Irregular Terrain Model
+(ITM v7.0, point-to-point mode) via the \texttt{itmlogic} reference implementation
+\cite{itmlogic2020}, using terrain profiles sampled at 15\,m from a $\sim$7\,m/px USGS
+3DEP elevation export. Parameters: 915\,MHz, vertical polarization, continental
+temperate climate, $N_s = 301$, $\epsilon_r = 15$, $\sigma = 0.005$\,S/m; antenna
+heights 3\,m (relay/gateway masts) and 1.5\,m (hiker handheld); 50\% confidence.
+Predicted RSSI $= P_t + G_t + G_r - L_b(q)$ at reliability quantiles $q$.
+Pipeline: \texttt{scripts/dem\_3dep.py} + \texttt{scripts/itm\_relay\_links.py};
+artifacts in \texttt{artifacts/itm/}.
+
+\subsection{Proposed links over real terrain}
+
+\begin{center}
+\small
+\begin{tabular}{@{}llrrrl@{}}
+\toprule
+\textbf{Link} & \textbf{Dist} & \textbf{RSSI $q_{50}$} & \textbf{RSSI $q_{90}$} &
+\textbf{F$_1$ clear.} & \textbf{Verdict} \\
+\midrule
+Ammo Relay $\to$ Summit    & 1.68\,km & $-132.2$ & $-132.3$ & $-5.34$ & \textcolor{issured}{\textbf{below sensitivity}} \\
+Jewell Relay $\to$ Summit  & 2.98\,km & $-118.7$ & $-118.7$ & $-1.90$ & \textcolor{issured}{marginal (no margin)} \\
+Ammo Relay $\to$ Gateway   & 2.98\,km & $-76.6$  & $-76.6$  & $+0.89$ & \textcolor{okgreen}{\textbf{strong}} \\
+Jewell Relay $\to$ Gateway & 2.73\,km & $-74.1$  & $-74.1$  & $+1.19$ & \textcolor{okgreen}{\textbf{strong}} \\
+Ammo $\leftrightarrow$ Jewell Relay & 2.19\,km & $-130.1$ & $-130.2$ & $-4.51$ & \textcolor{issured}{\textbf{below margin}} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent (F$_1$ clear.\ = worst first-Fresnel-zone clearance fraction with 4/3
+effective Earth radius; $\geq 0.6$ is the usual engineering criterion, negative means
+the geometric ray is below terrain.)
+
+\textbf{ITM reverses the screening model.} The FSPL + terrain-class table in
+Section~6.2 predicted the summit links as the strongest ($-72.9$\,dBm) and the
+forested gateway links as the weakest ($-99.8$\,dBm). Over real terrain the opposite
+holds: the valley-crossing gateway links are clear-LOS and strong, while the
+treeline-to-summit chord is blocked by the \emph{convexity of the summit cone itself}
+--- terrain rises up to 53\,m above the direct ray at $\sim$1.2\,km from the Ammo
+relay. Mitigations tested and rejected: a 10\,m relay mast ($-131.9$\,dBm; the
+obstruction is mid-path, not local), relocating to the Lakes of the Clouds shelf at
+1{,}529\,m ($-121.5$\,dBm to summit, still diffracted), and a 10\,m summit-tower node
+($-113.2$\,dBm to the gateway --- blocked in the other direction). At 915\,MHz with
+practical antenna heights, \emph{no single-hop link from below clears the upper cone}.
+
+\subsection{Collector-gap segment, re-examined}
+
+Sampling the Garmin track across the 2\,h\,48\,m collector gap (09:36--12:24 EDT,
+84 points at 120\,s) and taking the best of the two proposed relays per point (ITM
+$q_{90}$): \textbf{100\%} of points are predicted above raw sensitivity
+($-131$\,dBm), but only \textbf{45.2\%} clear the $-100$\,dBm planning threshold, and
+33\% have geometric line-of-sight; the worst point is $-121$\,dBm at 3.07\,km. The
+Section~6.3 claim that the gap ``would have been covered'' must therefore be
+downgraded: coverage of the Ammonoosuc Ravine ascent is \emph{marginal} ---
+physically plausible (LoRa SF11 demodulates at these levels, and packets were in fact
+received in forested terrain during the descent) but with zero fade margin and
+unmodeled canopy loss below treeline. It cannot be claimed as robust.
+
+\textbf{This disagreement is itself a measurable hypothesis.} The screening model and
+ITM differ by up to $\sim$60\,dB on the summit links. Trial~2 will place a beacon
+node at the proposed Ammo relay coordinates and measure PDR while ascending the
+ravine (Section~\ref{sec:forward}); the observed PDR-vs-position profile
+discriminates directly between the two models and grounds any deployment proposal in
+measurement rather than prediction.
+
+\subsection{Airtime and SOS-chain capacity}
+
+LongFast (SF11, BW\,250\,kHz, CR\,4/5, 16-symbol preamble): $T_{\mathrm{sym}} =
+2^{11}/250\,\mathrm{kHz} = 8.192$\,ms. Computed airtimes (Semtech AN1200.13
+formulation; \texttt{scripts/lora\_airtime.py}): position packet ($\sim$40\,B)
+559\,ms, SOS text ($\sim$64\,B) 723\,ms. A 3-hop SOS chain is $\sim$2.2\,s of serial
+airtime; with per-hop CSMA backoff under light load, end-to-end delivery remains
+seconds --- the $<$30\,s target has order-of-magnitude margin \emph{when the channel
+is lightly loaded}. The caveat is load: one position beacon per node per 60\,s costs
+0.93\% airtime per node, and the $\sim$22 concurrent nodes observed at the summit
+imply $\sim$20\% raw channel utilization before mesh rebroadcast amplification.
+Congestion management (beacon intervals, hop limits, ideally a dedicated channel for
+infrastructure traffic) must be part of any deployment plan.
+
+% ─────────────────────────────────────────────────────────────────
+\section{Plans Going Forward}
+\label{sec:forward}
+
+\subsection*{Trial 2 --- Hop-count ground truth}
+Two Heltec V3 radios will be connected to the Pi simultaneously:
+\begin{itemize}[noitemsep]
+  \item \textbf{Radio A}: restricted to \texttt{maxHops=1} --- captures direct links only
+  \item \textbf{Radio B}: unrestricted (\texttt{maxHops=3}) --- captures all relayed packets
+\end{itemize}
+Packets appearing on Radio B but not Radio A are confirmed mesh hops.
+No inference or FSPL estimation required.
+
+\subsection*{Trial 2 --- Pre-departure checklist}
+\begin{enumerate}[noitemsep]
+  \item Pair phone GPS before leaving parking lot; verify \texttt{lat}/\texttt{lon} updating in JSONL
+  \item Place static relay nodes at known waypoints with recorded coordinates
+  \item Run \texttt{head\_readiness\_report.py} from parking lot before departure
+  \item Confirm no restart timers active on the Pi
+\end{enumerate}
+
+\subsection*{Infrastructure proposal}
+Engage NH Fish \& Game and Mt.\ Washington State Park to evaluate a pilot deployment
+of relay nodes at the treeline crossings identified above.
+
+\subsection*{Research outreach}
+Contact Giulio Maria Bianco and Abraham Mejia-Aguilar at EURAC Research (Bolzano, Italy)
+during planned visit in July 2026. Their published path loss measurements in Alpine
+terrain \cite{bianco2021, bianco2020} provide direct empirical grounding for the
+terrain-augmented model used here.
+
+% ─────────────────────────────────────────────────────────────────
+\section{Calibration Methodology and Trial~1 Findings}
+
+The AIRMap calibration pipeline was implemented and executed against the Trial~1
+telemetry. The pipeline computes a free-space path loss baseline (Eq.~\ref{eq:fspl}),
+joins predicted and observed signal metrics by timestamp, and fits the
+floating-intercept model of Eq.~\ref{eq:floating} by ordinary least squares on
+\emph{calibration-eligible} rows only (GPS on both ends, verified direct link,
+plausible received power, fresh position fixes), using effective signal power (ESP,
+Eq.~\ref{eq:esp}) as the observable where SNR is available. Evaluation uses
+contiguous-time blocked cross-validation; parameter uncertainty is estimated with a
+moving-block bootstrap. A constant mean-bias correction is retained only as a
+comparison model. The Garmin GPS track was used as HEAD position ground truth.
+
+\subsection*{Why Trial~1 did not produce valid calibration data}
+
+Post-hoc analysis of the calibration dataset identified three structural measurement
+gaps that rendered the output numerically unreliable:
+
+\begin{enumerate}[noitemsep]
+  \item \textbf{No hop-count field.} The collector version deployed in Trial~1 did
+    not capture \texttt{hop\_limit} or \texttt{hop\_start}. Meshtastic logs the RSSI
+    of the \emph{last hop}, not the original transmitter. Without hop count it is
+    impossible to filter to direct links, making it impossible to associate an
+    observed RSSI with a known source-to-receiver distance.
+
+  \item \textbf{Adjacent device forwarding.} A second Heltec radio
+    (\texttt{!db51af80}) was carried co-located with the HEAD node. This device
+    forwarded packets from distant Meshtastic users across NH/VT/ME. The HEAD logged
+    these forwarded packets with the original sender's GPS coordinates (55--183\,km
+    away) but the adjacent device's RSSI ($-1$ to $-18$\,dBm). The resulting
+    distance--RSSI pairs are physically invalid and contaminate the calibration
+    dataset.
+
+  \item \textbf{No independently placed static node.} The trial did not include a
+    second radio at a fixed, independently measured GPS location. Without a
+    controlled source-to-receiver link, there is no ground-truth distance--RSSI
+    pair against which to calibrate.
+\end{enumerate}
+
+\subsection*{What Trial~2 will produce}
+
+Trial~2 deploys \texttt{meshnode1} as an independent hiker node on a separate trail
+at a known GPS-tracked distance from the HEAD. Combined with the dual-radio
+hop-count setup (Section~\ref{sec:forward}), every observation will be a verified
+direct link with GPS on both ends --- the minimal requirement for valid calibration.
+
+\begin{thebibliography}{9}
+
+\bibitem{bianco2021}
+G.\ M.\ Bianco, R.\ Giuliano, G.\ Marrocco, F.\ Mazzenga, and A.\ Mejia-Aguilar,
+``LoRa System for Search and Rescue: Path-Loss Models and Procedures in Mountain
+Scenarios,''
+\textit{IEEE Internet of Things Journal}, vol.\ 8, no.\ 3, pp.\ 1985--1999, 2021.
+DOI: 10.1109/JIOT.2020.3017044
+
+\bibitem{bianco2020}
+G.\ M.\ Bianco et al.,
+``Performance Evaluation of LoRa LPWAN Technology for Mountain Search and Rescue,''
+\textit{IEEE International Conference on Wireless and Mobile Computing, Networking and
+Communications (WiMob)}, 2020.
+DOI: 10.1109/WiMob50308.2020.9243817
+
+\bibitem{review2024}
+A.\ Ferreira et al.,
+``A Critical Review of the Propagation Models Employed in LoRa Systems,''
+\textit{MDPI Sensors}, 2024.
+\url{https://pmc.ncbi.nlm.nih.gov/articles/PMC11207269/}
+
+\bibitem{pdr2021}
+``Experimental Evaluation of the Packet Reception Performance of LoRa,''
+\textit{MDPI Sensors}, 2021.
+\url{https://pmc.ncbi.nlm.nih.gov/articles/PMC7916015/}
+
+\bibitem{itmlogic2020}
+E.~Oughton, T.~Russell, J.~Johnson, C.~Yardim, and J.~Johnson,
+``itmlogic: The Irregular Terrain Model by Longley and Rice,''
+\textit{Journal of Open Source Software}, vol.~5, no.~51, p.~2266, 2020.
+DOI: 10.21105/joss.02266
+
+\end{thebibliography}
+
+\end{document}

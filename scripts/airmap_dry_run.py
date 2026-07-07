@@ -67,10 +67,11 @@ def main() -> None:
         lon = lon0 + (lon1 - lon0) * t
         dist = haversine_m(lat0, lon0, lat, lon)
         pl = fspl_db(dist + 10, freq_mhz) + np.random.normal(8.0, 2.0)
-        pred_rssi = 20 - pl
-        pred_snr = pred_rssi - (-110)
+        pred_rssi = 26.3 - pl
+        # margin above LongFast sensitivity (-131 dBm); not an SNR
+        pred_link_margin = pred_rssi - (-131.0)
         obs_rssi = pred_rssi + np.random.normal(0.0, 4.0)
-        obs_snr = pred_snr + np.random.normal(0.0, 3.0)
+        obs_link_margin = pred_link_margin + np.random.normal(0.0, 3.0)
         rows.append(
             {
                 "timestamp_utc": (base + timedelta(seconds=30 * i)).isoformat(),
@@ -81,9 +82,9 @@ def main() -> None:
                 "distance_m": float(dist),
                 "pred_path_loss_db": float(pl),
                 "pred_rssi_dbm": float(pred_rssi),
-                "pred_snr_db": float(pred_snr),
+                "pred_link_margin_db": float(pred_link_margin),
                 "obs_rssi_dbm": float(obs_rssi),
-                "obs_snr_db": float(obs_snr),
+                "obs_link_margin_db": float(obs_link_margin),
                 "topography_class": "alpine_ridge" if i > n // 2 else "valley",
                 "weather_tag": "clear",
                 "distance_bin": "0-2km" if dist < 2000 else "2-5km",
@@ -97,12 +98,12 @@ def main() -> None:
     # pre/post calibration
     pre = df.copy()
     residual = (pre["obs_rssi_dbm"] - pre["pred_rssi_dbm"]).mean()
-    scale = pre["obs_snr_db"].std() / max(pre["pred_snr_db"].std(), 1e-6)
+    scale = pre["obs_link_margin_db"].std() / max(pre["pred_link_margin_db"].std(), 1e-6)
 
     post = pre.copy()
     post["pred_rssi_dbm"] = post["pred_rssi_dbm"] + residual
-    post["pred_snr_db"] = (post["pred_snr_db"] - post["pred_snr_db"].mean()) * scale + post[
-        "pred_snr_db"
+    post["pred_link_margin_db"] = (post["pred_link_margin_db"] - post["pred_link_margin_db"].mean()) * scale + post[
+        "pred_link_margin_db"
     ].mean()
 
     # required metadata fields
@@ -132,8 +133,8 @@ def main() -> None:
     metrics_global = {
         "mae_rssi": mae(post["pred_rssi_dbm"], post["obs_rssi_dbm"]),
         "rmse_rssi": rmse(post["pred_rssi_dbm"], post["obs_rssi_dbm"]),
-        "mae_snr": mae(post["pred_snr_db"], post["obs_snr_db"]),
-        "rmse_snr": rmse(post["pred_snr_db"], post["obs_snr_db"]),
+        "mae_link_margin": mae(post["pred_link_margin_db"], post["obs_link_margin_db"]),
+        "rmse_link_margin": rmse(post["pred_link_margin_db"], post["obs_link_margin_db"]),
         "n": int(len(post)),
     }
     (OUT_DIR / "metrics_global.json").write_text(json.dumps(metrics_global, indent=2))

@@ -45,7 +45,13 @@ def file_sha256(path: Path) -> str:
 
 
 def synthetic_dem(lat_grid: np.ndarray, lon_grid: np.ndarray) -> np.ndarray:
-    """Deterministic pseudo-DEM in meters from lat/lon for reproducible dry/live flows."""
+    """Deterministic pseudo-DEM in meters from lat/lon for reproducible dry/live flows.
+
+    WARNING: this is fabricated sine-wave terrain, not real elevation data. It exists
+    only to validate the pipeline command path. Every consumer of these features must
+    treat them as synthetic until real USGS 3DEP ingestion replaces this function
+    (config/airmap/dem-sources.yaml has the source config; see review P2 item 11).
+    """
     lat_r = np.radians(lat_grid)
     lon_r = np.radians(lon_grid)
     ridge = 1150 + 350 * np.sin(lat_r * 17.0) * np.cos(lon_r * 19.0)
@@ -107,6 +113,19 @@ def main() -> int:
     ap.add_argument("--grid-size", type=int, default=512)
     ap.add_argument("--sample-limit", type=int, default=20000)
     ap.add_argument("--trial-id", default="trial-live")
+    ap.add_argument("--node-ids", default="meshradiohead2,meshhikernode1,meshradiohead",
+                    help="Comma-separated node dirs under --ingest-root to read")
+    # AOI bounds: White Mountains / Presidential Range trial area. GPS rows outside
+    # these bounds are far-field mesh strangers or corrupted fixes; including them
+    # once blew the DEM window up to a third of the planet (lon +114 = East Asia).
+    ap.add_argument("--aoi-lat-min", type=float, default=43.8)
+    ap.add_argument("--aoi-lat-max", type=float, default=44.8)
+    ap.add_argument("--aoi-lon-min", type=float, default=-72.0)
+    ap.add_argument("--aoi-lon-max", type=float, default=-70.8)
+    ap.add_argument("--dem-npz", default="artifacts/dem/cache/usgs_3dep_mtwashington.npz",
+                    help="Real USGS 3DEP cache produced by scripts/dem_3dep.py")
+    ap.add_argument("--allow-synthetic", action="store_true",
+                    help="Fall back to the synthetic pseudo-DEM if the real cache is missing (dry runs only)")
     args = ap.parse_args()
 
     out_dir = Path(args.out_dir)
@@ -114,9 +133,10 @@ def main() -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
     cache_dir.mkdir(parents=True, exist_ok=True)
 
-    hiker = read_jsonl(Path(args.ingest_root) / "meshhikernode1/jsonl/telemetry_stream.jsonl")
-    head = read_jsonl(Path(args.ingest_root) / "meshradiohead/jsonl/telemetry_stream.jsonl")
-    df = pd.concat([hiker, head], ignore_index=True, sort=False)
+    frames = []
+    for node_id in [s.strip() for s in args.node_ids.split(",") if s.strip()]:
+        frames.append(read_jsonl(Path(args.ingest_root) / f"{node_id}/jsonl/telemetry_stream.jsonl"))
+    df = pd.concat(frames, ignore_index=True, sort=False) if frames else pd.DataFrame()
     if df.empty:
         raise SystemExit("no telemetry rows found")
 
@@ -129,10 +149,42 @@ def main() -> int:
     if df.empty:
         raise SystemExit("no rows with lat/lon available for DEM window")
 
+    in_aoi = (
+        df["lat"].between(args.aoi_lat_min, args.aoi_lat_max)
+        & df["lon"].between(args.aoi_lon_min, args.aoi_lon_max)
+    )
+    excluded_outside_aoi = int((~in_aoi).sum())
+    df = df[in_aoi].copy()
+    if df.empty:
+        raise SystemExit("no rows inside AOI bounds for DEM window")
+
     if len(df) > args.sample_limit:
         df = df.iloc[-args.sample_limit :].copy()
 
-    lat_axis, lon_axis, dem = build_dem_window(df, args.pad_deg, args.grid_size)
+    dem_npz = Path(args.dem_npz)
+    if dem_npz.exists():
+        cached = np.load(dem_npz)
+        lat_axis, lon_axis, dem = cached["lat_axis"], cached["lon_axis"], cached["dem"]
+        dem_source = "usgs-3dep-imageserver"
+        # Points outside the real DEM footprint get no terrain features.
+        in_dem = (
+            df["lat"].between(float(lat_axis.min()), float(lat_axis.max()))
+            & df["lon"].between(float(lon_axis.min()), float(lon_axis.max()))
+        )
+        dropped_outside_dem = int((~in_dem).sum())
+        df = df[in_dem].copy()
+        if df.empty:
+            raise SystemExit("no rows inside the real DEM footprint")
+        if dropped_outside_dem:
+            print(f"[dem] dropped {dropped_outside_dem} rows outside the 3DEP footprint")
+    elif args.allow_synthetic:
+        lat_axis, lon_axis, dem = build_dem_window(df, args.pad_deg, args.grid_size)
+        dem_source = "synthetic-dem-deterministic"
+    else:
+        raise SystemExit(
+            f"real DEM cache not found at {dem_npz}; run `python scripts/dem_3dep.py` "
+            "first, or pass --allow-synthetic for a pipeline dry run"
+        )
 
     lat_center = float((lat_axis.min() + lat_axis.max()) / 2)
     meters_per_deg_lat = 111_320.0
@@ -173,9 +225,27 @@ def main() -> int:
 
     manifest = {
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
-        "recipe_version": "dem-topography-v1",
-        "source": "synthetic-dem-deterministic",
+        "recipe_version": "dem-topography-v3",
+        "source": dem_source,
         "trial_id": args.trial_id,
+        "aoi_bounds": {
+            "lat_min": args.aoi_lat_min,
+            "lat_max": args.aoi_lat_max,
+            "lon_min": args.aoi_lon_min,
+            "lon_max": args.aoi_lon_max,
+        },
+        "rows_excluded_outside_aoi": excluded_outside_aoi,
+        **(
+            {
+                "WARNING": (
+                    "SYNTHETIC pseudo-DEM (sine-wave terrain) for pipeline validation "
+                    "only. NOT real elevation data — do not cite any derived feature "
+                    "as terrain analysis."
+                )
+            }
+            if dem_source == "synthetic-dem-deterministic"
+            else {}
+        ),
         "window": {
             "lat_min": float(lat_axis.min()),
             "lat_max": float(lat_axis.max()),

@@ -1,2 +1,39 @@
-artifacts/
+artifacts/*
+# Track the report source and the small ITM evidence files; everything else in
+# artifacts/ is regenerable pipeline output or bulky cache.
+!artifacts/coverage_prediction/
+artifacts/coverage_prediction/*
+!artifacts/coverage_prediction/trial1_report.tex
+!artifacts/itm/
+artifacts/itm/*
+!artifacts/itm/relay_links_itm.csv
+!artifacts/itm/gap_segment_itm_coverage.csv
+!artifacts/itm/itm_summary.json
+!artifacts/itm/lora_airtime.json
+!artifacts/itm/brenta_links_itm.csv
+!artifacts/itm/brenta_itm_summary.json
+!artifacts/itm/coverage_heatmap.png
+!artifacts/itm/coverage_heatmap_summary.json
+# Deliverable #4 figure bundle (small evidence files)
+!artifacts/failure_matrix/
+artifacts/failure_matrix/*
+!artifacts/failure_matrix/failure_matrix.csv
+!artifacts/failure_matrix/failure_matrix.md
+!artifacts/failure_matrix/failure_matrix.png
+!artifacts/failure_matrix/failure_matrix_summary.json
 .venv/
+__pycache__/
+.DS_Store
+
+# simulation-phase artifacts: traces/viewers are bulky and regenerable;
+# keep the small decision-grade outputs
+artifacts/sim/*
+!artifacts/sim/coverage_audit_statewide.json
+!artifacts/sim/region_bom.csv
+!artifacts/sim/statewide_proposal_map.png
+!artifacts/sim/link_matrix_statewide.csv
+!artifacts/sim/trail_coverage.json
+artifacts/dem/cache/*
+artifacts/osm/*
+artifacts/vendor/*
+fastsim/target/

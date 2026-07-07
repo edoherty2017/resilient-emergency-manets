@@ -1,0 +1,24 @@
+{
+  "run_id": "20260520T214831Z",
+  "generated_at_utc": "2026-05-20T21:48:31.924943+00:00",
+  "overall_ok": false,
+  "nodes": [
+    {
+      "node": "meshnode1",
+      "ok": false,
+      "error": "jsonl not found: /tmp/manet_ingest/meshnode1/jsonl/telemetry_stream.jsonl"
+    },
+    {
+      "ok": true,
+      "input": "/tmp/manet_ingest/meshradiohead2/jsonl/telemetry_stream.jsonl",
+      "total_records": 64001,
+      "valid_records": 64001,
+      "invalid_records": 0,
+      "pass_rate": 1.0,
+      "error_counts": {},
+      "sample_errors": [],
+      "node": "meshradiohead2",
+      "source": "local"
+    }
+  ]
+}

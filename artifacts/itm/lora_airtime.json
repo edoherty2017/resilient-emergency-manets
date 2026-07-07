@@ -1,0 +1,21 @@
+{
+  "preset": "LongFast SF11/BW250/CR4-5, 16-symbol preamble, explicit header, CRC",
+  "symbol_time_ms": 8.192,
+  "airtime_ms": {
+    "position_packet_~40B": 559.1,
+    "sos_text_~64B": 722.9,
+    "ack_~16B": 354.3,
+    "max_~237B": 2033.7
+  },
+  "sos_chain": {
+    "hops": 3,
+    "serial_airtime_ms": 2168.8,
+    "note": "pure airtime; Meshtastic adds per-hop random CSMA backoff (typically <1 s/hop under light load), so end-to-end SOS delivery is seconds, not tens of seconds \u2014 the <30 s target has large margin under light load"
+  },
+  "channel_utilization": {
+    "assumption": "every node beacons a ~40 B position packet each 60 s",
+    "per_node_utilization_pct": 0.93,
+    "nodes_at_10pct_channel_load": 10,
+    "note": "Trial 1 saw ~22 concurrent nodes at the summit; at default beacon rates that is ~20.5% raw airtime before mesh rebroadcast amplification \u2014 congestion management (longer beacon intervals, hop limits) belongs in the deployment plan"
+  }
+}

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import json
+import math
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -368,8 +369,25 @@ def assign_control_plane_mode(telemetry: pd.DataFrame, events: pd.DataFrame) -> 
     return merged
 
 
+def wilson_ci(k: int, n: int, z: float = 1.96) -> tuple[float, float]:
+    """Wilson score interval for a binomial proportion (in percent)."""
+    if n == 0:
+        return (0.0, 0.0)
+    p = k / n
+    denom = 1.0 + z * z / n
+    center = (p + z * z / (2 * n)) / denom
+    half = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / denom
+    return (round(100.0 * max(center - half, 0.0), 2), round(100.0 * min(center + half, 1.0), 2))
+
+
 def transition_window_summary(timeline: pd.DataFrame) -> dict:
-    """Emit per-mode pass/fail stats for coverage-transition windows."""
+    """Emit per-mode pass/fail stats for coverage-transition windows.
+
+    Coverage here means "≥1 packet/sample of the given mode observed in the row's
+    window" — a receive-side presence signal, NOT end-to-end deliverability.
+    Rows are temporally autocorrelated, so even the Wilson CI is optimistic;
+    treat these as descriptive statistics.
+    """
     if "control_plane_mode" not in timeline.columns:
         return {}
     result = {}
@@ -382,11 +400,14 @@ def transition_window_summary(timeline: pd.DataFrame) -> dict:
         counts = sub["coverage_mode"].value_counts(dropna=False).to_dict()
         # pass = at least some connectivity (MESH or better)
         covered = sum(v for k, v in counts.items() if k != "NONE")
+        lo, hi = wilson_ci(covered, n)
         result[mode] = {
             "n_rows": n,
             "coverage_mode_counts": {str(k): int(v) for k, v in counts.items()},
             "covered_rows": covered,
             "coverage_pct": round(100.0 * covered / n, 2) if n else 0.0,
+            "coverage_pct_wilson95": [lo, hi],
+            "definition": "receive-side presence per row window; not end-to-end deliverability; rows autocorrelated",
             "pass": covered > 0,
         }
     return result

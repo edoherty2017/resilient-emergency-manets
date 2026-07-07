@@ -1,0 +1,12 @@
+{
+  "ok": true,
+  "input": "/tmp/manet_ingest/meshradiohead2/jsonl/telemetry_stream.jsonl",
+  "total_records": 64001,
+  "valid_records": 64001,
+  "invalid_records": 0,
+  "pass_rate": 1.0,
+  "error_counts": {},
+  "sample_errors": [],
+  "node": "meshradiohead2",
+  "source": "local"
+}

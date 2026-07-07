@@ -1,4 +1,4 @@
-schema_version: 1
+schema_version: 2
 join:
   primary_keys:
     - trial_id
@@ -6,21 +6,40 @@ join:
     - node_id
     - timestamp_utc
   timestamp_tolerance_seconds: 5
+  src_position_tolerance_seconds: 60
   segment_key: segment_id
   orphan_report_required: true
 calibration:
-  version: v0.1.0
+  version: v1.0.0
+  # Observable priority as implemented in airmap_live_trial.py: ESP when
+  # RSSI+SNR are both present (raw RSSI is noise-dominated near the floor),
+  # else the RSRP->RSSI fallback chain.
   target_metric_priority:
-    - rssi_dbm
-    - snr_db
+    - esp_dbm
     - rsrp_dbm
-  method: residual_bias_then_scale
+    - rssi_dbm
+  # Floating-intercept log-distance OLS: PL = alpha + 10*beta*log10(d_m).
+  # beta is the path-loss exponent deliverable. Mean-bias retained only as a
+  # comparison model in blocked CV.
+  method: floating_intercept_ols
+  eligibility:
+    distance_source: source_to_head_gps
+    hops_away: 0
+    min_link_distance_m: 10
+    max_plausible_dbm: -20
+    max_src_position_staleness_s: 60
+  min_calibration_samples: 30
   save_precalibration_predictions: true
   save_postcalibration_predictions: true
 evaluation:
   metrics:
     - mae
     - rmse
+  # Held-out evaluation: contiguous-time blocked CV (never random-row splits;
+  # rows are spatially/temporally autocorrelated). Parameter CIs: moving-block
+  # bootstrap (60 s blocks).
+  validation: blocked_cv_contiguous_time
+  uncertainty: moving_block_bootstrap
   stratify_by:
     - topography_class
     - weather_tag
@@ -28,6 +47,12 @@ evaluation:
     - satellite_link_status
   min_samples_per_stratum: 30
   require_sample_counts: true
+  # Falsifiable gates (warnings during shakedown; hard failures with
+  # --require-calibration-grade from Trial 2 onward):
+  gates:
+    path_loss_exponent_range: [1.6, 4.5]
+    max_sigma_db: 10.0          # literature for mountain LoRa: sigma ~ 6-8 dB (Bianco et al. 2021)
+    max_held_out_rmse_db: 12.0
 artifacts:
   output_dir: artifacts/airmap
   required_files:
@@ -37,6 +62,7 @@ artifacts:
     - metrics_global.json
     - metrics_stratified.csv
     - outliers.csv
+    - calibration_deltas.json
 provenance:
   required:
     - run_id

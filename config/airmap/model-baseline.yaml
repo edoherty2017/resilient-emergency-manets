@@ -1,30 +1,42 @@
-schema_version: 1
-run_profile: week4_baseline
+schema_version: 2
+run_profile: trial2_baseline
 model:
-  name: itm_longley_rice_baseline
-  version: 0.1.0
-  hash: "TBD_PINNED_HASH"
+  # Honest label: the implemented model is pure free-space path loss. A
+  # terrain-aware ITM/Longley-Rice engine is planned (review P2 item 12) but
+  # NOT implemented — never cite this baseline as terrain-aware.
+  name: fspl_baseline
+  version: 1.0.0
+  # sha256 of the canonical model spec string:
+  # fspl_baseline:PL_db=32.44+20*log10(d_km)+20*log10(f_mhz);f=915MHz;eirp_dbm=26.3;preset=LongFast(SF11,BW250kHz,CR4/5);rx_sens_dbm=-131
+  hash: "cfbfb162025dbe815381cb3db71f0f41883ec6da0201758c79a610d0e1936dee"
   frequency_mhz: 915
   polarization: vertical
-  climate_code: "TBD"
-  variability_mode: area
   notes: >-
-    First-pass terrain-aware baseline. Replace placeholders after engine selection and
-    command-path validation.
+    FSPL-only baseline (n=2 lower bound). Radio assumptions: Meshtastic LongFast
+    preset = SF11 / BW 250 kHz / CR 4/5, data rate 1.07 kbps, sensitivity ~ -131 dBm
+    (Meshtastic radio-settings link-budget table; Semtech SX1262 datasheet).
+    TX 22 dBm, 2 x 2.15 dBi antennas (EIRP 26.3 dBm).
+radio:
+  preset: LongFast
+  spreading_factor: 11
+  bandwidth_khz: 250
+  coding_rate: "4/5"
+  data_rate_kbps: 1.07
+  tx_dbm: 22.0
+  ant_gain_dbi_each_end: 2.15
+  rx_sensitivity_dbm: -131.0
+  noise_floor_dbm: -114.0
 features:
-  recipe_version: v0.1.0
+  recipe_version: v1.0.0
+  # Only features the implemented model/evaluation actually consumes.
   required:
-    - distance_m
+    - distance_m            # 3D slant distance, GPS both ends
+    - topography_class      # stratification only (not a model input yet)
+  planned_itm_inputs:
     - tx_height_m
     - rx_height_m
-    - dem_elevation_m
-    - slope_deg
+    - dem_elevation_profile
     - obstruction_depth_m
-    - topography_class
-    - material_class
-priors:
-  attenuation_priors_version: v0.1.0
-  source: geology-loss
 outputs:
   fields:
     - timestamp_utc
@@ -33,11 +45,13 @@ outputs:
     - node_id
     - segment_id
     - distance_m
+    - distance_source
     - pred_path_loss_db
     - pred_rssi_dbm
-    - pred_snr_db
+    - pred_link_margin_db   # margin above sensitivity; renamed from pred_snr_db (it was never an SNR)
     - topography_class
     - material_class
+    - calibration_eligible
     - model_name
     - model_version
     - model_hash

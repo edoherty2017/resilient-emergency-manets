@@ -106,7 +106,10 @@ def main() -> int:
             df = pd.DataFrame()
 
         if not df.empty:
-            df["weather_tag"] = state
+            # NOTE: do NOT overwrite per-row `weather_tag` — that is the real
+            # per-observation weather from weather_enrich.py used for stratification.
+            # The guard records its single go/no-go state in a separate column.
+            df["weather_guard_state"] = state
             df["weather_guard_hold"] = state == "hold"
             df["weather_guard_reason"] = "; ".join(reasons)
             ann_path = out_dir / "weather_annotated.parquet"

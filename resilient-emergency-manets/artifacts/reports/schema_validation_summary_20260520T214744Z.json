@@ -1,0 +1,147 @@
+{
+  "run_id": "20260520T214744Z",
+  "generated_at_utc": "2026-05-20T21:47:44.071092+00:00",
+  "overall_ok": false,
+  "nodes": [
+    {
+      "node": "meshnode1",
+      "ok": false,
+      "error": "jsonl not found: /tmp/manet_ingest/meshnode1/jsonl/telemetry_stream.jsonl"
+    },
+    {
+      "ok": false,
+      "input": "/tmp/manet_ingest/meshradiohead2/jsonl/telemetry_stream.jsonl",
+      "total_records": 64001,
+      "valid_records": 63291,
+      "invalid_records": 710,
+      "pass_rate": 0.988906,
+      "error_counts": {
+        "range_error:battery_pct:101.0": 710
+      },
+      "sample_errors": [
+        {
+          "line": 62826,
+          "errors": [
+            "range_error:battery_pct:101.0"
+          ]
+        },
+        {
+          "line": 62828,
+          "errors": [
+            "range_error:battery_pct:101.0"
+          ]
+        },
+        {
+          "line": 62830,
+          "errors": [
+            "range_error:battery_pct:101.0"
+          ]
+        },
+        {
+          "line": 62831,
+          "errors": [
+            "range_error:battery_pct:101.0"
+          ]
+        },
+        {
+          "line": 62832,
+          "errors": [
+            "range_error:battery_pct:101.0"
+          ]
+        },
+        {
+          "line": 62833,
+          "errors": [
+            "range_error:battery_pct:101.0"
+          ]
+        },
+        {
+          "line": 62834,
+          "errors": [
+            "range_error:battery_pct:101.0"
+          ]
+        },
+        {
+          "line": 62837,
+          "errors": [
+            "range_error:battery_pct:101.0"
+          ]
+        },
+        {
+          "line": 62838,
+          "errors": [
+            "range_error:battery_pct:101.0"
+          ]
+        },
+        {
+          "line": 62839,
+          "errors": [
+            "range_error:battery_pct:101.0"
+          ]
+        },
+        {
+          "line": 62841,
+          "errors": [
+            "range_error:battery_pct:101.0"
+          ]
+        },
+        {
+          "line": 62843,
+          "errors": [
+            "range_error:battery_pct:101.0"
+          ]
+        },
+        {
+          "line": 62846,
+          "errors": [
+            "range_error:battery_pct:101.0"
+          ]
+        },
+        {
+          "line": 62851,
+          "errors": [
+            "range_error:battery_pct:101.0"
+          ]
+        },
+        {
+          "line": 62855,
+          "errors": [
+            "range_error:battery_pct:101.0"
+          ]
+        },
+        {
+          "line": 62857,
+          "errors": [
+            "range_error:battery_pct:101.0"
+          ]
+        },
+        {
+          "line": 62859,
+          "errors": [
+            "range_error:battery_pct:101.0"
+          ]
+        },
+        {
+          "line": 62861,
+          "errors": [
+            "range_error:battery_pct:101.0"
+          ]
+        },
+        {
+          "line": 62862,
+          "errors": [
+            "range_error:battery_pct:101.0"
+          ]
+        },
+        {
+          "line": 62863,
+          "errors": [
+            "range_error:battery_pct:101.0"
+          ]
+        }
+      ],
+      "node": "meshradiohead2",
+      "source": "local"
+    }
+  ]
+}

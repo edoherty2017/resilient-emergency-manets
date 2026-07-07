@@ -31,6 +31,15 @@ def classify_material(elev: float, slope: float) -> str:
 
 
 def attenuation_prior_db(material_class: str, topography_class: str, freq_mhz: float) -> float:
+    """UNCITED ENGINEERING PLACEHOLDERS — not used by the prediction model.
+
+    These constants (and the (f/915)^0.25 frequency scaling) have no literature
+    basis. They are emitted for schema/pipeline validation only and must not be
+    presented as physical attenuation priors. Before any analytical use, replace
+    with cited values (ITU-R P.833 vegetation attenuation; Bianco et al. 2021
+    mountain LoRa exponents) and wire them into the prediction — or delete this
+    module. See docs/academic-rigor-review-2026-06-12.md, P2 item 13.
+    """
     base = {
         "dense_forest": 10.0,
         "mixed_forest": 7.0,
@@ -45,7 +54,7 @@ def attenuation_prior_db(material_class: str, topography_class: str, freq_mhz: f
         "cliff_or_ridge": 5.5,
     }[topography_class]
 
-    # weak frequency scaling anchored near 915 MHz
+    # weak frequency scaling anchored near 915 MHz — UNCITED, see docstring
     fscale = (freq_mhz / 915.0) ** 0.25
     return float((base + topo_adj) * fscale)
 
@@ -91,6 +100,10 @@ def main() -> int:
 
     summary = {
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "priors_status": (
+            "UNCITED placeholders, not consumed by the prediction model; "
+            "pipeline-validation only — see attenuation_prior_db docstring"
+        ),
         "rows": int(len(df)),
         "freq_mhz": float(args.freq_mhz),
         "topography_counts": df["topography_class"].value_counts(dropna=False).to_dict(),
