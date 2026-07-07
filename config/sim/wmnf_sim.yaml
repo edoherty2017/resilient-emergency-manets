@@ -40,6 +40,13 @@ energy:
   # Meshtastic ESP32 targets cannot deep-sleep while routing.
   battery_v: 3.7
   tx_current_ma: 245.0       # board total during transmit  [BENCH-CALIBRATE]
+  # rx_listen_ma community bracket (2026-07 web survey; see sweep_hw/):
+  #   Heltec V3 measured avg ~130 mA (tutoduino.fr), ~110 mA (meshtastic forum)
+  #   T-Beam router ~100 mA (meshtastic forum)
+  #   RAK4631 nRF52 idle 2-6 mA (RAK power thread) — the solar/router choice
+  # 68 mA retained as mid-bracket default; conclusions verified invariant
+  # across 6-130 mA (artifacts/sim/sweep_hw/). [BENCH-CALIBRATE overnight
+  # discharge test on our own Heltec pins this exactly]
   rx_listen_ma: 68.0         # router idle/RX, screen+BT off [BENCH-CALIBRATE]
   light_sleep_ma: 12.0       # ESP32 light-sleep between CAD [BENCH-CALIBRATE]
   gps_active_ma: 25.0        # u-blox class module when enabled
