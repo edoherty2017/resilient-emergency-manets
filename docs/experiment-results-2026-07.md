@@ -112,6 +112,14 @@ knee is **74 Wh battery + 10 W panel** (~34 deaths/yr fleet-wide ≈ 99.98%
 site-uptime); diminishing returns beyond. Combined with E6: nRF relays at
 that BOM ≈ zero-maintenance fleet.
 
+## Engine cross-validation (Python reference vs fastsim, all 9 modes, seed 42)
+
+Full-year runs of every algorithm on both engines: **max |ΔPDR| = 0.006;
+deaths identical in 5/9 modes, max relative Δ 3.9% (rotate_lb, the most
+stochastic); SOS and Gini agree throughout.** fastsim results are
+year-scale-validated across the entire mode space, not just spot-checked.
+Table: `artifacts/sim/xval/` vs `artifacts/sim/kiosk_summary_*.json`.
+
 ## Consolidated architecture recommendation
 
 Single shared channel · duty-cycled MAC (duty_sync or duty_adaptive) ·

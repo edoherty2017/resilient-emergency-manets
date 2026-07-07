@@ -36,7 +36,16 @@ in, or delete the module.
 **My rec:** delete for now (ITM already handles terrain; vegetation can be a labeled
 excess-loss term later) — less surface area to defend.
 
-### A4 ⬜ Winter survivability / seasonal scope — NOW QUANTIFIED
+### A4 ⬜ Winter survivability / seasonal scope — QUANTIFIED ACROSS 10 REAL YEARS
+Update 2026-07-07: ten ERA5 weather years (2016–2026) + BOM grid
+(docs/experiment-results-2026-07.md) refine the decision: with the original
+37 Wh/6 W BOM the winter collapse happens in EVERY year of the decade; with
+the recommended 74 Wh/10 W + nRF relays + duty MAC, year-round operation is
+viable (~34 deaths/yr fleet-wide). So the choice is now **seasonal-with-
+current-hardware vs year-round-with-upgraded-BOM (~$5k relay fleet)** —
+a budget decision, not a physics one.
+
+### A4 (original) Winter survivability / seasonal scope — NOW QUANTIFIED
 The 365-day simulation on real 2025–26 weather (ERA5 shortwave + snowfall,
 artifacts/sim/summary_year.json) settles the physics: with the 37 Wh battery +
 6 W panel BOM, **open ridge sites hold ≥68% median minimum SOC May–Oct, then the
@@ -115,13 +124,10 @@ should see a single coherent update.
 
 ## E. Housekeeping
 
-### E1 ⬜ Commit / push the working tree
-Everything from the rebuild + build-out + memos is **uncommitted**. Large, coherent set of
-changes.
-**Need from you:** when/how to commit — one big commit vs staged by theme; branch name;
-push to a remote or keep local? (I'll only commit/push when you say so.)
-**My rec:** stage into a few themed commits on a branch `rigor-rebuild-2026-06`; push only
-if you have a private remote.
+### E1 ✅ Commit / push — RESOLVED (2026-07-07)
+Everything committed and pushed to branch **simulation-phase-2026-07** on
+github.com/edoherty2017/resilient-emergency-manets (a68e3e4 sim phase,
+248d76d fastsim, 69e9fe5 experiment suite, + ongoing).
 
 ### E2 ⬜ Defaults I chose (revisit only if you disagree — non-blocking)
 - Planning threshold **−100 dBm** (sensitivity + ~31 dB fade margin)
@@ -134,7 +140,16 @@ if you have a private remote.
 
 ## G. Simulation / ML phase (added 2026-07-03)
 
-### G1 ⬜ Routing architecture: stay Meshtastic or go custom
+### G1 ✅ Routing architecture — RESOLVED BY DATA (2026-07-07)
+Nine-algorithm year suite + hardware bounds + experiment suite
+(docs/experiment-results-2026-07.md) settle it: **single shared channel,
+duty-cycled MAC (duty_sync/duty_adaptive), SOS flooded with priority +
+ACK-retry, routing = lb_energy tree for unicast**. Regional channels tested
+and REJECTED (cost SOS). Requires custom firmware or nRF hardware; with
+nRF52 relays, always-on + plain routing is also acceptable (0 deaths at
+6 mA). Original G1 text below for the record.
+
+### G1 (superseded) Routing architecture: stay Meshtastic or go custom
 The WMNF simulation (scripts/mesh_sim.py) compares Meshtastic managed
 flooding against energy-aware source routing on identical traffic/terrain.
 At the 35-node build-out the gap is decisive: energy-aware routing delivers
@@ -152,7 +167,15 @@ tx/rx/sleep currents + panel wattage in `config/sim/wmnf_sim.yaml` are marked
 BENCH-CALIBRATE. Same bench session as C5 can nail all of them (USB power meter).
 **Need from you:** run the bench measurements when home.
 
-### G3 ⬜ Duty cycling is the real energy lever (year-run finding, 2026-07-05)
+### G3 ✅ Duty cycling — CONFIRMED as the energy lever; hardware path chosen (2026-07-07)
+Bounds sweep (6–130 mA) + nRF sleep-floor fix + 10 weather years: duty
+cycling cuts deaths ~7–15× at every plausible hardware current, and the
+**mixed fleet (nRF52 solar relays + Heltec kiosk rentals) equals all-nRF at
+~$5k relay-fleet cost**. BOM knee: 74 Wh battery + 10 W pyramid panel
+(~99.98% site-uptime). Remaining open sliver: bench-measure our own boards
+(G2/C5) to convert the bracket into a point estimate.
+
+### G3 (superseded) Duty cycling is the real energy lever (year-run finding, 2026-07-05)
 Full-year statewide runs settled it: with always-listening routers, TX energy
 is **0.06%** of the fleet budget (217 Wh/yr transmit vs ~350,000 Wh/yr
 receive-listen across 159 solar nodes) — routing-algorithm choice moves
