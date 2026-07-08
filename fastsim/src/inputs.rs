@@ -72,6 +72,27 @@ pub struct Config {
     pub battery: BatteryCfg,
     pub solar: SolarCfg,
     pub traffic: TrafficCfg,
+    #[serde(default)]
+    pub kiosk: KioskCfg,
+}
+
+#[derive(Deserialize)]
+pub struct KioskCfg {
+    pub capacity: u32,
+    pub panel_w: f64,
+    pub battery_wh: f64,
+    pub charge_w_per_bay: f64,
+    pub demand_tier_a: u32,
+    pub demand_tier_b: u32,
+    pub demand_tier_c: u32,
+}
+
+impl Default for KioskCfg {
+    fn default() -> Self {
+        KioskCfg { capacity: 20, panel_w: 200.0, battery_wh: 1000.0,
+                   charge_w_per_bay: 10.0, demand_tier_a: 20,
+                   demand_tier_b: 10, demand_tier_c: 4 }
+    }
 }
 
 #[derive(Deserialize)]

@@ -115,16 +115,33 @@ impl Sim {
             route_site_loss.push(per_site);
         }
 
-        // walkers + kiosk radio pools (walker demand + spares per kiosk)
+        // walkers from route-popularity demand tiers (AMC usage data);
+        // renters_per_route acts as a global scale factor (2 = 100% tiers)
+        const TIER_A: [&str; 4] = ["franconia_ridge_loop", "tuckerman_loop",
+                                   "monadnock_white_dot", "ammo_jewell_loop"];
+        const TIER_B: [&str; 8] = ["lonesome_lake_family", "carter_wildcat",
+                                   "crawford_traverse", "valley_way_madison",
+                                   "pack_monadnock_loop", "kearsarge_winslow",
+                                   "cardigan_west_ridge", "chocorua_piper"];
+        let mut route_names_sorted: Vec<&String> = routes_file.routes.keys().collect();
+        route_names_sorted.sort();
+        let scale = p.renters_per_route as f64 / 2.0;
         let mut walkers = Vec::new();
         let mut kiosk_load: HashMap<u32, u32> = HashMap::new();
         for (ri, r) in routes.iter().enumerate() {
+            let rname = route_names_sorted[ri].as_str();
+            let tier = if TIER_A.contains(&rname) { cfg.kiosk.demand_tier_a }
+                       else if TIER_B.contains(&rname) { cfg.kiosk.demand_tier_b }
+                       else { cfg.kiosk.demand_tier_c };
+            let n_walk = ((tier as f64 * scale).round() as u32).max(1);
             let Some(&kiosk) = name_to_idx.get(&r.kiosk) else { continue };
             let ret = *name_to_idx.get(&r.return_kiosk).unwrap_or(&kiosk);
-            for k in 0..p.renters_per_route {
+            for k in 0..n_walk {
+                // checkouts spread 07:00–13:00 ET (11:00–17:00 UTC)
+                let frac = k as f64 / n_walk.max(1) as f64;
                 walkers.push(Walker {
                     route: ri as u32,
-                    start_s: (11.5 + 1.5 * k as f64) * 3600.0,
+                    start_s: (11.0 + 6.0 * frac) * 3600.0,
                     kiosk, return_kiosk: ret, radio: None,
                 });
                 *kiosk_load.entry(kiosk).or_insert(0) += 1;
@@ -132,8 +149,14 @@ impl Sim {
         }
         let mut kiosk_ids: Vec<u32> = kiosk_load.keys().copied().collect();
         kiosk_ids.sort();
+        let mut kiosk_banks = std::collections::HashMap::new();
         for kiosk in kiosk_ids {
-            let n_radios = kiosk_load[&kiosk] + p.kiosk_spares;
+            kiosk_banks.insert(kiosk, KioskBank {
+                site: kiosk, soc_wh: cfg.kiosk.battery_wh,
+                cap_wh: cfg.kiosk.battery_wh,
+            });
+            let n_radios = (kiosk_load[&kiosk] + p.kiosk_spares)
+                .min(cfg.kiosk.capacity);
             for i in 0..n_radios {
                 let base = &nodes[kiosk as usize];
                 let (lat, lon) = (base.lat, base.lon);
@@ -173,6 +196,7 @@ impl Sim {
             route_next: vec![None; n_nodes], route_cost: vec![f64::INFINITY; n_nodes],
             route_tree_t: -1e18, fwd_median: 0.0,
             shadow: HashMap::new(), link_health: HashMap::new(),
+            kiosk_banks,
             rental: RentalStats { walker_days: 0, served: 0, starved: 0,
                                   checkout_soc_sum: 0.0 },
             total_airtime_s: 0.0, soc_series: Vec::new(),

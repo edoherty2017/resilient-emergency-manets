@@ -122,6 +122,12 @@ pub struct ActiveTx {
     pub flight: Flight,
 }
 
+pub struct KioskBank {
+    pub site: u32,
+    pub soc_wh: f64,
+    pub cap_wh: f64,
+}
+
 pub struct Walker {
     pub route: u32,
     pub start_s: f64,
@@ -215,6 +221,7 @@ pub struct Sim {
     pub routes: Vec<Route>,
     pub route_site_loss: Vec<Vec<Vec<f64>>>, // [route][site][sample]
     pub walkers: Vec<Walker>,
+    pub kiosk_banks: std::collections::HashMap<u32, KioskBank>,
     pub weather: Vec<(f64, f64)>, // (kt, snow_factor)
     pub start_doy: u32,
 

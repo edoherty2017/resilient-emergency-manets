@@ -330,14 +330,27 @@ for (const [n,s] of Object.entries(D.sites)){
   markers[n]=m; socNow[n]=1; aliveNow[n]=true;
 }
 // kiosk charging boxes: live inventory count + charge list
+function kioskHtml(n,count,frac){
+  const pct=Math.round(frac*100);
+  const bar=Math.max(4,Math.round(26*frac));
+  const col=frac>0.5?'#35c46a':(frac>0.2?'#e0a80f':'#d24545');
+  return '<div id="kk_'+n+'" style="width:38px;font-family:-apple-system,sans-serif;'+
+    'filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))">'+
+    '<svg width="38" height="30" viewBox="0 0 38 30">'+
+    '<rect x="1" y="1" width="36" height="22" rx="4" fill="#1b2733" stroke="#fff" stroke-width="1.5"/>'+
+    '<path d="M17 5 L13 13 L17 13 L15 19 L23 10 L18 10 L21 5 Z" fill="'+col+'"/>'+
+    '<text x="30" y="16" font-size="10" font-weight="700" fill="#fff" text-anchor="middle" id="kkc_'+n+'">'+count+'</text>'+
+    '<rect x="5" y="25" width="28" height="4" rx="2" fill="#333"/>'+
+    '<rect x="6" y="26" width="'+bar+'" height="2" rx="1" fill="'+col+'" id="kkb_'+n+'"/>'+
+    '</svg></div>';
+}
 const kioskMarkers={};
 let ki=0;
 if(D.kiosks.length){
   const names=new Set(); D.kiosks.forEach(k=>Object.keys(k[1]).forEach(n=>names.add(n)));
   for(const n of names){ const s=D.sites[n]; if(!s) continue;
     kioskMarkers[n]=L.marker([s.lat,s.lon],{icon:L.divIcon({className:'',
-      html:'<div style="background:#173;color:#fff;border:2px solid #fff;border-radius:4px;padding:1px 5px;font-size:11px;font-weight:bold" id="kk_'+n+'">📦</div>',
-      iconSize:null})}).addTo(map).bindTooltip('charging box: '+n);
+      html:kioskHtml(n,0,1),iconSize:null})}).addTo(map).bindTooltip('charging box: '+n);
   }
 }
 function applyKiosks(){
@@ -348,8 +361,8 @@ function applyKiosks(){
     const el=document.getElementById('kk_'+n);
     if(!el) continue;
     const socs=inv[n]||[];
-    el.textContent='📦'+socs.length;
-    el.style.background=socs.length===0?'#a22':(socs.length<2?'#a70':'#173');
+    const frac=socs.length?socs.reduce((a,b)=>a+b,0)/socs.length:0;
+    el.outerHTML=kioskHtml(n,socs.length,frac);
     kioskMarkers[n].setTooltipContent('box '+n+': '+socs.length+' radios ['+
       socs.map(s=>Math.round(s*100)+'%').join(', ')+']');
   }

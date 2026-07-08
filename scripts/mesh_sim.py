@@ -204,22 +204,39 @@ class MeshSim:
                     self.nodes[name] = nd
                     self.hiker_names.append(name)
         elif routes and kiosk_pool:
-            # kiosk inventories: one radio per daily walker-wave + spares;
-            # walkers draw the highest-charge docked radio each morning
+            # kiosk inventories: demand tiers from real AMC usage data,
+            # capped at kiosk capacity; walkers draw best-charge radio
+            kc = cfg.get("kiosk", {})
+            cap = kc.get("capacity", 20)
+            TIER_A = {"franconia_ridge_loop", "tuckerman_loop",
+                      "monadnock_white_dot", "ammo_jewell_loop"}
+            TIER_B = {"lonesome_lake_family", "carter_wildcat",
+                      "crawford_traverse", "valley_way_madison",
+                      "pack_monadnock_loop", "kearsarge_winslow",
+                      "cardigan_west_ridge", "chocorua_piper"}
+            scale = renters_per_route / 2.0
             kiosk_load: dict = {}
-            for rname, r in routes["routes"].items():
-                for k in range(renters_per_route):
+            for rname, r in sorted(routes["routes"].items()):
+                tier = (kc.get("demand_tier_a", 20) if rname in TIER_A else
+                        kc.get("demand_tier_b", 10) if rname in TIER_B else
+                        kc.get("demand_tier_c", 4))
+                n_walk = max(1, round(tier * scale))
+                for k in range(n_walk):
                     self.walkers.append({
                         "name": f"walker_{rname}_{k}", "route": r,
                         "route_name": rname,
-                        "start_s": (11.5 + 1.5 * k) * 3600.0,
+                        "start_s": (11.0 + 6.0 * k / max(n_walk, 1)) * 3600.0,
                         "kiosk": r["kiosk"], "return_kiosk": r["return_kiosk"]})
                     kiosk_load[r["kiosk"]] = kiosk_load.get(r["kiosk"], 0) + 1
+            self.kiosk_banks = {}
             for kiosk, n_walkers in kiosk_load.items():
+                self.kiosk_banks[kiosk] = {
+                    "soc_wh": kc.get("battery_wh", 1000.0),
+                    "cap_wh": kc.get("battery_wh", 1000.0)}
                 ks = topo["sites"].get(kiosk)
                 base = ({"lat": ks["lat"], "lon": ks["lon"]} if ks
                         else {"lat": 44.0, "lon": -71.5})
-                for i in range(n_walkers + kiosk_spares):
+                for i in range(min(n_walkers + kiosk_spares, cap)):
                     name = f"radio_{kiosk}_{i}"
                     nd = Node(name, {**base, "power": "battery"}, cfg, hz_valley)
                     nd.docked = True
@@ -808,8 +825,10 @@ class MeshSim:
                 k = getattr(nd, "kiosk", None)
                 if k and nd.docked:
                     inv.setdefault(k, []).append(round(nd.soc_wh / nd.cap_wh, 2))
+            banks = {k: round(b["soc_wh"] / b["cap_wh"], 3)
+                     for k, b in getattr(self, "kiosk_banks", {}).items()}
             self.emit(ev="kiosk", inv={k: sorted(v, reverse=True)
-                                       for k, v in inv.items()})
+                                       for k, v in inv.items()}, banks=banks)
 
     def rental_process(self, node: Node):
         """Daily checkout/return lifecycle for a rented node.
@@ -941,12 +960,33 @@ class MeshSim:
             day = int(self.env.now // 86400)
             kt = self._kt_for_day(day)
             snow = self._snow_factor_for_day(day)
+            # kiosk solar arrays (flat mount) harvest into their banks
+            kc = self.cfg.get("kiosk", {})
+            for kname, bank in getattr(self, "kiosk_banks", {}).items():
+                ks = self.topo["sites"].get(kname)
+                if ks is None:
+                    continue
+                flat = {"geometry": "flat", "canopy_tau": 1.0}
+                w = snow * solar_model.solar_power_w(
+                    ks["lat"], ks["lon"], t_utc, kt,
+                    np.array(ks["horizon_deg"]),
+                    {**self.cfg["solar"],
+                     "panel_w_nominal": kc.get("panel_w", 200.0)}, flat)
+                bank["soc_wh"] = min(bank["soc_wh"] + w * step / 3600.0,
+                                     bank["cap_wh"])
             for node in self.nodes.values():
                 if node.power == "grid":
                     continue
                 if node.docked:                      # in the charging box
-                    node.soc_wh = min(node.soc_wh + KIOSK_CHARGE_W * step / 3600.0,
-                                      node.cap_wh)
+                    want = KIOSK_CHARGE_W * step / 3600.0
+                    bank = getattr(self, "kiosk_banks", {}).get(
+                        getattr(node, "kiosk", None))
+                    if bank is not None:
+                        got = min(want, max(bank["soc_wh"], 0.0))
+                        bank["soc_wh"] -= got
+                    else:
+                        got = want
+                    node.soc_wh = min(node.soc_wh + got, node.cap_wh)
                     if not node.alive and node.soc_wh >= REVIVE_FRACTION * node.cap_wh:
                         node.alive = True
                         self.emit(ev="alive", n=node.name)

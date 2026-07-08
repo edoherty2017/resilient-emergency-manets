@@ -96,3 +96,17 @@ sim:
   start_date: "2026-07-10"    # mid-summer baseline
   solar_step_s: 60
   seed: 20260703
+
+kiosk:
+  # Solar-powered charging box (user spec 2026-07-08): 20 bays, its own array.
+  # Sizing sanity: 20 radios x ~6 Wh/day rental drain = 120 Wh/day demand;
+  # 200 W array at 3-4 NH sun-hours = 600-800 Wh/day summer, ~200 winter.
+  capacity: 20
+  panel_w: 200.0             # flat-mount array on the box roof [SITE-SURVEY]
+  battery_wh: 1000.0         # LiFePO4 bank, usable
+  charge_w_per_bay: 10.0
+  # daily renter demand tiers by route popularity (AMC: Franconia ~700/day
+  # peak; we model RENTAL adoption, capped by kiosk stock):
+  demand_tier_a: 20          # franconia, tuckerman, monadnock, ammo_jewell
+  demand_tier_b: 10          # moderate day hikes
+  demand_tier_c: 4           # remote/long routes

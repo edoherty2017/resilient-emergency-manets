@@ -464,6 +464,23 @@ impl Sim {
         let gps_w = self.cfg.energy.gps_active_ma / 1000.0 * e_batt_v;
         let sec_of_day = self.now % 86400.0;
         let mut tree_dirty = false;
+        // kiosk solar arrays: flat-mount panel using the site's horizon mask
+        let kiosk_sites: Vec<u32> = self.kiosk_banks.keys().copied().collect();
+        for ks in kiosk_sites {
+            let (lat, lon, hz) = {
+                let n = &self.nodes[ks as usize];
+                (n.lat, n.lon, n.horizon.clone())
+            };
+            let flat = crate::solar::SiteSolar {
+                pyramid: false, tilt_deg: 0.0, canopy_tau: 1.0 };
+            let gain = snow * solar_power_w(lat, lon, doy as u32, sec_of_day, kt,
+                                            &hz, &flat, self.cfg.kiosk.panel_w,
+                                            self.cfg.solar.system_efficiency)
+                * step / 3600.0;
+            if let Some(bank) = self.kiosk_banks.get_mut(&ks) {
+                bank.soc_wh = (bank.soc_wh + gain).min(bank.cap_wh);
+            }
+        }
         for i in 0..self.nodes.len() {
             let (is_grid, is_docked) = {
                 let n = &self.nodes[i];
@@ -473,8 +490,18 @@ impl Sim {
                 continue;
             }
             if is_docked {
+                let kiosk = self.nodes[i].kiosk;
+                let per_bay = self.cfg.kiosk.charge_w_per_bay;
+                let want_wh = per_bay * step / 3600.0;
+                let got_wh = if let Some(k) = kiosk {
+                    if let Some(bank) = self.kiosk_banks.get_mut(&k) {
+                        let g = want_wh.min(bank.soc_wh.max(0.0));
+                        bank.soc_wh -= g;
+                        g
+                    } else { want_wh }   // grid-site kiosk fallback
+                } else { want_wh };
                 let n = &mut self.nodes[i];
-                n.soc_wh = (n.soc_wh + KIOSK_CHARGE_W * step / 3600.0).min(n.cap_wh);
+                n.soc_wh = (n.soc_wh + got_wh).min(n.cap_wh);
                 if !n.alive && n.soc_wh >= REVIVE_FRACTION * n.cap_wh {
                     n.alive = true;
                     tree_dirty = true;
