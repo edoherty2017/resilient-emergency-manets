@@ -26,8 +26,10 @@ Run: .venv/bin/python scripts/build_sim_topology.py
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -39,9 +41,10 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 from itm_relay_links import (  # noqa: E402
     Dem, itm_p2p_loss, fresnel_analysis, load_garmin_gpx, haversine_m,
-    EIRP_DBM, RX_SENS_DBM, PLANNING_DBM,
+    RX_POWER_REF_DBM, RX_SENS_DBM, PLANNING_DBM,
 )
 from solar_model import horizon_mask  # noqa: E402
+from radio_link_budget import metadata as radio_metadata  # noqa: E402
 
 # 32 deliberately placed sites (4× build-out, decision-driven, not random):
 #   gateway — grid power + internet exists today → MQTT backhaul (4, one per road
@@ -139,6 +142,23 @@ SITES = {
 HIKER_HG_M = 1.5
 SHORT_LINK_M = 1350.0        # ITM validity floor ~1 km; policy region below this
 SHORT_LINK_NLOS_DB = 26.0    # FSPL + this allowance for sub-floor ridge hops
+EXCLUDED_LINK_DB = 300.0     # conservative no-edge value used by both simulators
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def source_entry(path: Path) -> dict[str, object]:
+    return {
+        "path": str(path.relative_to(ROOT)) if path.is_relative_to(ROOT) else str(path),
+        "bytes": path.stat().st_size,
+        "sha256": sha256_file(path),
+    }
 
 
 def main() -> int:
@@ -155,6 +175,11 @@ def main() -> int:
     ap.add_argument("--max-link-km", type=float, default=12.0,
                     help="Skip ITM for pairs beyond this (treated as no-link)")
     ap.add_argument("--suffix", default="", help="Output filename suffix")
+    ap.add_argument(
+        "--allow-unvalidated-short-link-policy",
+        action="store_true",
+        help="opt into the optimistic FSPL+allowance rule (not decision-grade)",
+    )
     args = ap.parse_args()
 
     sites_def = dict(SITES)
@@ -162,8 +187,10 @@ def main() -> int:
         from statewide_sites import STATEWIDE_SITES
         sites_def.update(STATEWIDE_SITES)
 
-    cfg = yaml.safe_load((ROOT / args.config).read_text())
-    dem = Dem(ROOT / args.dem_npz)
+    config_path = ROOT / args.config
+    dem_path = ROOT / args.dem_npz
+    cfg = yaml.safe_load(config_path.read_text())
+    dem = Dem(dem_path)
     out_dir = ROOT / args.out_dir
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -190,29 +217,57 @@ def main() -> int:
             itm = itm_p2p_loss(d_m / 1000.0, prof, (sa["hg_m"], sb["hg_m"]))
             fres = fresnel_analysis(d_m, prof, (sa["hg_m"], sb["hg_m"]))
             model = "itm"
+            short_link_diagnostic = None
             if d_m <= SHORT_LINK_M:
-                # ITM's documented validity floor is ~1 km; below it the model
-                # extrapolates absurd losses on rough profiles. Short ridge
-                # hops use FSPL + a fixed NLOS allowance (Trial-1 deep-shadow
-                # residual scale) instead, taking the less lossy of the two.
-                fspl = (20 * math.log10(d_m) + 20 * math.log10(915.0) - 27.55
-                        + SHORT_LINK_NLOS_DB)
-                if fspl < itm["loss_db_q50"]:
-                    itm = {**itm, "loss_db_q50": fspl, "loss_db_q90": fspl,
-                           "path_type": "short_link_policy"}
-                    model = "short_link_fspl"
-            rssi50 = EIRP_DBM - itm["loss_db_q50"]
-            rssi90 = EIRP_DBM - itm["loss_db_q90"]
+                # The former rule selected FSPL+26 dB only when it was less
+                # lossy than ITM. That optimistic selection is preserved as a
+                # diagnostic but excluded by default until short links are
+                # independently calibrated.
+                policy_loss = (
+                    20 * math.log10(d_m)
+                    + 20 * math.log10(915.0)
+                    - 27.55
+                    + SHORT_LINK_NLOS_DB
+                )
+                short_link_diagnostic = {
+                    "distance_m": round(d_m, 1),
+                    "itm_loss_db_q50": round(float(itm["loss_db_q50"]), 3),
+                    "itm_loss_db_q90": round(float(itm["loss_db_q90"]), 3),
+                    "fspl_plus_allowance_db": round(policy_loss, 3),
+                    "allowance_db": SHORT_LINK_NLOS_DB,
+                    "field_calibrated": False,
+                }
+                if args.allow_unvalidated_short_link_policy:
+                    itm = {
+                        **itm,
+                        "loss_db_q50": policy_loss,
+                        "loss_db_q90": policy_loss,
+                        "path_type": "short_link_policy",
+                    }
+                    model = "short_link_fspl_unvalidated_opt_in"
+                else:
+                    itm = {
+                        **itm,
+                        "loss_db_q50": EXCLUDED_LINK_DB,
+                        "loss_db_q90": EXCLUDED_LINK_DB,
+                        "path_type": "excluded_unvalidated_short_link",
+                    }
+                    model = "excluded_unvalidated_short_link"
+            rssi50 = RX_POWER_REF_DBM - itm["loss_db_q50"]
+            rssi90 = RX_POWER_REF_DBM - itm["loss_db_q90"]
             links[f"{a}|{b}"] = {"loss_db_q50": round(itm["loss_db_q50"], 1),
                                  "loss_db_q90": round(itm["loss_db_q90"], 1),
                                  "distance_km": round(d_m / 1000.0, 3),
-                                 "model": model}
+                                 "model": model,
+                                 "simulation_eligible": model != "excluded_unvalidated_short_link",
+                                 "short_link_diagnostic": short_link_diagnostic}
             rows.append({
                 "link": f"{a}<->{b}", "distance_km": round(d_m / 1000.0, 2),
                 "path_type": itm["path_type"],
                 "pred_rssi_dbm_q50": round(rssi50, 1),
                 "pred_rssi_dbm_q90": round(rssi90, 1),
                 "worst_fresnel_fraction": round(fres["worst_fresnel_fraction"], 2),
+                "planning_evidence_eligible": model != "excluded_unvalidated_short_link",
                 "usable_q90": bool(rssi90 >= RX_SENS_DBM),
                 "planning_ok_q90": bool(rssi90 >= PLANNING_DBM),
             })
@@ -259,15 +314,35 @@ def main() -> int:
 
     topo = {
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "artifact_kind": "candidate_network_model_input",
+        "claim_status": "MODELED_UNVERIFIED_SITE_AND_BACKHAUL_ASSUMPTIONS",
+        "input_provenance": {
+            "generator": source_entry(Path(__file__)),
+            "config": source_entry(config_path),
+            "dem": source_entry(dem_path),
+            "dem_manifest": (
+                source_entry(dem_path.with_name(f"{dem_path.stem}_manifest.json"))
+                if dem_path.with_name(f"{dem_path.stem}_manifest.json").is_file()
+                else None
+            ),
+            "hiker_gpx": source_entry(gpx_path) if gpx_path and gpx_path.is_file() else None,
+        },
+        "limitations": [
+            "All fixed sites and mqtt_uplink flags are design assumptions; they do not establish ownership permission, power, mounting, backhaul, or legal feasibility.",
+            "The short-link FSPL-plus-allowance policy is an uncalibrated design rule, not a field-validated propagation model.",
+            "Modeled q50/q90 link values do not establish packet-delivery probability or field coverage.",
+        ],
         "dem": args.dem_npz,
-        "propagation": "Longley-Rice ITM q50 (itmlogic 1.2) over USGS 3DEP",
-        "radio": {"eirp_dbm": EIRP_DBM, "rx_sensitivity_dbm": RX_SENS_DBM,
-                  "planning_threshold_dbm": PLANNING_DBM},
+        "propagation": "Longley-Rice ITM q50/q90 (itmlogic 1.2) over USGS 3DEP, with documented sub-1.35 km short-link policy",
+        "radio": radio_metadata(),
         "sites": sites,
         "links": links,
         "hiker": hiker,
     }
-    (out_dir / f"topology{args.suffix}.json").write_text(json.dumps(topo))
+    output_path = out_dir / f"topology{args.suffix}.json"
+    temporary_path = output_path.with_name(f".{output_path.name}.tmp-{os.getpid()}")
+    temporary_path.write_text(json.dumps(topo))
+    os.replace(temporary_path, output_path)
     print(f"wrote {out_dir}/topology{args.suffix}.json, link_matrix{args.suffix}.csv")
     return 0
 

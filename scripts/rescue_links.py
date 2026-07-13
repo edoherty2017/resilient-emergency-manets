@@ -33,7 +33,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 from itm_relay_links import (  # noqa: E402
-    Dem, itm_p2p_loss, haversine_m, EIRP_DBM, RX_SENS_DBM, PLANNING_DBM,
+    Dem, itm_p2p_loss, haversine_m, RX_POWER_REF_DBM, RX_SENS_DBM, PLANNING_DBM,
 )
 
 FINE_WIDTH_PX = 1100
@@ -135,7 +135,7 @@ def main() -> int:
                 except Exception as e:
                     print(f"    ITM failed {s}<->{partner}: {e}")
                     continue
-                rssi90 = EIRP_DBM - itm["loss_db_q90"]
+                rssi90 = RX_POWER_REF_DBM - itm["loss_db_q90"]
                 verdict = ("USABLE" if rssi90 >= RX_SENS_DBM else "dead")
                 print(f"  {s} <-> {partner} {d_m/1000:.2f} km fine-DEM "
                       f"q90 {rssi90:7.1f} dBm -> {verdict}")
@@ -151,7 +151,7 @@ def main() -> int:
                         "link": f"{s}<->{partner}",
                         "distance_km": round(d_m / 1000.0, 2),
                         "path_type": itm["path_type"],
-                        "pred_rssi_dbm_q50": round(EIRP_DBM - itm["loss_db_q50"], 1),
+                        "pred_rssi_dbm_q50": round(RX_POWER_REF_DBM - itm["loss_db_q50"], 1),
                         "pred_rssi_dbm_q90": round(rssi90, 1),
                         "worst_fresnel_fraction": np.nan,
                         "usable_q90": True,

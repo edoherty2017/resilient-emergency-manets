@@ -5,8 +5,8 @@ Reads artifacts/sim/algo_year/summary_<mode>.json (from mesh_sim) and emits:
   algo_comparison.csv    one row per mode: PDR, SOS, util, energy, fairness
   algo_comparison.png    fleet SOC p10/median band over the year per mode
                          + bar panels for Gini / SOC σ / deaths / energy
-  algo_comparison.json   the table + verdict vs docs/routing-algorithms.md
-                         pre-registered expectations
+  algo_comparison.json   the table + design-expectations document reference
+                         commit-timestamped design expectations
 
 Run: .venv/bin/python scripts/build_algo_comparison.py
 """
@@ -76,7 +76,7 @@ def main() -> int:
         t, p10, p50 = arr[:, 0], arr[:, 1], arr[:, 2]
         ax.plot(t, p50, color=COLORS[m], lw=1.6, label=f"{m} (median)")
         ax.fill_between(t, p10, p50, color=COLORS[m], alpha=0.12)
-    ax.set_xlabel("simulation day (real 2025-26 weather)")
+    ax.set_xlabel("simulation day (pinned reanalysis weather sequence)")
     ax.set_ylabel("fleet SOC (solar nodes)")
     ax.set_title("Fleet battery through the year — median line, p10 band below it")
     ax.legend(ncols=5, fontsize=9)
@@ -98,6 +98,8 @@ def main() -> int:
     fig.savefig(d / "algo_comparison.png", dpi=140)
 
     out = {"generated_at_utc": datetime.now(timezone.utc).isoformat(),
+           "claim_status": "EXPLORATORY_UNLESS_ALL_INPUT_RUN_MANIFESTS_PASS",
+           "provenance_warning": "Historical pre-audit summaries are superseded; this formatter does not validate their manifests.",
            "table": rows,
            "expectations_doc": "docs/routing-algorithms.md"}
     (d / "algo_comparison.json").write_text(json.dumps(out, indent=2))

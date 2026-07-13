@@ -11,6 +11,8 @@ import numpy as np
 import pandas as pd
 import yaml
 
+from radio_link_budget import RX_POWER_REFERENCE_DBM
+
 ROOT = Path(__file__).resolve().parents[1]
 CFG_MODEL = ROOT / "config/airmap/model-baseline.yaml"
 CFG_EVAL = ROOT / "config/airmap/calibration-and-eval.yaml"
@@ -67,7 +69,7 @@ def main() -> None:
         lon = lon0 + (lon1 - lon0) * t
         dist = haversine_m(lat0, lon0, lat, lon)
         pl = fspl_db(dist + 10, freq_mhz) + np.random.normal(8.0, 2.0)
-        pred_rssi = 26.3 - pl
+        pred_rssi = RX_POWER_REFERENCE_DBM - pl
         # margin above LongFast sensitivity (-131 dBm); not an SNR
         pred_link_margin = pred_rssi - (-131.0)
         obs_rssi = pred_rssi + np.random.normal(0.0, 4.0)

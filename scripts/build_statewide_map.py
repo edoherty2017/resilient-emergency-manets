@@ -1,34 +1,55 @@
 #!/usr/bin/env python3
 """Statewide SAR mesh proposal map (static, publication-grade).
 
-One figure for the NH F&G pack: DEM hillshade, every audited site colored by
+One figure for design review: DEM hillshade, every modeled site colored by
 category (gateway ★ / hut / shelter / ridge / valley), usable links drawn
 (fine-DEM rescues dashed), rental trails overlaid, region labels. Reads the
-audit so the caption can state the PASS verdict honestly.
+audit so the caption reports the controlling planning-screen verdict.  Neither
+the map nor the audit is field validation.
 
 Run: .venv/bin/python scripts/build_statewide_map.py
 """
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import os
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
+from radio_link_budget import (  # noqa: E402
+    PLANNING_THRESHOLD_DBM,
+    RX_POWER_REFERENCE_DBM,
+    RX_SENSITIVITY_DBM,
+)
 
 CAT_STYLE = {
-    "gateway": {"c": "#d62728", "m": "*", "s": 200, "label": "MQTT gateway (grid/backhaul)"},
-    "hut":     {"c": "#9467bd", "m": "s", "s": 46,  "label": "Staffed hut/cabin"},
-    "shelter": {"c": "#8c564b", "m": "D", "s": 36,  "label": "Caretaker shelter"},
-    "ridge":   {"c": "#2ca02c", "m": "^", "s": 46,  "label": "Ridge relay (solar pyramid)"},
-    "valley":  {"c": "#1f77b4", "m": "o", "s": 36,  "label": "Trailhead node"},
+    "gateway": {"c": "#d62728", "m": "*", "s": 200, "label": "Assumed gateway candidate"},
+    "hut":     {"c": "#9467bd", "m": "s", "s": 46,  "label": "Hut/cabin candidate"},
+    "shelter": {"c": "#8c564b", "m": "D", "s": 36,  "label": "Shelter candidate"},
+    "ridge":   {"c": "#2ca02c", "m": "^", "s": 46,  "label": "Ridge-relay candidate"},
+    "valley":  {"c": "#1f77b4", "m": "o", "s": 36,  "label": "Trailhead candidate"},
     "portable": {"c": "#ff7f0e", "m": "P", "s": 60,
-                 "label": "SAR-deployed portable (Wilderness interior)"},
+                 "label": "Modeled SAR portable"},
 }
+
+
+def _file_record(path: Path) -> dict[str, object]:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return {
+        "path": str(path.relative_to(ROOT)),
+        "bytes": path.stat().st_size,
+        "sha256": digest.hexdigest(),
+    }
 
 
 def main() -> int:
@@ -36,12 +57,17 @@ def main() -> int:
     ap.add_argument("--suffix", default="_statewide")
     ap.add_argument("--dem-npz", default="artifacts/dem/cache/usgs_3dep_nh_statewide.npz")
     ap.add_argument("--out", default="artifacts/sim/statewide_proposal_map.png")
+    ap.add_argument("--manifest", default=None)
     args = ap.parse_args()
 
-    topo = json.loads((ROOT / f"artifacts/sim/topology{args.suffix}.json").read_text())
-    audit = json.loads((ROOT / f"artifacts/sim/coverage_audit{args.suffix}.json").read_text())
-    routes = json.loads((ROOT / f"artifacts/sim/routes{args.suffix}.json").read_text())
-    dem = np.load(ROOT / args.dem_npz)
+    topology_path = ROOT / f"artifacts/sim/topology{args.suffix}.json"
+    audit_path = ROOT / f"artifacts/sim/coverage_audit{args.suffix}.json"
+    routes_path = ROOT / f"artifacts/sim/routes{args.suffix}.json"
+    dem_path = ROOT / args.dem_npz
+    topo = json.loads(topology_path.read_text())
+    audit = json.loads(audit_path.read_text())
+    routes = json.loads(routes_path.read_text())
+    dem = np.load(dem_path)
     sites = topo["sites"]
 
     import matplotlib
@@ -122,16 +148,16 @@ def main() -> int:
     # usable links
     for key, l in topo["links"].items():
         a, b = key.split("|")
-        rssi90 = 26.3 - l["loss_db_q90"]
-        if rssi90 < -131.0:
+        rssi90 = RX_POWER_REFERENCE_DBM - l["loss_db_q90"]
+        if rssi90 < RX_SENSITIVITY_DBM:
             continue
         sa, sb = sites[a], sites[b]
         fine = l.get("model") == "short_link_fspl" or l.get("dem") == "fine_3dep"
         ax.plot([sa["lon"], sb["lon"]], [sa["lat"], sb["lat"]],
                 color="#2a4d14" if not fine else "#b8860b",
-                lw=1.4 if rssi90 >= -100 else 0.7,
+                lw=1.4 if rssi90 >= PLANNING_THRESHOLD_DBM else 0.7,
                 ls="-" if not fine else (0, (3, 2)),
-                alpha=0.8 if rssi90 >= -100 else 0.45, zorder=2)
+                alpha=0.8 if rssi90 >= PLANNING_THRESHOLD_DBM else 0.45, zorder=2)
 
     # rental trails
     for rname, r in routes["routes"].items():
@@ -147,21 +173,27 @@ def main() -> int:
     from matplotlib.lines import Line2D
     handles, labels = ax.get_legend_handles_labels()
     handles += [
-        Line2D([0], [0], color="#2a4d14", lw=1.6, label="Usable link (ITM q90 ≥ −131 dBm)"),
+        Line2D([0], [0], color="#2a4d14", lw=1.6,
+               label="Planning-screen link (modeled q90 ≥ −100 dBm)"),
+        Line2D([0], [0], color="#2a4d14", lw=0.7, alpha=0.45,
+               label="Sensitivity-only link (−131 to −100 dBm)"),
         Line2D([0], [0], color="#b8860b", lw=1.6, ls=(0, (3, 2)),
                label="Short-link policy / fine-DEM link"),
-        Line2D([0], [0], color="#0a58ff", lw=1.8, label="Rental route (real OSM trail)"),
+        Line2D([0], [0], color="#0a58ff", lw=1.8, label="OSM-derived rental route"),
+        Line2D([0], [0], color="red", marker="x", lw=0, ms=8,
+               label="Conservative modeled route gap"),
     ]
     ax.legend(handles=handles, loc="lower right", fontsize=9, framealpha=0.93)
 
     n_gw = sum(1 for s in sites.values() if s.get("mqtt_uplink"))
     ax.set_title(
-        f"NH SAR Mesh — statewide proposal topology\n"
-        f"{len(sites)} sites · {n_gw} gateways · coverage audit: "
-        f"{audit['verdict']} ({len(audit['stranded_sites'])} stranded, "
+        f"NH SAR Mesh — uncalibrated statewide design screen (not field validated)\n"
+        f"{len(sites)} candidate sites · {n_gw} assumed gateways · "
+        f"−100 dBm planning screen: {audit['verdict']}\n"
+        f"{len(audit['stranded_sites'])} sites stranded · "
         f"{sum(1 for t in audit['trail_coverage'] if t['ok'])}/"
-        f"{len(audit['trail_coverage'])} routes covered)",
-        fontsize=13)
+        f"{len(audit['trail_coverage'])} routes meet 85% q50 modeled coverage",
+        fontsize=11)
     ax.set_xlabel("Longitude"); ax.set_ylabel("Latitude")
     ax.set_xlim(lo.min(), lo.max()); ax.set_ylim(la.min(), la.max())
 
@@ -224,7 +256,50 @@ def main() -> int:
     ax.indicate_inset_zoom(axin, edgecolor="black")
     fig.tight_layout()
     out = ROOT / args.out
-    fig.savefig(out, dpi=150)
+    fig.savefig(
+        out,
+        dpi=150,
+        metadata={
+            "Title": "NH SAR mesh uncalibrated statewide design screen",
+            "Description": (
+                f"Planning-screen verdict {audit['verdict']}; not field validated; "
+                f"audit SHA-256 {_file_record(audit_path)['sha256']}"
+            ),
+            "Software": "scripts/build_statewide_map.py",
+        },
+    )
+    optional_inputs = [
+        ROOT / "artifacts/osm/nh_boundary.json",
+        ROOT / "artifacts/sim/service_areas.json",
+        ROOT / "artifacts/sim/trail_coverage.json",
+    ]
+    manifest = {
+        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "claim_status": "UNCALIBRATED_MODEL_SCREEN_NOT_FIELD_VALIDATED",
+        "planning_screen_verdict": audit["verdict"],
+        "inputs": {
+            "generator": _file_record(Path(__file__)),
+            "topology": _file_record(topology_path),
+            "audit": _file_record(audit_path),
+            "routes": _file_record(routes_path),
+            "dem": _file_record(dem_path),
+            **{
+                path.name: _file_record(path)
+                for path in optional_inputs
+                if path.is_file()
+            },
+        },
+        "output": _file_record(out),
+    }
+    manifest_path = ROOT / (
+        args.manifest
+        or f"{Path(args.out).with_suffix('')}_manifest.json"
+    )
+    temporary_path = manifest_path.with_name(
+        f".{manifest_path.name}.tmp-{os.getpid()}"
+    )
+    temporary_path.write_text(json.dumps(manifest, indent=2) + "\n")
+    os.replace(temporary_path, manifest_path)
     print(f"wrote {out}")
     return 0
 

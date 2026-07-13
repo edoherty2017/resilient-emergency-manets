@@ -1,9 +1,9 @@
-"""Real trail geometry from OpenStreetMap for the hiker-route simulation.
+"""OSM-derived trail geometry for the hiker-route simulation.
 
 Fetches every mapped hiking path in a bounding box from the Overpass API
 (cached to artifacts/osm/), builds a trail graph, and routes between waypoints
-with Dijkstra — so simulated hikers walk the actual Ammonoosuc Ravine Trail /
-Crawford Path / White Dot geometry instead of straight chords.
+with Dijkstra. Individual legs fall back to straight chords when the filtered
+OSM graph cannot connect them; callers receive explicit per-route provenance.
 
 Used by build_hiker_routes.py; not a CLI.
 """
@@ -25,6 +25,21 @@ SNAP_MAX_M = 800.0        # waypoint must be this close to a mapped trail
 NODE_KEY_DECIMALS = 5     # ~1 m dedupe grid
 
 
+def _cache_path(bbox: tuple[float, float, float, float]) -> Path:
+    key = hashlib.sha256(
+        json.dumps([round(value, 4) for value in bbox]).encode()
+    ).hexdigest()[:16]
+    return CACHE / f"trails_{key}.json"
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def _haversine_m(lat1, lon1, lat2, lon2):
     R = 6371000.0
     p1, p2 = math.radians(lat1), math.radians(lat2)
@@ -35,9 +50,8 @@ def _haversine_m(lat1, lon1, lat2, lon2):
 
 def fetch_trails(bbox: tuple[float, float, float, float]) -> list[list[tuple[float, float]]]:
     """All hiking-usable ways in (south, west, north, east); cached."""
-    key = hashlib.sha256(json.dumps([round(v, 4) for v in bbox]).encode()).hexdigest()[:16]
     CACHE.mkdir(parents=True, exist_ok=True)
-    cache_f = CACHE / f"trails_{key}.json"
+    cache_f = _cache_path(bbox)
     if cache_f.exists():
         return json.loads(cache_f.read_text())
     s, w, n, e = bbox
@@ -164,22 +178,41 @@ class TrailGraph:
         return path
 
 
-def trail_polyline(waypoints: list[tuple[float, float]]) -> tuple[list[tuple[float, float]], str]:
-    """Route the waypoint chain along real OSM trails.
+def trail_polyline(
+    waypoints: list[tuple[float, float]],
+) -> tuple[list[tuple[float, float]], str, dict]:
+    """Route a waypoint chain along the filtered OSM trail graph.
 
-    Returns (polyline, source) where source is 'osm' or 'chord' (fallback when
-    trails are unmapped/disconnected — logged by the caller).
+    Returns ``(polyline, source, provenance)``. ``source`` is ``osm`` only when
+    every leg is graph-routed, ``mixed_osm_chord`` when at least one leg falls
+    back, and ``chord`` when no leg can be graph-routed.
     """
     lats = [w[0] for w in waypoints]
     lons = [w[1] for w in waypoints]
     pad = 0.02
     bbox = (min(lats) - pad, min(lons) - pad, max(lats) + pad, max(lons) + pad)
+    cache_path = _cache_path(bbox)
+    provenance = {
+        "provider": "OpenStreetMap via Overpass API",
+        "overpass_endpoint": OVERPASS,
+        "bbox_south_west_north_east": [round(value, 7) for value in bbox],
+        "cache_path": str(cache_path.relative_to(ROOT)),
+        "cache_sha256": None,
+        "routed_legs": 0,
+        "chord_fallback_legs": 0,
+    }
     try:
         graph = TrailGraph(fetch_trails(bbox))
-    except Exception:
-        return list(waypoints), "chord"
+        if cache_path.is_file():
+            provenance["cache_sha256"] = _sha256_file(cache_path)
+    except Exception as exc:
+        provenance["fetch_error_type"] = type(exc).__name__
+        provenance["chord_fallback_legs"] = max(len(waypoints) - 1, 0)
+        return list(waypoints), "chord", provenance
     if not graph.nodes:
-        return list(waypoints), "chord"
+        provenance["chord_fallback_legs"] = max(len(waypoints) - 1, 0)
+        provenance["empty_filtered_graph"] = True
+        return list(waypoints), "chord", provenance
 
     poly: list[tuple[float, float]] = []
     for (a_lat, a_lon), (b_lat, b_lon) in zip(waypoints, waypoints[1:]):
@@ -197,10 +230,17 @@ def trail_polyline(waypoints: list[tuple[float, float]]) -> tuple[list[tuple[flo
                 break
         if seg is None:
             seg = [(a_lat, a_lon), (b_lat, b_lon)]     # chord for this leg only
+            provenance["chord_fallback_legs"] += 1
+        else:
+            provenance["routed_legs"] += 1
         if not poly:
             poly.extend(seg)
         else:
             poly.extend(seg[1:] if seg[0] == poly[-1] else seg)
-    # classify: osm if the polyline is meaningfully denser than the chain
-    source = "osm" if len(poly) > 2 * len(waypoints) else "chord"
-    return poly, source
+    if provenance["chord_fallback_legs"] == 0:
+        source = "osm"
+    elif provenance["routed_legs"]:
+        source = "mixed_osm_chord"
+    else:
+        source = "chord"
+    return poly, source, provenance

@@ -25,18 +25,28 @@ import numpy as np
 import pandas as pd
 import yaml
 
+from radio_link_budget import (
+    RX_ANTENNA_GAIN_DBI,
+    RX_POWER_REFERENCE_DBM,
+    RX_SENSITIVITY_DBM,
+    TX_ANTENNA_GAIN_DBI,
+    TX_CONDUCTED_DBM,
+    TX_EIRP_DBM,
+)
 
-TX_DBM       = 22.0    # Heltec LoRa32 V3 max TX power
-ANT_GAIN_DBI = 2.15    # dipole antenna gain, each end
+
+TX_DBM = TX_CONDUCTED_DBM
+TX_ANT_GAIN_DBI = TX_ANTENNA_GAIN_DBI
+RX_ANT_GAIN_DBI = RX_ANTENNA_GAIN_DBI
 # Meshtastic LongFast = SF11 / BW 250 kHz / CR 4/5; link budget 153 dB at 22 dBm + 0 dBi
 # (https://meshtastic.org/docs/overview/radio-settings/) => sensitivity ~= -131 dBm,
 # consistent with the Semtech SX1262 datasheet (SF11/BW250).
-RX_SENS_DBM  = -131.0
+RX_SENS_DBM = RX_SENSITIVITY_DBM
 # Thermal noise floor for BW 250 kHz with ~6 dB receiver noise figure:
 # -174 + 10*log10(250e3) + 6 ~= -114 dBm. LoRa demodulates below this (SNR floor
 # ~= -17.5 dB at SF11), which is why sensitivity sits below the noise floor.
 NOISE_FLOOR_DBM = -114.0
-EIRP_DBM = TX_DBM + 2 * ANT_GAIN_DBI
+RX_POWER_REF_DBM = RX_POWER_REFERENCE_DBM
 
 # Physical plausibility: any observation hotter than this for a >10 m link implies a
 # co-located transmitter (e.g. the adjacent forwarder seen in Trial 1) and is excluded.
@@ -509,7 +519,7 @@ def main() -> None:
     else:
         obs["pred_path_loss_db"] = obs["pred_path_loss_fspl_db"]
     obs["predictor"] = predictor_used
-    obs["pred_rssi_dbm"] = EIRP_DBM - obs["pred_path_loss_db"]
+    obs["pred_rssi_dbm"] = RX_POWER_REF_DBM - obs["pred_path_loss_db"]
     # Link margin above demodulation sensitivity (NOT an SNR; SNR would be
     # referenced to the noise floor at -114 dBm for BW 250 kHz).
     obs["pred_link_margin_db"] = obs["pred_rssi_dbm"] - RX_SENS_DBM
@@ -597,7 +607,7 @@ def main() -> None:
     post = join.copy()
 
     elig = post[post["calibration_eligible"]].copy()
-    elig["obs_path_loss_db"] = EIRP_DBM - elig["obs_target_dbm"]
+    elig["obs_path_loss_db"] = RX_POWER_REF_DBM - elig["obs_target_dbm"]
 
     fit = None
     bootstrap = None
@@ -606,7 +616,7 @@ def main() -> None:
     calibration_method = "none"
     if len(elig) >= args.min_calibration_samples:
         residual = float(
-            (elig["obs_target_dbm"] - (EIRP_DBM - elig["pred_path_loss_db"])).mean()
+            (elig["obs_target_dbm"] - (RX_POWER_REF_DBM - elig["pred_path_loss_db"])).mean()
         )
         fit = floating_intercept_fit(
             elig["distance_m"].to_numpy(), elig["obs_path_loss_db"].to_numpy()
@@ -621,7 +631,7 @@ def main() -> None:
             post["pred_path_loss_db"] = np.where(
                 post["pred_path_loss_db"].notna(), calibrated_pl, np.nan
             )
-            post["pred_rssi_dbm"] = EIRP_DBM - post["pred_path_loss_db"]
+            post["pred_rssi_dbm"] = RX_POWER_REF_DBM - post["pred_path_loss_db"]
             post["pred_link_margin_db"] = post["pred_rssi_dbm"] - RX_SENS_DBM
         calibration_note = (
             f"floating_intercept_fit_on_{len(elig)}_eligible_rows;"
@@ -896,8 +906,11 @@ def main() -> None:
         "dem_npz": str(args.dem_npz) if predictor_used == "itm" else None,
         "radio_assumptions": {
             "preset": "LongFast (SF11, BW 250 kHz, CR 4/5)",
-            "tx_dbm": TX_DBM,
-            "ant_gain_dbi_each_end": ANT_GAIN_DBI,
+            "tx_conducted_dbm": TX_DBM,
+            "tx_antenna_gain_dbi": TX_ANT_GAIN_DBI,
+            "tx_eirp_dbm": TX_EIRP_DBM,
+            "rx_antenna_gain_dbi": RX_ANT_GAIN_DBI,
+            "rx_power_reference_dbm": RX_POWER_REF_DBM,
             "rx_sensitivity_dbm": RX_SENS_DBM,
             "noise_floor_dbm_bw250": NOISE_FLOOR_DBM,
         },

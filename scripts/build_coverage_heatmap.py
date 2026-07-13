@@ -25,7 +25,13 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
-from itm_relay_links import Dem, itm_p2p_loss, EIRP_DBM, RX_SENS_DBM, PLANNING_DBM  # noqa: E402
+from itm_relay_links import (  # noqa: E402
+    Dem,
+    PLANNING_DBM,
+    RX_POWER_REF_DBM,
+    RX_SENS_DBM,
+    itm_p2p_loss,
+)
 
 
 def main() -> int:
@@ -69,11 +75,11 @@ def main() -> int:
         for j, lo in enumerate(lons):
             d_m, prof = dem.profile(args.tx_lat, args.tx_lon, la, lo)
             if d_m < 30.0:
-                pred[i, j] = EIRP_DBM
+                pred[i, j] = RX_POWER_REF_DBM
                 continue
             try:
                 itm = itm_p2p_loss(d_m / 1000.0, prof, (args.tx_h, args.rx_h), freq_mhz=args.freq_mhz)
-                pred[i, j] = EIRP_DBM - itm["loss_db_q50"]
+                pred[i, j] = RX_POWER_REF_DBM - itm["loss_db_q50"]
             except Exception:
                 pred[i, j] = np.nan
 

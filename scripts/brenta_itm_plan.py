@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-"""Pre-registered ITM link predictions for the Brenta Dolomites trek (EU868).
+"""Build prospective ITM link predictions for a Brenta Dolomites trial.
 
 Computes Longley-Rice point-to-point predictions for every pair of planned
 node sites on the 4-day Madonna di Campiglio -> Molveno hut-to-hut route,
 over the Copernicus GLO-30 surface model, at the Meshtastic EU_868 frequency
 (869.525 MHz).
 
-These predictions are FROZEN BEFORE TRAVEL (pre-registration): commit the
-output artifacts before the trek; the field PDR/ESP measurements then test
-the model rather than tune it.
+Running this script does not freeze or preregister its outputs. Before fieldwork,
+version/hash the exact script, DEM, radio metadata, sites, outputs, analysis rules,
+and amendments in immutable storage. Field PDR/ESP can then evaluate the frozen
+model rather than silently tune it.
 
 Site coordinates from OSM/Nominatim (2026-06-12); verify each with the Garmin
 at placement time and record the surveyed position in the field log.
@@ -27,7 +28,15 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from itm_relay_links import Dem, itm_p2p_loss, fresnel_analysis, EIRP_DBM, RX_SENS_DBM, PLANNING_DBM
+from itm_relay_links import (
+    Dem,
+    PLANNING_DBM,
+    RX_POWER_REF_DBM,
+    RX_SENS_DBM,
+    fresnel_analysis,
+    itm_p2p_loss,
+)
+from radio_link_budget import metadata as radio_metadata
 
 FREQ_EU_MHZ = 869.525  # Meshtastic EU_868 primary channel
 
@@ -76,31 +85,36 @@ def main() -> int:
             "path_type": itm["path_type"],
             "geometric_los": fres["geometric_los"],
             "worst_fresnel_fraction": round(fres["worst_fresnel_fraction"], 2),
-            "pred_rssi_dbm_q50": round(EIRP_DBM - itm["loss_db_q50"], 1),
-            "pred_rssi_dbm_q90": round(EIRP_DBM - itm["loss_db_q90"], 1),
-            "pred_rssi_dbm_q99": round(EIRP_DBM - itm["loss_db_q99"], 1),
-            "meets_planning_q90": bool(EIRP_DBM - itm["loss_db_q90"] >= PLANNING_DBM),
-            "meets_sensitivity_q90": bool(EIRP_DBM - itm["loss_db_q90"] >= RX_SENS_DBM),
+            "pred_rssi_dbm_q50": round(RX_POWER_REF_DBM - itm["loss_db_q50"], 1),
+            "pred_rssi_dbm_q90": round(RX_POWER_REF_DBM - itm["loss_db_q90"], 1),
+            "pred_rssi_dbm_q99": round(RX_POWER_REF_DBM - itm["loss_db_q99"], 1),
+            "meets_planning_q90": bool(RX_POWER_REF_DBM - itm["loss_db_q90"] >= PLANNING_DBM),
+            "meets_sensitivity_q90": bool(RX_POWER_REF_DBM - itm["loss_db_q90"] >= RX_SENS_DBM),
         }
         rows.append(row)
         if row["primary"]:
             print(f"{row['link']:24s} {row['distance_km']:6.2f} km  "
                   f"q90 {row['pred_rssi_dbm_q90']:7.1f} dBm  "
                   f"LOS={row['geometric_los']} F1={row['worst_fresnel_fraction']:6.2f}  "
-                  f"{'PLAN-OK' if row['meets_planning_q90'] else ('SENS-ONLY' if row['meets_sensitivity_q90'] else 'DEAD')}")
+                  f"{'PLAN-OK' if row['meets_planning_q90'] else ('SENS-ONLY' if row['meets_sensitivity_q90'] else 'BELOW-ASSUMED-SENS')}")
 
     df = pd.DataFrame(rows).sort_values(["primary", "link"], ascending=[False, True])
     df.to_csv(out_dir / "brenta_links_itm.csv", index=False)
 
     summary = {
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
-        "status": "PRE-REGISTERED PREDICTION — frozen before travel; do not edit after the trek begins",
+        "status": "PROSPECTIVE PREDICTION — NOT YET FROZEN",
         "model": "Longley-Rice ITM v7.0 (itmlogic 1.2)",
         "freq_mhz": FREQ_EU_MHZ,
-        "region_note": "Meshtastic EU_868 (869.4-869.65 MHz, 10% duty cycle); US 915 MHz is NOT legal in Italy",
-        "radio": {"eirp_dbm": EIRP_DBM, "rx_sensitivity_dbm": RX_SENS_DBM,
-                  "planning_threshold_dbm": PLANNING_DBM},
-        "dem": "copernicus_glo30_brenta.npz (DSM — includes canopy below treeline; conservative)",
+        "region_note": "Do not use the US_915 profile. EU_868 is only a candidate; verify exact-device RED/DoC scope, Italian implementation, frequency, ERP, aggregate airtime, antenna, and permissions before transmitting.",
+        "radio": radio_metadata(),
+        "dem": "copernicus_glo30_brenta.npz (surface model; vegetation/building representation and bias direction are not independently validated)",
+        "evidence_limitations": [
+            "Model predictions are not observations or proof of zero connectivity.",
+            "Generation does not create an immutable preregistration; preserve hashes and amendments before collection.",
+            "Receiver thresholds, feed/body/antenna losses, coordinates, heights, and local clutter require bench/field verification.",
+            "The candidate radio profile is not a legal-authorization or conformity determination.",
+        ],
         "sites": SITES,
         "links": rows,
     }

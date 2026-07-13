@@ -21,6 +21,8 @@ import matplotlib.gridspec as gridspec
 import numpy as np
 import pandas as pd
 
+from radio_link_budget import RX_POWER_REFERENCE_DBM
+
 # ── Paths ─────────────────────────────────────────────────────────────────────
 ROOT    = Path(__file__).resolve().parents[1]
 OUTDIR  = ROOT / "artifacts/airmap/live_trial"
@@ -29,10 +31,7 @@ POST_PQ = OUTDIR / "predictions_postcalibration.parquet"
 
 # ── Constants (must match airmap_live_trial.py) ────────────────────────────────
 FREQ_MHZ    = 915.0
-TX_DBM      = 22.0
-ANT_GAIN    = 2.15
-RX_SENS     = -130.0
-LINK_BUDGET = TX_DBM + 2 * ANT_GAIN - RX_SENS   # 156.3 dB
+RX_POWER_REF = RX_POWER_REFERENCE_DBM
 
 TOPO_COLORS = {
     "alpine_ridge":  "#1a4a8a",
@@ -59,7 +58,9 @@ def load() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     m = pre.dropna(subset=["obs_metric_dbm", "distance_m"]).copy()
     m = m[m["distance_m"] > 1.0].copy()           # drop clipped-to-minimum rows
     m = m[m["distance_m"] < 50_000].copy()        # drop implausible distances (>50 km)
-    m["obs_path_loss_db"] = LINK_BUDGET - m["obs_metric_dbm"]
+    # Basic path loss is terminal reference minus received input power;
+    # receiver sensitivity is a threshold and must not enter this subtraction.
+    m["obs_path_loss_db"] = RX_POWER_REF - m["obs_metric_dbm"]
     m["pred_path_loss_db_pre"] = m["pred_path_loss_db"]
     m["topo_str"] = m["topography_class"].astype(str)
 

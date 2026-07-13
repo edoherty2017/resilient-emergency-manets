@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Real-data hike map — 2026-05-23 Mt. Washington trial.
 
-Strictly observed telemetry only — no FSPL, no modeled coverage.
-Uses actual Garmin GPS track for exact position at every timestamp.
+Observed telemetry and the Garmin receiver track are shown separately from an
+explicitly labelled, historical FSPL screening overlay for proposed relays.
 
 Shows:
   • Full GPS route colored by signal quality (active collection segments)
@@ -17,6 +17,7 @@ Outputs:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import os
@@ -27,6 +28,15 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 import folium
+
+from radio_link_budget import (
+    RX_ANTENNA_GAIN_DBI,
+    RX_POWER_REFERENCE_DBM,
+    RX_SENSITIVITY_DBM,
+    TX_ANTENNA_GAIN_DBI,
+    TX_CONDUCTED_DBM,
+    TX_EIRP_DBM,
+)
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -105,17 +115,20 @@ def haversine_km(lat1, lon1, lat2, lon2) -> float:
 
 
 # ---------------------------------------------------------------------------
-# Proposed infrastructure (link budget: TX=22dBm, 2×ANT=2.15dBi, RX_SENS=-131dBm)
+# Proposed infrastructure terminal assumptions.
 # LongFast preset = SF11 / BW 250 kHz / CR 4/5 (NOT SF12/BW125 — that is the
 # deprecated LongSlow). Sensitivity per Meshtastic link-budget table / SX1262.
 # Predictions here are FSPL + flat elevation-class loss: NO line-of-sight test,
 # NO diffraction. Screening estimates only — see trial1_report "Model limitation".
 # ---------------------------------------------------------------------------
 FREQ_MHZ  = 915.0
-TX_DBM    = 22.0
-ANT_GAIN  = 2.15   # each end
-RX_SENS   = -131.0
-LINK_BUDGET_DB = TX_DBM + 2 * ANT_GAIN - RX_SENS  # 157.3 dB
+TX_DBM    = TX_CONDUCTED_DBM
+TX_ANT_GAIN = TX_ANTENNA_GAIN_DBI
+RX_ANT_GAIN = RX_ANTENNA_GAIN_DBI
+TX_EIRP   = TX_EIRP_DBM
+RX_POWER_REF = RX_POWER_REFERENCE_DBM
+RX_SENS   = RX_SENSITIVITY_DBM
+LINK_BUDGET_DB = RX_POWER_REF - RX_SENS  # 157.3 dB
 
 PROPOSED_NODES = [
     {
@@ -151,7 +164,7 @@ def terrain_loss_db(elev_m: float) -> float:
     return 25.0
 
 def predicted_rssi(d_km: float, elev_m: float) -> float:
-    return TX_DBM + 2 * ANT_GAIN - fspl_db(d_km) - terrain_loss_db(elev_m)
+    return RX_POWER_REF - fspl_db(d_km) - terrain_loss_db(elev_m)
 
 def best_relay_rssi(lat: float, lon: float, ele: float) -> float:
     """Predicted RSSI from the closest relay node."""
@@ -295,6 +308,32 @@ def build_map(jsonl_path: Path, garmin_gpx: Path, out_path: Path) -> None:
     node_stats    = build_node_stats(hike_records)
     packet_events = build_packet_events(hike_records, node_stats)
     print(f"  Unique source nodes: {len(node_stats)}, events w/ RSSI: {len(packet_events)}")
+    ingest_sha256 = hashlib.sha256(jsonl_path.read_bytes()).hexdigest()
+    if hike_records:
+        source_badge = "OBSERVED LOG (WITH KNOWN GAPS)"
+        source_line = (
+            f"OBSERVED RECEIVER LOG + GARMIN TRACK — {HIKE_DATE}"
+        )
+        evidence_summary_html = (
+            f"The selected receiver export contains {len(hike_records):,} records "
+            f"in the active time window and {len(node_stats)} unique source IDs. "
+            "Decoded IDs are not equivalent to study participants: many reported "
+            "positions are implausibly distant and may belong to third-party meshes. "
+            "Only records with independently usable geometry can support propagation "
+            "analysis.<br><br>"
+            "<b>The 2h48m collector outage is missing data.</b> It cannot distinguish "
+            "a software outage from an RF outage and cannot prove coverage. No relay, "
+            "multi-hop, gateway, dispatch, or end-to-end SOS path was field-tested."
+        )
+    else:
+        source_badge = "GARMIN TRACK ONLY — TELEMETRY MISSING"
+        source_line = f"GARMIN TRACK ONLY — NO {HIKE_DATE} RECEIVER RECORDS IN SOURCE"
+        evidence_summary_html = (
+            "<b>The selected export contains no receiver records in the May 23 active "
+            "window.</b> This build therefore shows the Garmin track only. Packet, "
+            "node-count, RSSI, and coverage conclusions are withheld. Supply the "
+            "original May 23 receiver JSONL to reproduce the observed-data layer."
+        )
 
     # -----------------------------------------------------------------------
     # Split GPS track into three display segments
@@ -485,7 +524,9 @@ def build_map(jsonl_path: Path, garmin_gpx: Path, out_path: Path) -> None:
     # -----------------------------------------------------------------------
     # Proposed: Coverage if Deployed — full trail colored by best-relay RSSI
     # -----------------------------------------------------------------------
-    cov_fg = folium.FeatureGroup(name="PROPOSED — Coverage if Deployed", show=True)
+    cov_fg = folium.FeatureGroup(
+        name="SUPERSEDED — historical FSPL coverage screen", show=False
+    )
 
     all_track = gps_track  # full route (ascending + gap + descending)
     if len(all_track) >= 2:
@@ -504,9 +545,9 @@ def build_map(jsonl_path: Path, garmin_gpx: Path, out_path: Path) -> None:
             pr = best_relay_rssi(avg_lat, avg_lon, avg_ele)
             color = rssi_color(pr)
             t_str = epoch_ms_to_edt_hhmm(bucket_ms)
-            tip = (f"{t_str} (predicted)<br>"
-                   f"Best relay RSSI: {pr:.1f} dBm ({rssi_label(pr)})<br>"
-                   f"<i>Proposed infrastructure only</i>")
+            tip = (f"{t_str} (superseded FSPL screen)<br>"
+                   f"Historical estimate: {pr:.1f} dBm ({rssi_label(pr)})<br>"
+                   f"<i>Not an ITM or field-validated coverage result</i>")
             folium.PolyLine(seg, color=color, weight=4, opacity=0.75,
                             dash_array="6 3", tooltip=tip).add_to(cov_fg)
 
@@ -529,7 +570,9 @@ def build_map(jsonl_path: Path, garmin_gpx: Path, out_path: Path) -> None:
     # -----------------------------------------------------------------------
     # Proposed: Relay Infrastructure — markers at the three node positions
     # -----------------------------------------------------------------------
-    infra_fg = folium.FeatureGroup(name="PROPOSED — Relay Infrastructure", show=True)
+    infra_fg = folium.FeatureGroup(
+        name="CANDIDATE — unapproved relay locations", show=False
+    )
 
     relay_links: list[tuple] = []
     for node in PROPOSED_NODES:
@@ -570,8 +613,10 @@ def build_map(jsonl_path: Path, garmin_gpx: Path, out_path: Path) -> None:
     <div><b>Position:</b> {node['lat']:.5f}°N, {abs(node['lon']):.5f}°W, {node['ele']}m</div>
     <div style="margin-top:4px;font-size:11px;color:#555;">{node['note']}</div>
     <div style="margin-top:6px;font-size:11px;">{hw_spec}</div>
-    <div style="margin-top:8px;font-size:11px;font-weight:bold;">Link budget (TX=22dBm, 2×2.15dBi, 915MHz LongFast SF11/BW250):</div>
-    <div style="font-size:10px;color:#a33;">Screening estimate — FSPL + terrain class only; no line-of-sight/diffraction check. Verify with ITM over 3DEP before deployment.</div>
+    <div style="margin-top:8px;font-size:11px;font-weight:bold;">Link budget (TX EIRP {TX_EIRP:.2f}dBm + RX gain {RX_ANT_GAIN:.2f}dBi, 915MHz LongFast SF11/BW250):</div>
+    <div style="font-size:10px;color:#a33;"><b>SUPERSEDED:</b> historical FSPL
+    + terrain-class estimate. Later ITM/3DEP analysis reverses the summit-link
+    conclusion; do not use this table for deployment.</div>
     <table style="width:100%;margin-top:4px;font-size:10px;border-collapse:collapse;">
       <tr style="background:#f0f0f0;">
         <th style="text-align:left;padding:2px 4px;">Link to</th>
@@ -588,7 +633,7 @@ def build_map(jsonl_path: Path, garmin_gpx: Path, out_path: Path) -> None:
         folium.Marker(
             location=(node["lat"], node["lon"]),
             popup=folium.Popup(popup_html, max_width=340),
-            tooltip=f"PROPOSED: {node['label']}",
+            tooltip=f"UNAPPROVED CANDIDATE: {node['label']}",
             icon=folium.Icon(color="purple" if is_gw else "orange",
                              icon=icon, prefix="fa"),
         ).add_to(infra_fg)
@@ -604,7 +649,8 @@ def build_map(jsonl_path: Path, garmin_gpx: Path, out_path: Path) -> None:
         folium.PolyLine(
             [(node["lat"], node["lon"]), (gw["lat"], gw["lon"])],
             color="#8e44ad", weight=2, opacity=0.6, dash_array="8 5",
-            tooltip=f"Relay→Gateway: {d:.2f} km, predicted {pr:.1f} dBm",
+            tooltip=(f"Relay→Gateway: {d:.2f} km, superseded FSPL screen "
+                     f"{pr:.1f} dBm"),
         ).add_to(infra_fg)
 
     # Relay-to-relay link (both relays → summit coverage zone circle)
@@ -615,7 +661,8 @@ def build_map(jsonl_path: Path, garmin_gpx: Path, out_path: Path) -> None:
         folium.PolyLine(
             [(node["lat"], node["lon"]), (summit_lat2, summit_lon2)],
             color="#e67e22", weight=2, opacity=0.5, dash_array="6 4",
-            tooltip=f"Relay→Summit: {d:.2f} km, predicted {pr:.1f} dBm",
+            tooltip=(f"Relay→Summit: {d:.2f} km, superseded FSPL screen "
+                     f"{pr:.1f} dBm"),
         ).add_to(infra_fg)
 
     infra_fg.add_to(m)
@@ -844,11 +891,13 @@ def build_map(jsonl_path: Path, garmin_gpx: Path, out_path: Path) -> None:
   <div class="pp-body">
 
     <div class="pp-sec">What this shows</div>
-    <div class="pp-row">Toggle <b>PROPOSED</b> layers to see:
+    <div class="pp-row">Optional layers (off by default) preserve the original
+      proposal for auditability:
       <ul style="margin:4px 0 0 14px;line-height:1.7;">
-        <li>3 fixed nodes at key terrain breakpoints</li>
-        <li>Full-trail predicted coverage (dashed lines)</li>
-        <li>Including the 2h48m gap period — <b>fully covered</b></li>
+        <li>3 unapproved candidate nodes at terrain breakpoints</li>
+        <li>A historical FSPL + terrain-class overlay (dashed)</li>
+        <li><b>Superseded:</b> it cannot establish coverage during the 2h48m
+        collector outage</li>
       </ul>
     </div>
 
@@ -860,73 +909,77 @@ def build_map(jsonl_path: Path, garmin_gpx: Path, out_path: Path) -> None:
       <tr><td>Gateway</td><td>Trailhead / Base Rd</td><td>764 m</td><td>~$450</td></tr>
     </table>
     <div style="color:#888;font-size:10px;margin-top:2px;">
-      Hardware: Heltec LoRa32 V3 + 5W solar + IP67 enclosure per relay<br>
-      Gateway: Pi 4 + Heltec V3 + Starlink Mini
+      Draft hardware concept only; site permission, mounting, power, backhaul,
+      exact radio configuration, and legal authorization remain unverified.
     </div>
 
-    <div class="pp-sec">Link Budget (915 MHz, LongFast SF11/BW250)</div>
+    <div class="pp-sec">Historical Link-Budget Screen (superseded)</div>
     <div class="math-box">
       TX power:          22 dBm (Heltec V3 max)<br>
-      Antenna gain:    +2×2.15 dBi = +4.3 dB<br>
+      TX antenna gain: +{TX_ANT_GAIN:.2f} dBi (TX EIRP {TX_EIRP:.2f} dBm)<br>
+      RX antenna gain: +{RX_ANT_GAIN:.2f} dBi<br>
       RX sensitivity: −131 dBm (LongFast SF11 BW250 CR4/5)<br>
       ────────────────────────────<br>
       <b>Link budget:  157.3 dB total</b><br>
       FSPL (915 MHz): 32.44 + 20·log₁₀(d_km) + 59.2<br>
       Terrain loss: alpine=3 dB, sub-alpine=15 dB, forest=25 dB<br>
-      Predicted RSSI = 26.3 − FSPL − terrain_loss<br>
-      <span style="color:#a33;">Screening model only — no line-of-sight or
-      diffraction; links must be verified with ITM/Longley-Rice over USGS 3DEP
-      terrain before deployment.</span>
+      Predicted RSSI = TX EIRP + RX gain − FSPL − terrain_loss<br>
+      <span style="color:#a33;">Preserved to explain the optional historical
+      overlay. It omitted line-of-sight and diffraction; the ITM/3DEP result
+      below supersedes it.</span>
     </div>
 
-    <div class="pp-sec">Predicted Link Performance</div>
+    <div class="pp-sec">Corrected Terrain-Model Screen</div>
     <table>
-      <tr><th>Link</th><th>Dist</th><th>RSSI</th><th>Quality</th></tr>
-      <tr><td>Ammo→Summit</td><td>1.68 km</td>
-          <td style="color:#00c83c;font-weight:bold">−72.9 dBm</td><td>Strong</td></tr>
-      <tr><td>Jewell→Summit</td><td>2.98 km</td>
-          <td style="color:#ffd200;font-weight:bold">−77.9 dBm</td><td>Good</td></tr>
-      <tr><td>Ammo→Gateway</td><td>2.98 km</td>
-          <td style="color:#ffd200;font-weight:bold">−99.8 dBm</td><td>Good/Marginal</td></tr>
-      <tr><td>Jewell→Gateway</td><td>2.73 km</td>
-          <td style="color:#ffd200;font-weight:bold">−99.1 dBm</td><td>Good/Marginal</td></tr>
+      <tr><th>Link</th><th>Historical FSPL</th><th>ITM q90</th><th>Status</th></tr>
+      <tr><td>Ammo→Summit</td><td>−72.9 dBm</td>
+          <td style="color:#a33;font-weight:bold">−132.3 dBm</td>
+          <td>below sensitivity</td></tr>
+      <tr><td>Jewell→Summit</td><td>−77.9 dBm</td>
+          <td style="color:#a33;font-weight:bold">−118.7 dBm</td>
+          <td>below planning threshold</td></tr>
+      <tr><td>Ammo→Gateway</td><td>−99.8 dBm</td>
+          <td style="color:#2e7d32;font-weight:bold">−76.6 dBm</td>
+          <td>modeled only</td></tr>
+      <tr><td>Jewell→Gateway</td><td>−99.1 dBm</td>
+          <td style="color:#2e7d32;font-weight:bold">−74.1 dBm</td>
+          <td>modeled only</td></tr>
     </table>
     <div style="color:#888;font-size:10px;margin-top:2px;">
-      Good-signal range: forest ≈3.0 km &bull; alpine ≈38 km
+      ITM values are terrain-model predictions, not measurements. The summit
+      paths fail the −100 dBm engineering screen and need field testing.
     </div>
 
-    <div class="pp-sec">Automation Chain</div>
+    <div class="pp-sec">Target Architecture (not implemented end-to-end)</div>
     <div class="chain-box">
       <b>Hiker triggers SOS</b> (Meshtastic button or app)<br>
       ↓ LoRa mesh hop to nearest relay node<br>
       ↓ Relay forwards to Gateway Pi at trailhead<br>
-      ↓ Gateway Pi → Starlink uplink (always-on)<br>
-      ↓ Python script: POST to SAR dispatch API<br>
-      ↓ <b>SMS + email to NH Fish &amp; Game duty officer</b><br>
+      ↓ Gateway Pi → independently verified WAN link<br>
+      ↓ Authorized bridge to an agreed dispatch interface<br>
+      ↓ <b>Delivery to an approved operational recipient</b><br>
       ↓ Payload: node ID, last GPS fix, RSSI, timestamp<br>
-      <span style="color:#2e7d32;font-weight:bold;">
-        ⏱ End-to-end: &lt;30 seconds
+      <span style="color:#a33;font-weight:bold;">
+        End-to-end latency and delivery are unmeasured
       </span>
     </div>
 
-    <div class="pp-sec">Total Infrastructure Cost</div>
+    <div class="pp-sec">Historical Cost Sketch (not a quote)</div>
     <div class="pp-row">
       2× relay nodes: <b>~$240</b><br>
       1× gateway Pi + Heltec: <b>~$150</b><br>
       Starlink Mini: <b>~$300 hardware</b><br>
-      Starlink service: <b>~$50/mo</b><br>
-      <b style="font-size:12px;color:#8e44ad;">Total hardware: ~$690 one-time</b>
+      Service, mounts, batteries, permitting, spares, labor, and maintenance:
+      <b>not costed</b><br>
+      <b style="font-size:12px;color:#8e44ad;">Original ~$690 subtotal is
+      incomplete and must not be used as a deployment budget.</b>
     </div>
 
-    <div class="pp-sec">What the empirical data shows</div>
+    <div class="pp-sec">What the observed log can support</div>
     <div class="pp-row" style="line-height:1.6;">
-      Observed trial (no relays): 50 nodes heard,<br>
-      best −38 dBm in forest, zero 10-min dead zones<br>
-      during 6h9m descent — proving the radio link works.<br><br>
-      <b>Gap was a software failure, not an RF failure.</b><br>
-      With fixed relay infrastructure, that 2h48m window<br>
-      would have continuous coverage (Ammo relay at 1.68 km,<br>
-      predicted −72.9 dBm — <span style="color:#00c83c;">Strong</span>).
+      {evidence_summary_html}
+      <br><br><span style="font-size:9px;color:#777;">Receiver source SHA-256:
+      {ingest_sha256}</span>
     </div>
 
   </div>
@@ -940,8 +993,8 @@ def build_map(jsonl_path: Path, garmin_gpx: Path, out_path: Path) -> None:
 
 <div id="map-title">
   <div class="mt">Mt. Washington Mesh Trial</div>
-  <div class="ms">REAL DATA ONLY &mdash; 2026-05-23</div>
-  <div class="mn">GPS: Garmin &bull; No FSPL &bull; No modeled coverage</div>
+  <div class="ms">{source_line}</div>
+  <div class="mn">Optional historical proposal overlays are modeled and superseded</div>
 </div>
 
 <div id="rssi-legend">
@@ -962,7 +1015,7 @@ def build_map(jsonl_path: Path, garmin_gpx: Path, out_path: Path) -> None:
 
 <div id="hike-panel">
   <div class="ph">
-    <div class="real-badge">REAL DATA ONLY</div>
+    <div class="real-badge">{source_badge}</div>
     <h3>Mt. Washington &mdash; 2026-05-23</h3>
     <div class="stat">GPS track: <b>08:06 &ndash; 18:40 EDT</b></div>
     <div class="stat">Active collection: <b>12:24 &ndash; 18:33 EDT</b></div>
@@ -1221,8 +1274,11 @@ def build_map(jsonl_path: Path, garmin_gpx: Path, out_path: Path) -> None:
 # ---------------------------------------------------------------------------
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--ingest",
-        default="/private/tmp/manet_ingest/meshradiohead2/jsonl/telemetry_stream.jsonl")
+    ap.add_argument(
+        "--ingest",
+        required=True,
+        help="receiver JSONL export; its SHA-256 is embedded in the map",
+    )
     ap.add_argument("--garmin-gpx",
         default=str(Path(__file__).parent.parent.parent / "activity_22989412258.gpx"))
     ap.add_argument("--out",

@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""Build realistic hiker day-hike tracks for the rental-fleet simulation.
+"""Build synthetic hiker tracks for the rental-fleet simulation.
 
-Six canonical Presidential Range day hikes, each defined as a waypoint chain
-along the real trail corridor (site coordinates + known junctions, ±150 m).
-Between waypoints the track is interpolated over the DEM every ~150 m and
-walked at Tobler's hiking-function speed (terrain-slope aware), so timing is
-realistic: steep climbs are slow, flats are ~5 km/h.
+Each route starts from a hand-authored waypoint chain. Legs are routed along a
+filtered OpenStreetMap graph when possible and explicitly marked when they
+fall back to straight chords. The DEM and Tobler hiking function create a
+synthetic pace trace; they are not observations of actual hiker behavior.
 
 For each track sample (every ~600 m) the Longley-Rice ITM loss to every fixed
 site within range is computed, giving mesh_sim per-second link quality for
@@ -17,8 +16,10 @@ Run: .venv/bin/python scripts/build_hiker_routes.py
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -34,6 +35,14 @@ SAMPLE_M = 150.0          # track interpolation step
 LOSS_EVERY_N = 4          # ITM loss every 4th sample (~600 m), interp between
 MAX_LINK_KM = 9.0         # skip ITM beyond this (loss ~ certainly dead)
 DEAD_DB = 300.0
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 # waypoint chains: (lat, lon). Kiosk = where the node is rented/returned.
 ROUTES = {
@@ -217,25 +226,72 @@ def main() -> int:
     ap.add_argument("--dem-npz", default="artifacts/dem/cache/usgs_3dep_presidentials_wide.npz")
     ap.add_argument("--topology", default="artifacts/sim/topology.json")
     ap.add_argument("--out", default="artifacts/sim/routes.json")
+    ap.add_argument(
+        "--allow-itm-errors",
+        action="store_true",
+        help="write conservative DEAD_DB substitutions instead of failing closed",
+    )
     args = ap.parse_args()
 
     dem = Dem(ROOT / args.dem_npz)
     topo = json.loads((ROOT / args.topology).read_text())
     sites = topo["sites"]
 
-    out = {"generated_at_utc": datetime.now(timezone.utc).isoformat(),
-           "tobler_pacing": True, "routes": {}}
+    dem_path = ROOT / args.dem_npz
+    topology_path = ROOT / args.topology
+    out = {
+        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "artifact_kind": "synthetic_route_and_q50_propagation_input",
+        "claim_status": "MODELED_NOT_FIELD_OBSERVED",
+        "generators": {
+            "route_builder": {
+                "path": "scripts/build_hiker_routes.py",
+                "sha256": sha256_file(Path(__file__)),
+            },
+        },
+        "source_inputs": {
+            "dem": {"path": args.dem_npz, "sha256": sha256_file(dem_path)},
+            "topology": {
+                "path": args.topology,
+                "sha256": sha256_file(topology_path),
+            },
+        },
+        "parameters": {
+            "sample_m": SAMPLE_M,
+            "loss_every_n": LOSS_EVERY_N,
+            "max_link_km": MAX_LINK_KM,
+            "dead_db": DEAD_DB,
+            "hiker_height_m": HIKER_HG_M,
+        },
+        "route_definitions_sha256": hashlib.sha256(
+            json.dumps(ROUTES, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest(),
+        "tobler_pacing": True,
+        "limitations": [
+            "Route coordinates are OSM-derived where graph routing succeeds and straight chords elsewhere.",
+            "Tobler timing is a synthetic deterministic pace model, not a measured trip-duration distribution.",
+            "Route propagation arrays contain q50 model output only and cannot establish q90 reliability or field coverage.",
+        ],
+        "routes": {},
+    }
+    import osm_trails
     from osm_trails import trail_polyline
+    out["generators"]["osm_router"] = {
+        "path": "scripts/osm_trails.py",
+        "sha256": sha256_file(Path(osm_trails.__file__)),
+    }
+    total_itm_errors = 0
     for name, r in ROUTES.items():
         if r["kiosk"] not in sites:
             continue                    # region not in this topology
-        poly, geom_src = trail_polyline(r["waypoints"])
+        poly, geom_src, geom_provenance = trail_polyline(r["waypoints"])
         lats, lons, elev, t = interpolate_track(dem, poly)
         # ITM loss to nearby sites at every LOSS_EVERY_N-th sample
         idxs = list(range(0, len(lats), LOSS_EVERY_N))
         if idxs[-1] != len(lats) - 1:
             idxs.append(len(lats) - 1)
         losses = {s: [] for s in sites}
+        itm_error_types: dict[str, int] = {}
         for i in idxs:
             for sname, s in sites.items():
                 d_m = haversine_m(s["lat"], s["lon"], lats[i], lons[i])
@@ -249,12 +305,18 @@ def main() -> int:
                     dd, prof = dem.profile(s["lat"], s["lon"], lats[i], lons[i])
                     itm = itm_p2p_loss(dd / 1000.0, prof, (s["hg_m"], HIKER_HG_M))
                     losses[sname].append(round(itm["loss_db_q50"], 1))
-                except Exception:
+                except Exception as exc:
                     losses[sname].append(DEAD_DB)
+                    error_type = type(exc).__name__
+                    itm_error_types[error_type] = itm_error_types.get(error_type, 0) + 1
+                    total_itm_errors += 1
         t_loss = [float(t[i]) for i in idxs]
         out["routes"][name] = {
             "kiosk": r["kiosk"], "return_kiosk": r["return_kiosk"],
             "geometry": geom_src,
+            "geometry_provenance": geom_provenance,
+            "itm_error_substitutions": sum(itm_error_types.values()),
+            "itm_error_types": itm_error_types,
             "duration_s": round(float(t[-1]), 1),
             "distance_km": round(sum(haversine_m(lats[i-1], lons[i-1], lats[i], lons[i])
                                      for i in range(1, len(lats))) / 1000.0, 2),
@@ -268,7 +330,16 @@ def main() -> int:
               f"{out['routes'][name]['duration_s']/3600:5.2f} h  [{geom_src}]  "
               f"({len(idxs)} loss samples x {len(sites)} sites)")
 
-    (ROOT / args.out).write_text(json.dumps(out))
+    out["total_itm_error_substitutions"] = total_itm_errors
+    if total_itm_errors and not args.allow_itm_errors:
+        raise RuntimeError(
+            f"refusing to write routes after {total_itm_errors} ITM errors; "
+            "inspect the model inputs or explicitly pass --allow-itm-errors"
+        )
+    output_path = ROOT / args.out
+    temporary_path = output_path.with_name(f".{output_path.name}.tmp-{os.getpid()}")
+    temporary_path.write_text(json.dumps(out))
+    os.replace(temporary_path, output_path)
     print(f"wrote {args.out}")
     return 0
 

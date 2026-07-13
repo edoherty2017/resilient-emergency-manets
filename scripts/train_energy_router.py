@@ -37,6 +37,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 import solar_model  # noqa: E402
 from lora_airtime import airtime_ms  # noqa: E402
+from radio_link_budget import config_rx_power_reference_dbm  # noqa: E402
 
 KT_FORECAST_NOISE = 0.08
 MAX_HOPS = 4
@@ -131,7 +132,7 @@ def compare_modes(seed=11, days=3):
 
 # ── Part C: route energy-cost surrogate ──────────────────────────────────────
 def link_success_p(loss_db, radio, sigma_db):
-    margin = radio["eirp_dbm"] - loss_db - radio["rx_sensitivity_dbm"]
+    margin = config_rx_power_reference_dbm(radio) - loss_db - radio["rx_sensitivity_dbm"]
     from math import erf, sqrt
     return 0.5 * (1.0 + erf(margin / (sigma_db * sqrt(2.0))))
 
@@ -192,7 +193,8 @@ def build_route_dataset(topo, cfg, rng):
                              min((1.0 - (1.0 - p) ** 3) / max(p, 1e-6), 3.0))
                 e_wh += etx_wh * exp_tries
                 p_del *= p_hop
-            margins = [radio["eirp_dbm"] - loss.get((path[i], path[i + 1]), 300.0)
+            margins = [config_rx_power_reference_dbm(radio)
+                       - loss.get((path[i], path[i + 1]), 300.0)
                        - radio["rx_sensitivity_dbm"] for i in range(len(path) - 1)]
             # scarcity-weighted cost: energy spent at low-SOC relays counts more
             scarcity = float(np.mean([1.0 / max(s, 0.05) for s in socs[1:]])) if len(socs) > 1 else 1.0

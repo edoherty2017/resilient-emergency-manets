@@ -6,8 +6,9 @@ load is multiplied by the mesh itself. This sweep finds where that turns into
 a storm: PDR and SOS latency vs (number of beaconing hikers × beacon interval),
 plus a hop-limit sweep at a fixed heavy load.
 
-Threshold definition (pre-registered): the storm knee is the lowest offered
-load at which network-wide PDR < 0.90.
+Prospective threshold definition: the storm knee is the lowest offered load at
+which network-wide PDR < 0.90. This becomes a frozen analysis rule only when
+versioned before a clean corrected run; the historical sweep is superseded.
 
 Outputs: artifacts/sim/storm_sweep.csv, storm_sweep.png, storm_summary.json
 Run: .venv/bin/python scripts/broadcast_storm_sweep.py
@@ -143,6 +144,8 @@ def main() -> int:
 
     summary = {
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "claim_status": "EXPLORATORY_SIMULATION_NOT_FIELD_VALIDATION",
+        "provenance_warning": "Use a clean corrected-engine run manifest with hashed inputs before citing this sweep; historical outputs are superseded.",
         "pdr_threshold": PDR_THRESHOLD,
         "storm_knee": knee,
         "hop_limit_sweep": hop[["hop_limit", "pdr_hiker", "pdr", "channel_utilization",

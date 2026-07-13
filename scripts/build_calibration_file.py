@@ -30,7 +30,12 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
-from airmap_live_trial import floating_intercept_fit, moving_block_bootstrap, EIRP_DBM  # noqa: E402
+from airmap_live_trial import (  # noqa: E402
+    RX_POWER_REF_DBM,
+    floating_intercept_fit,
+    moving_block_bootstrap,
+)
+from radio_link_budget import metadata as radio_metadata  # noqa: E402
 
 MIN_CLASS_SAMPLES = 30
 
@@ -76,9 +81,9 @@ def main() -> int:
     if "calibration_eligible" in df.columns:
         df = df[df["calibration_eligible"].fillna(False).astype(bool)].copy()
     if "obs_target_dbm" in df.columns:
-        df["obs_path_loss_db"] = EIRP_DBM - pd.to_numeric(df["obs_target_dbm"], errors="coerce")
+        df["obs_path_loss_db"] = RX_POWER_REF_DBM - pd.to_numeric(df["obs_target_dbm"], errors="coerce")
     elif "obs_metric_dbm" in df.columns:
-        df["obs_path_loss_db"] = EIRP_DBM - pd.to_numeric(df["obs_metric_dbm"], errors="coerce")
+        df["obs_path_loss_db"] = RX_POWER_REF_DBM - pd.to_numeric(df["obs_metric_dbm"], errors="coerce")
     else:
         raise SystemExit("predictions lack an observed metric column")
 
@@ -95,8 +100,9 @@ def main() -> int:
     calib = {
         "calibration_version": args.calibration_version,
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
-        "model_form": "PL_db = alpha + 10 * n * log10(distance_m); RSSI = EIRP - PL",
-        "eirp_dbm": EIRP_DBM,
+        "model_form": "PL_db = alpha + 10 * n * log10(distance_m); "
+        "RSSI = TX_EIRP + RX_antenna_gain - RX_feed_loss - PL",
+        "radio": radio_metadata(),
         "frequency_mhz": args.freq_mhz,
         "geology_terrain_note": args.geology_note,
         "observable": "ESP (RSSI+SNR) where available, else RSSI; calibration-eligible rows only",

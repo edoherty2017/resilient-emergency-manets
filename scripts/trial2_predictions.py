@@ -1,20 +1,29 @@
 #!/usr/bin/env python3
-"""Trial 2 pre-registration pack: falsifiable predictions committed BEFORE
-the field days.
+"""Build a prospective Trial 2 prediction pack.
+
+Generating these files does not itself create an immutable preregistration.
+They must be versioned or independently timestamped, hashed, and frozen before
+field collection, together with their inputs and scoring rules.
 
 For each planned beacon site and the Ammo–Jewell walk route, produce per
 terrain stratum (distance band × above/below treeline):
-  - ITM-predicted median RSSI and ESP at the walking receiver
-  - predicted packet-success probability through the calibrated shadowing
-    model (sigma 8 dB placeholder — itself a pre-registered value)
+  - ITM-predicted median received power at the walking receiver
+  - probability that received power exceeds an assumed sensitivity threshold
+    under an independent Gaussian shadowing term (sigma 8 dB placeholder)
 for BOTH candidate radio configs:
-  - LongFast (SF11/BW250, sens −131 dBm) — the Part 97 path
-  - ShortTurbo-class 500 kHz (SF7/BW500, sens ≈ −117 dBm) — the Part 15 path
+  - LongFast (SF11/BW250, sens −131 dBm)
+  - ShortTurbo-class 500 kHz (SF7/BW500, sens ≈ −117 dBm)
+
+The names are technical candidates, not declarations of regulatory compliance.
+That determination depends on the exact certified device configuration and the
+chosen authorization basis.
 
 Output: docs/trial2-preregistration.md + artifacts/trial2/predictions.csv.
-Scoring rule (pre-registered): field stratum passes if measured median RSSI
-is within ±12 dB of prediction AND measured PDR within ±0.15 of predicted
-packet-success; the AIRMap-accuracy KPI is the held-out RMSE across strata.
+Proposed engineering screen to freeze before fieldwork: flag a stratum when
+measured median RSSI differs by more than 12 dB or measured PDR differs by more
+than 0.15 from the threshold-exceedance probability. The PDR comparison is a
+mechanistic diagnostic, not a calibrated packet-success prediction or a
+statistical equivalence test. The propagation KPI is held-out RSSI RMSE.
 
 Run: .venv/bin/python scripts/trial2_predictions.py
 """
@@ -22,26 +31,29 @@ from __future__ import annotations
 
 import json
 import math
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
 
+from radio_link_budget import RX_POWER_REFERENCE_DBM, metadata as radio_metadata
+
 ROOT = Path(__file__).resolve().parents[1]
 
 CONFIGS = {
-    "LongFast_Part97": {"sens": -131.0, "snr_demod": -17.5, "note": "SF11/BW250"},
-    "500kHz_Part15": {"sens": -117.0, "snr_demod": -7.5, "note": "SF7/BW500-class"},
+    "LongFast_candidate": {"sens": -131.0, "snr_demod": -17.5, "note": "SF11/BW250"},
+    "500kHz_candidate": {"sens": -117.0, "snr_demod": -7.5, "note": "SF7/BW500-class"},
 }
 BEACONS = ["ammo_relay", "jewell_relay"]
 ROUTE = "ammo_jewell_loop"
 SIGMA_DB = 8.0
-EIRP = 26.3
+RX_POWER_REF_DBM = RX_POWER_REFERENCE_DBM
 TREELINE_M = 1100.0
 BANDS_M = [(0, 500), (500, 1000), (1000, 2000), (2000, 4000), (4000, 8000)]
 
 
-def p_success(margin_db: float) -> float:
+def p_threshold_exceedance(margin_db: float) -> float:
     return 0.5 * (1.0 + math.erf(margin_db / (SIGMA_DB * math.sqrt(2.0))))
 
 
@@ -72,18 +84,20 @@ def main() -> int:
                     ((elevs >= TREELINE_M) == above)
                 if m.sum() < 2:
                     continue
-                med_loss = float(np.median(losses[m]))
-                rssi = EIRP - med_loss
+                sample_rssi = RX_POWER_REF_DBM - losses[m]
+                rssi = float(np.median(sample_rssi))
                 for cname, c in CONFIGS.items():
-                    margin = rssi - c["sens"]
+                    model_p = float(np.mean([
+                        p_threshold_exceedance(float(value - c["sens"]))
+                        for value in sample_rssi
+                    ]))
                     rows.append({
                         "beacon": beacon, "band_m": f"{d0}-{d1}",
                         "stratum": "above_treeline" if above else "below_treeline",
                         "n_samples": int(m.sum()),
                         "config": cname,
                         "pred_median_rssi_dbm": round(rssi, 1),
-                        "pred_median_esp_dbm": round(rssi, 1),
-                        "pred_p_packet_success": round(p_success(margin), 3),
+                        "model_p_rssi_above_threshold": round(model_p, 3),
                     })
 
     import pandas as pd
@@ -92,30 +106,76 @@ def main() -> int:
     out.mkdir(parents=True, exist_ok=True)
     df.to_csv(out / "predictions.csv", index=False)
 
-    md = ["# Trial 2 Pre-Registration — Predictions Committed Before Fieldwork",
+    commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=ROOT, check=True,
+        capture_output=True, text=True,
+    ).stdout.strip()
+    dirty = bool(subprocess.run(
+        ["git", "status", "--porcelain=v1"], cwd=ROOT, check=True,
+        capture_output=True, text=True,
+    ).stdout.strip())
+    radio = radio_metadata()
+    md = ["# Trial 2 Prospective Prediction Record — NOT YET FROZEN",
           "",
-          f"Generated {datetime.now(timezone.utc).isoformat()} — commit hash is",
-          "the timestamp of record. Model: Longley-Rice ITM q50 over USGS 3DEP",
-          f"+ lognormal shadowing σ={SIGMA_DB} dB (pre-registered placeholder;",
-          "Trial 2 fits the real σ). EIRP 26.3 dBm; heights: beacon 3 m mast,",
-          "receiver 1.5 m handheld.",
+          f"Generated {datetime.now(timezone.utc).isoformat()} from Git commit `{commit}`",
+          f"(worktree dirty: `{str(dirty).lower()}`). Model: Longley-Rice ITM q50 over USGS 3DEP",
+          f"+ lognormal shadowing σ={SIGMA_DB} dB (prospective placeholder;",
+          "any fitted σ is a post-trial estimate, not part of the frozen prediction).",
+          f"TX EIRP {radio['tx_eirp_dbm']:.2f} dBm; RX antenna gain",
+          f"{radio['rx_antenna_gain_dbi']:.2f} dBi; receiver-power reference",
+          f"{radio['rx_power_reference_dbm']:.2f} dBm. Heights: beacon 3 m mast,",
+          "receiver 1.5 m handheld. Feed losses are presently assumed 0 dB and must",
+          "be measured or reported as an assumption.",
           "",
-          "**Scoring rule (fixed now):** a stratum PASSES if measured median",
-          "RSSI is within ±12 dB of prediction and measured PDR within ±0.15",
-          "of predicted packet success. KPI = held-out RMSE across strata.",
+          "**Provenance warning:** the commit above is only the worktree's base",
+          "commit. Generating this document does not commit or timestamp it, the",
+          "generator, its inputs, or the ignored `artifacts/trial2/predictions.csv`.",
+          "Before fieldwork, commit/version the complete pack, record SHA-256 hashes",
+          "for every input and output, verify a clean worktree, and preserve later",
+          "amendments rather than overwriting the frozen record.",
           "",
-          "**Protocol:** surveyed static beacon, fixed 30 s cadence, sequence",
-          "numbers, hops_away==0 filtering, 600–1,000 packets/stratum, ≥2",
-          "repeat runs. Radio config per decision A2 (both tabled below).",
+          "**Proposed engineering screen to freeze before collection:** flag a",
+          "stratum when measured median RSSI differs by more than 12 dB or measured",
+          "PDR differs by more than 0.15 from the model's threshold-exceedance",
+          "probability. This is a diagnostic tolerance, not a statistical",
+          "equivalence test. Report exact scheduled-opportunity denominators.",
+          "Packet-level Wilson intervals may be shown only as descriptive intervals",
+          "under an independence assumption; primary uncertainty must respect",
+          "within-pass dependence using whole-pass summaries or a pass/block-aware",
+          "interval. The propagation model's primary KPI is",
+          "out-of-sample RMSE across eligible field strata. Any recalibrated model",
+          "must be evaluated on entire held-out passes or days.",
+          "",
+          "The probability in the table is not an empirically calibrated",
+          "packet-success probability. It is P(received power > assumed receiver",
+          f"threshold), averaged over the stratum's modeled route samples, under an",
+          f"independent Gaussian {SIGMA_DB:.0f} dB shadowing term. It omits",
+          "interference, collisions, protocol behavior, hardware",
+          "variation, body/antenna effects, and temporal correlation. Measured direct",
+          "packet delivery ratio is the field outcome.",
+          "",
+          "**Feasible protocol (Amendment 1, 2026-07-13, before fieldwork):** one",
+          "surveyed static beacon site per field day, fixed 30 s cadence, sequence",
+          "numbers, and `hops_away == 0` filtering. Walk the fixed route at normal",
+          "pace; never stop to manufacture a quota. Target ≥40 scheduled packet",
+          "opportunities per primary stratum across independent passes. Strata with",
+          "fewer than 40 are retained and reported as underpowered/descriptive.",
+          "Repeat a full segment in the opposite direction only when time and safety",
+          "permit; observations within one pass are not independent replicates.",
+          "The original 600–1,000 packets/stratum requirement was infeasible: at a",
+          "30 s cadence it requires 5–8.3 hours in every stratum.",
+          "",
+          "The two radio rows below are candidate configurations, not claims that",
+          "either configuration is legally authorized as deployed.",
           ""]
     for beacon in BEACONS:
         md.append(f"\n## Beacon: {beacon} ({sites[beacon]['label']})\n")
-        md.append("| band (m) | stratum | n | config | pred RSSI (dBm) | pred P(success) |")
+        md.append("| band (m) | stratum | model route samples | config | pred RSSI (dBm) | model P(RSSI > threshold) |")
         md.append("|---|---|---|---|---|---|")
         for _, row in df[df.beacon == beacon].iterrows():
             md.append(f"| {row.band_m} | {row.stratum} | {row.n_samples} "
                       f"| {row.config} | {row.pred_median_rssi_dbm} "
-                      f"| {row.pred_p_packet_success} |")
+                      f"| {row.model_p_rssi_above_threshold} |")
     (ROOT / "docs/trial2-preregistration.md").write_text("\n".join(md) + "\n")
     print(df.to_string(index=False))
     print("\nwrote docs/trial2-preregistration.md, artifacts/trial2/predictions.csv")
