@@ -285,7 +285,13 @@ def main() -> int:
     cov = []
     cov_p = ROOT / "artifacts/sim/coverage_overlays.json"
     if cov_p.exists():
-        cov = [c for c in json.loads(cov_p.read_text()) if c["name"] in sites]
+        coverage_document = json.loads(cov_p.read_text())
+        coverage_layers = (
+            coverage_document.get("layers", [])
+            if isinstance(coverage_document, dict)
+            else coverage_document
+        )
+        cov = [c for c in coverage_layers if c["name"] in sites]
         print(f"  coverage heatmaps: {len(cov)} gateways")
 
     # live coverage grid: which relay service-areas cover each grid cell, so
@@ -369,7 +375,7 @@ window.onerror=function(m,s,l,c){var d=document.createElement('div');
  <div class="lg" id="layers" style="display:flex;flex-wrap:wrap;gap:2px 10px;margin:4px 0;padding:4px;background:#0d1117;border-radius:6px">
   <b style="width:100%">map layers</b>
   <label><input type="checkbox" id="ly_live" checked> <b style="color:#5c6">live coverage</b> (green=up, red=lost)</label>
-  <label><input type="checkbox" id="ly_cov"> ITM signal heatmap</label>
+  <label><input type="checkbox" id="ly_cov"> modeled ITM q50 signal (not field coverage)</label>
   <label><input type="checkbox" id="ly_svc"> service-area outlines</label>
   <label><input type="checkbox" id="ly_lnk" checked> struggling links</label>
   <label><input type="checkbox" id="ly_trl" checked> trails</label>

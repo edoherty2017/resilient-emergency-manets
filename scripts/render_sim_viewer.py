@@ -9,8 +9,8 @@ Single self-contained HTML (Leaflet from CDN, all data embedded):
   - play/pause + speed + scrubber; sim clock in UTC and ET
   - side panel: per-node SOC bars + solar watts + event log
   - SOC strip chart across the whole run with a playhead
-  - AIRMap layer: ITM predicted-coverage raster per MQTT gateway, computed
-    over the real DEM (cached in artifacts/sim/), toggleable like any layer
+  - uncalibrated ITM q50 signal-model raster per MQTT gateway, computed over
+    the DEM (cached in artifacts/sim/), toggleable like any layer
 
 Run: .venv/bin/python scripts/render_sim_viewer.py
 """
@@ -18,16 +18,24 @@ from __future__ import annotations
 
 import argparse
 import base64
+import hashlib
+import io
+import importlib.metadata
 import json
+import os
+import re
 import sys
+import zipfile
 from pathlib import Path
 
 import numpy as np
 
-ROOT = Path(__file__).resolve().parents[1]
+SOURCE_ROOT = Path(__file__).resolve().parents[1]
+ROOT = SOURCE_ROOT
 sys.path.insert(0, str(ROOT / "scripts"))
 from itm_relay_links import (  # noqa: E402
     Dem,
+    FREQ_MHZ,
     PLANNING_DBM,
     RX_POWER_REF_DBM,
     RX_SENS_DBM,
@@ -35,21 +43,110 @@ from itm_relay_links import (  # noqa: E402
 )
 
 
-def coverage_layer(dem: Dem, name: str, lat: float, lon: float, hg: float,
-                   grid: int = 60, pad: tuple[float, float] = (0.045, 0.06)) -> dict:
-    """ITM predicted-RSSI raster from one transmitter → base64 PNG + bounds.
-    Cached per site in artifacts/sim/coverage_<name>.npz."""
-    # cache key includes grid+pad: same gateway at different extents (pilot
-    # 5 km vs statewide 12 km) must not share a raster or bounds drift
-    cache = ROOT / (f"artifacts/sim/coverage_{name}_{grid}"
-                    f"_{pad[0]:.3f}_{pad[1]:.3f}.npz")
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _dem_content_sha256(dem: Dem) -> str:
+    cached = getattr(dem, "_coverage_content_sha256", None)
+    if cached is not None:
+        return cached
+    digest = hashlib.sha256()
+    for name, value in (("lat", dem.lat), ("lon", dem.lon), ("z", dem.z)):
+        array = np.ascontiguousarray(value)
+        digest.update(name.encode("ascii"))
+        digest.update(str(array.dtype).encode("ascii"))
+        digest.update(json.dumps(array.shape).encode("ascii"))
+        digest.update(array.tobytes())
+    value = digest.hexdigest()
+    setattr(dem, "_coverage_content_sha256", value)
+    return value
+
+
+def _coverage_identity(
+    dem: Dem,
+    name: str,
+    lat: float,
+    lon: float,
+    hg: float,
+    grid: int,
+    pad: tuple[float, float],
+) -> dict:
     lat_lo = max(lat - pad[0], float(dem.lat.min()))
     lat_hi = min(lat + pad[0], float(dem.lat.max()))
     lon_lo = max(lon - pad[1], float(dem.lon.min()))
     lon_hi = min(lon + pad[1], float(dem.lon.max()))
+    model_sources = {}
+    for source in (
+        Path(__file__),
+        SOURCE_ROOT / "scripts/itm_relay_links.py",
+        SOURCE_ROOT / "scripts/radio_link_budget.py",
+    ):
+        model_sources[str(source.relative_to(SOURCE_ROOT))] = _sha256_file(source)
+    return {
+        "schema": "itm_q50_signal_raster_cache_v2",
+        "dem_content_sha256": _dem_content_sha256(dem),
+        "site": {"name": name, "lat": lat, "lon": lon, "tx_height_m": hg},
+        "receiver_height_m": 1.5,
+        "grid": grid,
+        "pad_lat_lon": list(pad),
+        "bounds": [[lat_lo, lon_lo], [lat_hi, lon_hi]],
+        "model": {
+            "name": "Longley-Rice ITM",
+            "statistic": "q50",
+            "frequency_mhz": FREQ_MHZ,
+            "rx_power_reference_dbm": RX_POWER_REF_DBM,
+            "planning_threshold_dbm": PLANNING_DBM,
+            "itmlogic_version": importlib.metadata.version("itmlogic"),
+            "source_sha256": model_sources,
+        },
+    }
+
+
+def _coverage_cache_path(name: str, identity: dict) -> tuple[Path, str]:
+    encoded = json.dumps(identity, sort_keys=True, separators=(",", ":")).encode()
+    identity_sha256 = hashlib.sha256(encoded).hexdigest()
+    safe_name = re.sub(r"[^A-Za-z0-9_.-]+", "_", name).strip("._") or "site"
+    return (
+        ROOT / f"artifacts/sim/coverage_{safe_name}_{identity_sha256[:20]}.npz",
+        identity_sha256,
+    )
+
+
+def coverage_layer(dem: Dem, name: str, lat: float, lon: float, hg: float,
+                   grid: int = 60, pad: tuple[float, float] = (0.045, 0.06)) -> dict:
+    """Return an explicitly unvalidated ITM-q50 signal raster and provenance."""
+    if grid < 2:
+        raise ValueError("coverage grid must contain at least two cells per axis")
+    identity = _coverage_identity(dem, name, lat, lon, hg, grid, pad)
+    cache, identity_sha256 = _coverage_cache_path(name, identity)
+    [[lat_lo, lon_lo], [lat_hi, lon_hi]] = identity["bounds"]
+    pred = None
+    error_types: dict[str, int] = {}
     if cache.exists():
-        pred = np.load(cache)["pred"]
-    else:
+        try:
+            with np.load(cache, allow_pickle=False) as archive:
+                stored_identity = json.loads(str(archive["identity_json"].item()))
+                candidate = archive["pred"]
+                stored_errors = json.loads(str(archive["error_types_json"].item()))
+            if stored_identity == identity and candidate.shape == (grid, grid):
+                pred = candidate
+                error_types = {str(key): int(value)
+                               for key, value in stored_errors.items()}
+        except (
+            OSError,
+            ValueError,
+            KeyError,
+            EOFError,
+            zipfile.BadZipFile,
+            json.JSONDecodeError,
+        ):
+            pred = None
+    if pred is None:
         lats = np.linspace(lat_lo, lat_hi, grid)
         lons = np.linspace(lon_lo, lon_hi, grid)
         pred = np.full((grid, grid), np.nan)
@@ -63,9 +160,18 @@ def coverage_layer(dem: Dem, name: str, lat: float, lon: float, hg: float,
                 try:
                     itm = itm_p2p_loss(d_m / 1000.0, prof, (hg, 1.5))
                     pred[i, j] = RX_POWER_REF_DBM - itm["loss_db_q50"]
-                except Exception:
-                    pass
-        np.savez_compressed(cache, pred=pred)
+                except Exception as exc:
+                    error_name = type(exc).__name__
+                    error_types[error_name] = error_types.get(error_name, 0) + 1
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        temporary = cache.with_name(f".{cache.name}.tmp-{os.getpid()}.npz")
+        np.savez_compressed(
+            temporary,
+            pred=pred,
+            identity_json=json.dumps(identity, sort_keys=True),
+            error_types_json=json.dumps(error_types, sort_keys=True),
+        )
+        os.replace(temporary, cache)
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.cm as cm
@@ -74,11 +180,28 @@ def coverage_layer(dem: Dem, name: str, lat: float, lon: float, hg: float,
     norm = TwoSlopeNorm(vmin=-140, vcenter=PLANNING_DBM, vmax=-60)
     rgba = cm.RdYlGn(norm(pred))
     rgba[..., 3] = np.where(np.isnan(pred), 0.0, 0.55)
-    tmp = ROOT / f"artifacts/sim/_cov_{name}.png"
-    plt.imsave(tmp, np.flipud(rgba))
-    b64 = base64.b64encode(tmp.read_bytes()).decode()
-    return {"name": name, "png": f"data:image/png;base64,{b64}",
-            "bounds": [[lat_lo, lon_lo], [lat_hi, lon_hi]]}
+    png = io.BytesIO()
+    plt.imsave(png, np.flipud(rgba), format="png")
+    b64 = base64.b64encode(png.getvalue()).decode()
+    return {
+        "name": name,
+        "artifact_kind": "uncalibrated_itm_q50_signal_visualization",
+        "claim_status": "MODELED_Q50_NOT_FIELD_VALIDATED",
+        "metric": "predicted_received_power_dbm_q50",
+        "png": f"data:image/png;base64,{b64}",
+        "bounds": identity["bounds"],
+        "cache": {
+            "path": str(cache.relative_to(ROOT)),
+            "identity_sha256": identity_sha256,
+        },
+        "model_provenance": identity["model"],
+        "itm_error_cells": sum(error_types.values()),
+        "itm_error_types": error_types,
+        "limitations": [
+            "This is an uncalibrated q50 propagation-model visualization, not AIRMap output or measured coverage.",
+            "Transparent cells may represent model failures and must not be interpreted as verified no-coverage areas.",
+        ],
+    }
 
 
 def main() -> int:
@@ -88,7 +211,11 @@ def main() -> int:
     ap.add_argument("--topology", default="artifacts/sim/topology.json")
     ap.add_argument("--dem-npz", default="artifacts/dem/cache/usgs_3dep_presidentials_wide.npz")
     ap.add_argument("--out", default="artifacts/sim/sim_viewer.html")
-    ap.add_argument("--no-coverage", action="store_true", help="Skip AIRMap layers")
+    ap.add_argument(
+        "--no-coverage",
+        action="store_true",
+        help="Skip uncalibrated ITM q50 signal-model layers",
+    )
     ap.add_argument("--pos-stride", type=int, default=1,
                     help="Keep every Nth mover fix (year-scale traces)")
     ap.add_argument("--bat-stride", type=int, default=1)
@@ -317,7 +444,7 @@ const satL = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/W
 topoL.addTo(map);
 const overlays = {};
 for (const c of D.coverage){
-  overlays['AIRMap: '+c.name] = L.imageOverlay(c.png, c.bounds, {opacity:0.55});
+  overlays['Modeled ITM q50 (not field coverage): '+c.name] = L.imageOverlay(c.png, c.bounds, {opacity:0.55});
 }
 const pts = Object.values(D.sites).map(s=>[s.lat,s.lon]);
 if (D.nh && D.nh.length){
