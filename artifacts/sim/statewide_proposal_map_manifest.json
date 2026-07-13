@@ -1,0 +1,52 @@
+{
+  "generated_at_utc": "2026-07-13T18:27:23.936651+00:00",
+  "claim_status": "UNCALIBRATED_MODEL_SCREEN_NOT_FIELD_VALIDATED",
+  "planning_screen_verdict": "FAIL",
+  "inputs": {
+    "generator": {
+      "path": "scripts/build_statewide_map.py",
+      "bytes": 13857,
+      "sha256": "7e20075b582beedcf008597cf5b99427169a78f7820a34f6e0d5b5b057a493fd"
+    },
+    "topology": {
+      "path": "artifacts/sim/topology_statewide.json",
+      "bytes": 299979,
+      "sha256": "97ec3986777aa0061788414e1e2874d6129e5e941ff889e2ec0cada27ce24330"
+    },
+    "audit": {
+      "path": "artifacts/sim/coverage_audit_statewide.json",
+      "bytes": 113826,
+      "sha256": "990e3a07c79190d6618643071fb55cc8cea55d41bd504b44c717d33d05172dd8"
+    },
+    "routes": {
+      "path": "artifacts/sim/routes_statewide.json",
+      "bytes": 7382033,
+      "sha256": "b6e61359ff606749744c19634ff44d9294e02cce952241b5953090c6f165f5bb"
+    },
+    "dem": {
+      "path": "artifacts/dem/cache/usgs_3dep_nh_statewide.npz",
+      "bytes": 29798053,
+      "sha256": "1c432830990e916d08c60e44eb40b1bf688087c1eaa06f978018b0fcd9c1acb8"
+    },
+    "nh_boundary.json": {
+      "path": "artifacts/osm/nh_boundary.json",
+      "bytes": 728,
+      "sha256": "ab4518e946656d05b2b1a6e3e069514470fc78bef26cb45c5afb28a79179ebab"
+    },
+    "service_areas.json": {
+      "path": "artifacts/sim/service_areas.json",
+      "bytes": 75448,
+      "sha256": "b6888068d39e8f0e7fffb27d179762080178607b36ae8be1ca06bee452f2d487"
+    },
+    "trail_coverage.json": {
+      "path": "artifacts/sim/trail_coverage.json",
+      "bytes": 9942,
+      "sha256": "0810637041c03888459e75b9f844bbf5a06302e4496f73789e910f38dbcf803e"
+    }
+  },
+  "output": {
+    "path": "artifacts/sim/statewide_proposal_map.png",
+    "bytes": 2141709,
+    "sha256": "20075719f87c2cd394709cdadb66064693771bc9b11fc5d01295f3703430e64a"
+  }
+}

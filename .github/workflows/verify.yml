@@ -1,0 +1,94 @@
+name: verify
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  python-and-reproduction:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14.3"
+          cache: pip
+      - name: Install pinned Python environment
+        run: |
+          python -m pip install --requirement requirements.txt
+          python -m pip check
+      - name: Verify required clean-clone simulation inputs
+        run: |
+          test -s artifacts/sim/topology.json
+          test -s artifacts/sim/topology_statewide.json
+          test -s artifacts/sim/routes.json
+          test -s artifacts/sim/routes_statewide.json
+          test -s artifacts/sim/weather_year.json
+          test -s artifacts/sim/service_areas.json
+      - name: Python tests and syntax
+        run: |
+          python -m pytest -q
+          python -m compileall -q scripts tests
+          bash -n scripts/*.sh
+      - name: Python simulator smoke run with provenance
+        run: |
+          python scripts/mesh_sim.py \
+            --topology artifacts/sim/topology.json \
+            --routes artifacts/sim/routes.json \
+            --weather artifacts/sim/weather_year.json \
+            --days 0.02 --seed 1729 --mode etx \
+            --trace '' \
+            --out /tmp/python-smoke.json
+          python scripts/sim_run_manifest.py \
+            --out /tmp/python-smoke-manifest.json \
+            --engine python --mode etx --days 0.02 --seed 1729 \
+            --input topology=artifacts/sim/topology.json \
+            --input routes=artifacts/sim/routes.json \
+            --input weather=artifacts/sim/weather_year.json \
+            --input config=config/sim/wmnf_sim.yaml \
+            --result /tmp/python-smoke.json \
+            --command "CI Python simulator smoke run" \
+            --require-clean
+
+  rust:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: fastsim
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        run: >-
+          rustup toolchain install 1.89.0 --profile minimal
+          --component clippy --component rustfmt
+      - name: Formatting
+        run: cargo fmt --all --check
+      - name: Strict lint
+        run: cargo clippy --all-targets --locked -- -D warnings
+      - name: Tests
+        run: cargo test --all-targets --locked
+      - name: FastSim smoke run
+        run: |
+          cargo run --locked --release -- \
+            --topology ../artifacts/sim/topology.json \
+            --routes ../artifacts/sim/routes.json \
+            --weather ../artifacts/sim/weather_year.json \
+            --config ../config/sim/wmnf_sim.yaml \
+            --mode etx --days 0.02 --seed 1729 \
+            --out /tmp/fastsim-smoke.json
+          test -s /tmp/fastsim-smoke.json
+          python ../scripts/sim_run_manifest.py \
+            --out /tmp/fastsim-smoke-manifest.json \
+            --engine fastsim --mode etx --days 0.02 --seed 1729 \
+            --input topology=artifacts/sim/topology.json \
+            --input routes=artifacts/sim/routes.json \
+            --input weather=artifacts/sim/weather_year.json \
+            --input config=config/sim/wmnf_sim.yaml \
+            --input cargo_lock=fastsim/Cargo.lock \
+            --input rust_toolchain=fastsim/rust-toolchain.toml \
+            --result /tmp/fastsim-smoke.json \
+            --command "CI pinned Rust FastSim smoke run" \
+            --require-clean

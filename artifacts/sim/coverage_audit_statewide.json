@@ -1,0 +1,5139 @@
+{
+  "generated_at_utc": "2026-07-13T18:27:15.248151+00:00",
+  "audit_kind": "uncalibrated_model_screen",
+  "claim_status": "PLANNING_SCREEN_FAIL",
+  "inputs": {
+    "generator": {
+      "path": "scripts/audit_coverage.py",
+      "bytes": 14734,
+      "sha256": "f02dbcebc1f1204192c068b0715d9b83972f7ed56f1a2f41a6393fc4c870facd"
+    },
+    "topology": {
+      "path": "artifacts/sim/topology_statewide.json",
+      "bytes": 299979,
+      "sha256": "97ec3986777aa0061788414e1e2874d6129e5e941ff889e2ec0cada27ce24330"
+    },
+    "link_matrix": {
+      "path": "artifacts/sim/link_matrix_statewide.csv",
+      "bytes": 137191,
+      "sha256": "fe517b6c2c30c9dd9ca6280d39806b8205bdee6fa552e25c5407346c2792aef1"
+    },
+    "routes": {
+      "path": "artifacts/sim/routes_statewide.json",
+      "bytes": 7382033,
+      "sha256": "b6e61359ff606749744c19634ff44d9294e02cce952241b5953090c6f165f5bb"
+    }
+  },
+  "criteria": {
+    "minimum_route_fraction": 0.85,
+    "sensitivity_floor_dbm": -131.0,
+    "planning_threshold_dbm": -100.0,
+    "controlling_gate_allows_unvalidated_short_link_policy": false,
+    "overall_verdict_follows": "planning_screen"
+  },
+  "limitations": [
+    "All values are predictions from project-generated topology and propagation inputs, not independent field observations.",
+    "Backhaul uses modeled q90 RSSI; trails have only q50 path-loss arrays and therefore do not establish q90 route reliability.",
+    "The model does not establish installation feasibility, permission, legal authorization, hardware performance, body/foliage loss, local clutter, or weather robustness.",
+    "Site selection and evaluation share the same project model, so a pass would be an internal design screen rather than independent validation.",
+    "The controlling gate excludes the sub-1.35 km FSPL-plus-allowance policy by default because it was chosen without independent calibration; a counterfactual tier reports its effect."
+  ],
+  "n_sites": 217,
+  "sensitivity_floor_screen": {
+    "receiver_threshold_dbm": -131.0,
+    "maximum_path_loss_db": 157.3,
+    "backhaul_estimate": "q90 modeled received power",
+    "trail_estimate": "q50 modeled path loss (route input has no q90)",
+    "n_components": 39,
+    "n_usable_links": 401,
+    "allows_unvalidated_short_link_policy": true,
+    "n_excluded_short_link_policy": 0,
+    "n_assumed_short_link_policy": 52,
+    "components": [
+      {
+        "n_sites": 86,
+        "gateways": [
+          "berlin_gateway",
+          "cannon_tram_top",
+          "flume_vc",
+          "gateway_marshfield",
+          "gorham_info",
+          "highland_center",
+          "lafayette_place",
+          "loon_summit",
+          "notchland_inn",
+          "pinkham_notch_vc",
+          "summit_shermanadams",
+          "twin_mountain_village",
+          "wild_river_cg"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "ammo_relay",
+          "appalachia_th",
+          "baldface_s",
+          "berlin_gateway",
+          "bondcliff",
+          "boott_spur",
+          "cannon_tram_top",
+          "caps_ridge_th",
+          "carrigain_summit",
+          "carter_dome",
+          "carter_notch_hut",
+          "cherry_mtn",
+          "clay_relay",
+          "cog_skyline",
+          "crag_camp",
+          "dolly_copp",
+          "durand_ridge",
+          "eisenhower_relay",
+          "flume_vc",
+          "galehead_hut",
+          "garfield_summit",
+          "gateway_marshfield",
+          "gentian_pond",
+          "glen_ellis",
+          "glen_house",
+          "gorham_info",
+          "grayknob_cabin",
+          "great_gulf_th",
+          "greenleaf_hut",
+          "guyot_summit",
+          "hancock_th",
+          "hermit_lake",
+          "highland_center",
+          "imp_shelter",
+          "isolation_davis",
+          "jackson_summit",
+          "jefferson_lawn",
+          "jewell_relay",
+          "kinsman_n",
+          "kinsman_pond",
+          "lafayette_place",
+          "lafayette_summit",
+          "lakes_hut",
+          "liberty_summit",
+          "lion_head",
+          "little_haystack",
+          "lonesome_lake_hut",
+          "loon_summit",
+          "madison_hut",
+          "madison_summit",
+          "middle_carter",
+          "mizpah_hut",
+          "monroe_flank",
+          "moriah_summit",
+          "mt_hale",
+          "mt_hayes",
+          "mt_hight",
+          "nelson_crag",
+          "north_baldface",
+          "north_carter",
+          "notchland_inn",
+          "owls_head_slide",
+          "pierce_relay",
+          "pinkham_notch_vc",
+          "pulpit_rock",
+          "sawyer_river_th",
+          "signal_ridge",
+          "south_carter",
+          "south_twin",
+          "success_summit",
+          "sugarloaf_middle",
+          "summit_shermanadams",
+          "thirteen_falls",
+          "thunderstorm_jct",
+          "tremont_summit",
+          "twin_mountain_village",
+          "waumbek_summit",
+          "webster_cliff",
+          "wild_river_blue_brook",
+          "wild_river_cg",
+          "wildcat_a",
+          "wildcat_d",
+          "willey_summit",
+          "zeacliff",
+          "zealand_hut",
+          "zeta_pass"
+        ]
+      },
+      {
+        "n_sites": 20,
+        "gateways": [
+          "mead_base",
+          "tecumseh_ski_top",
+          "waterville_valley",
+          "white_ledge_cg"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "champney_th",
+          "chocorua_summit",
+          "dickey_ledges",
+          "ferncroft_th",
+          "flat_mtn_pond",
+          "jennings_peak",
+          "mead_base",
+          "mt_israel",
+          "noon_peak",
+          "osceola_summit",
+          "passaconaway",
+          "piper_th",
+          "sandwich_dome",
+          "tecumseh_ski_top",
+          "tripyramid_n",
+          "waterville_valley",
+          "welch_dickey_th",
+          "welch_ledges",
+          "white_ledge_cg",
+          "whiteface_summit"
+        ]
+      },
+      {
+        "n_sites": 10,
+        "gateways": [
+          "stark_village"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "cabot_summit",
+          "kilkenny_lookout",
+          "nash_stream_th",
+          "percy_peaks",
+          "stark_village",
+          "sugarloaf_nash",
+          "the_bulge",
+          "the_horn",
+          "unknown_pond",
+          "victor_head"
+        ]
+      },
+      {
+        "n_sites": 8,
+        "gateways": [
+          "castle_clouds"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "bald_knob_ossipee",
+          "black_snout",
+          "castle_clouds",
+          "faraway_ledge",
+          "mt_roberts",
+          "ossipee_saddle",
+          "shaw_summit",
+          "turtleback_mtn"
+        ]
+      },
+      {
+        "n_sites": 8,
+        "gateways": [
+          "washington_town"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "bryant_ledge",
+          "faxon_hill",
+          "greenway_mid",
+          "kittredge_hill",
+          "lovewell_mtn",
+          "millen_pond",
+          "pillsbury_sp",
+          "washington_town"
+        ]
+      },
+      {
+        "n_sites": 7,
+        "gateways": [
+          "ravine_lodge"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "black_mtn_benton",
+          "blue_ridge_ledge",
+          "glencliff_th",
+          "kinsman_notch",
+          "moosilauke_s_peak",
+          "moosilauke_summit",
+          "ravine_lodge"
+        ]
+      },
+      {
+        "n_sites": 6,
+        "gateways": [
+          "dartmouth_skiway"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "dartmouth_skiway",
+          "holts_ledge",
+          "lambert_ridge",
+          "lyme_dorchester_th",
+          "smarts_mtn",
+          "smarts_ranger_ledge"
+        ]
+      },
+      {
+        "n_sites": 5,
+        "gateways": [
+          "cranmore_top"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "black_cap",
+          "cranmore_ledge",
+          "cranmore_top",
+          "hurricane_col",
+          "kearsarge_north"
+        ]
+      },
+      {
+        "n_sites": 5,
+        "gateways": [
+          "pisgah_hq"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "kilburn_ridge",
+          "kilburn_th",
+          "pisgah_hq",
+          "pisgah_ridge",
+          "pisgah_w_knoll"
+        ]
+      },
+      {
+        "n_sites": 4,
+        "gateways": [
+          "gunstock_top"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "belknap_summit",
+          "gunstock_top",
+          "major_summit",
+          "piper_mtn_belknap"
+        ]
+      },
+      {
+        "n_sites": 4,
+        "gateways": [
+          "attitash_base"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "attitash_base",
+          "iron_mtn",
+          "iron_s_ledge",
+          "rocky_branch_knoll"
+        ]
+      },
+      {
+        "n_sites": 4,
+        "gateways": [
+          "rockywold_camps"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "morgan_percival",
+          "rattlesnake_west",
+          "red_hill_tower",
+          "rockywold_camps"
+        ]
+      },
+      {
+        "n_sites": 3,
+        "gateways": [
+          "lincoln_woods_th"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "greeley_ponds",
+          "kanc_pass",
+          "lincoln_woods_th"
+        ]
+      },
+      {
+        "n_sites": 3,
+        "gateways": [
+          "miller_hq"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "miller_hq",
+          "pack_monadnock",
+          "temple_mtn_ledges"
+        ]
+      },
+      {
+        "n_sites": 3,
+        "gateways": [
+          "monadnock_hq"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "dublin_th",
+          "monadnock_hq",
+          "monadnock_summit"
+        ]
+      },
+      {
+        "n_sites": 3,
+        "gateways": [
+          "moose_mtn_lodge"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "moose_mtn_at",
+          "moose_mtn_lodge",
+          "moose_s_ledge"
+        ]
+      },
+      {
+        "n_sites": 3,
+        "gateways": [
+          "mt_cube_farm"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "cube_s_ledge",
+          "mt_cube",
+          "mt_cube_farm"
+        ]
+      },
+      {
+        "n_sites": 3,
+        "gateways": [
+          "buffalo_rd_lot"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "buffalo_rd_lot",
+          "rattlesnake_rumney",
+          "rumney_cliff_top"
+        ]
+      },
+      {
+        "n_sites": 2,
+        "gateways": [
+          "balsams_gateway"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "balsams_gateway",
+          "table_rock"
+        ]
+      },
+      {
+        "n_sites": 2,
+        "gateways": [
+          "bear_brook_hq"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "bear_brook_hq",
+          "bear_brook_tower"
+        ]
+      },
+      {
+        "n_sites": 2,
+        "gateways": [
+          "cardigan_lodge"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "cardigan_lodge",
+          "cardigan_summit"
+        ]
+      },
+      {
+        "n_sites": 2,
+        "gateways": [
+          "crotched_base"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "crotched_base",
+          "crotched_summit"
+        ]
+      },
+      {
+        "n_sites": 2,
+        "gateways": [
+          "deer_mtn_cg"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "deer_mtn_cg",
+          "deer_mtn_pittsburg"
+        ]
+      },
+      {
+        "n_sites": 2,
+        "gateways": [
+          "first_lake_dam",
+          "second_lake_dam"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "first_lake_dam",
+          "second_lake_dam"
+        ]
+      },
+      {
+        "n_sites": 2,
+        "gateways": [
+          "jackson_village"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "doublehead_n",
+          "jackson_village"
+        ]
+      },
+      {
+        "n_sites": 2,
+        "gateways": [
+          "pawtuckaway_hq"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "pawtuckaway_hq",
+          "pawtuckaway_tower"
+        ]
+      },
+      {
+        "n_sites": 2,
+        "gateways": [
+          "ragged_ski_base"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "ragged_mtn",
+          "ragged_ski_base"
+        ]
+      },
+      {
+        "n_sites": 2,
+        "gateways": [
+          "stinson_lake_gw"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "stinson_lake_gw",
+          "stinson_summit"
+        ]
+      },
+      {
+        "n_sites": 2,
+        "gateways": [
+          "winslow_hq"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "kearsarge_summit",
+          "winslow_hq"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "blue_job"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "blue_job"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "green_mtn_effingham"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "green_mtn_effingham"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "magalloway_tower"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "magalloway_tower"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "milan_hill"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "milan_hill"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "newbury_station"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "newbury_station"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "pittsburg_village"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "pittsburg_village"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "prospect_weeks"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "prospect_weeks"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "rumney_village"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "rumney_village"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "sunapee_summit"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "sunapee_summit"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "uncanoonuc_s"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "uncanoonuc_s"
+        ]
+      }
+    ],
+    "stranded_sites": [],
+    "trail_coverage": [
+      {
+        "route": "belknap_range_walk",
+        "geometry": "mixed_osm_chord",
+        "samples": 80,
+        "reachable_candidate_sites": 217,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -131.0,
+        "maximum_path_loss_db": 157.3,
+        "coverage": 0.9,
+        "ok": true
+      },
+      {
+        "route": "rumney_rattlesnake",
+        "geometry": "chord",
+        "samples": 16,
+        "reachable_candidate_sites": 217,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -131.0,
+        "maximum_path_loss_db": 157.3,
+        "coverage": 0.9375,
+        "ok": true
+      },
+      {
+        "route": "baldface_wild_river",
+        "geometry": "osm",
+        "samples": 437,
+        "reachable_candidate_sites": 217,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -131.0,
+        "maximum_path_loss_db": 157.3,
+        "coverage": 0.981693,
+        "ok": true
+      },
+      {
+        "route": "ammo_jewell_loop",
+        "geometry": "osm",
+        "samples": 433,
+        "reachable_candidate_sites": 217,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -131.0,
+        "maximum_path_loss_db": 157.3,
+        "coverage": 1.0,
+        "ok": true
+      },
+      {
+        "route": "bear_brook_loop",
+        "geometry": "chord",
+        "samples": 9,
+        "reachable_candidate_sites": 217,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -131.0,
+        "maximum_path_loss_db": 157.3,
+        "coverage": 1.0,
+        "ok": true
+      },
+      {
+        "route": "cardigan_west_ridge",
+        "geometry": "osm",
+        "samples": 47,
+        "reachable_candidate_sites": 217,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -131.0,
+        "maximum_path_loss_db": 157.3,
+        "coverage": 1.0,
+        "ok": true
+      },
+      {
+        "route": "carrigain_signal_ridge",
+        "geometry": "mixed_osm_chord",
+        "samples": 20,
+        "reachable_candidate_sites": 217,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -131.0,
+        "maximum_path_loss_db": 157.3,
+        "coverage": 1.0,
+        "ok": true
+      },
+      {
+        "route": "carter_wildcat",
+        "geometry": "osm",
+        "samples": 232,
+        "reachable_candidate_sites": 217,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -131.0,
+        "maximum_path_loss_db": 157.3,
+        "coverage": 1.0,
+        "ok": true
+      },
+      {
+        "route": "chocorua_piper",
+        "geometry": "osm",
+        "samples": 154,
+        "reachable_candidate_sites": 217,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -131.0,
+        "maximum_path_loss_db": 157.3,
+        "coverage": 1.0,
+        "ok": true
+      },
+      {
+        "route": "crawford_traverse",
+        "geometry": "osm",
+        "samples": 462,
+        "reachable_candidate_sites": 217,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -131.0,
+        "maximum_path_loss_db": 157.3,
+        "coverage": 1.0,
+        "ok": true
+      },
+      {
+        "route": "franconia_ridge_loop",
+        "geometry": "osm",
+        "samples": 223,
+        "reachable_candidate_sites": 217,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -131.0,
+        "maximum_path_loss_db": 157.3,
+        "coverage": 1.0,
+        "ok": true
+      },
+      {
+        "route": "great_gulf_osgood",
+        "geometry": "osm",
+        "samples": 98,
+        "reachable_candidate_sites": 217,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -131.0,
+        "maximum_path_loss_db": 157.3,
+        "coverage": 1.0,
+        "ok": true
+      },
+      {
+        "route": "hale_zealand_loop",
+        "geometry": "mixed_osm_chord",
+        "samples": 321,
+        "reachable_candidate_sites": 217,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -131.0,
+        "maximum_path_loss_db": 157.3,
+        "coverage": 1.0,
+        "ok": true
+      },
+      {
+        "route": "isolation_glen_boulder",
+        "geometry": "osm",
+        "samples": 405,
+        "reachable_candidate_sites": 217,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -131.0,
+        "maximum_path_loss_db": 157.3,
+        "coverage": 1.0,
+        "ok": true
+      },
+      {
+        "route": "kearsarge_winslow",
+        "geometry": "osm",
+        "samples": 55,
+        "reachable_candidate_sites": 217,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -131.0,
+        "maximum_path_loss_db": 157.3,
+        "coverage": 1.0,
+        "ok": true
+      },
+      {
+        "route": "lonesome_lake_family",
+        "geometry": "osm",
+        "samples": 83,
+        "reachable_candidate_sites": 217,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -131.0,
+        "maximum_path_loss_db": 157.3,
+        "coverage": 1.0,
+        "ok": true
+      },
+      {
+        "route": "monadnock_white_dot",
+        "geometry": "osm",
+        "samples": 110,
+        "reachable_candidate_sites": 217,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -131.0,
+        "maximum_path_loss_db": 157.3,
+        "coverage": 1.0,
+        "ok": true
+      },
+      {
+        "route": "moosilauke_gorge_brook",
+        "geometry": "osm",
+        "samples": 160,
+        "reachable_candidate_sites": 217,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -131.0,
+        "maximum_path_loss_db": 157.3,
+        "coverage": 1.0,
+        "ok": true
+      },
+      {
+        "route": "osceola_greeley",
+        "geometry": "chord",
+        "samples": 41,
+        "reachable_candidate_sites": 217,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -131.0,
+        "maximum_path_loss_db": 157.3,
+        "coverage": 1.0,
+        "ok": true
+      },
+      {
+        "route": "owls_head_marathon",
+        "geometry": "osm",
+        "samples": 169,
+        "reachable_candidate_sites": 217,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -131.0,
+        "maximum_path_loss_db": 157.3,
+        "coverage": 1.0,
+        "ok": true
+      },
+      {
+        "route": "pack_monadnock_loop",
+        "geometry": "osm",
+        "samples": 48,
+        "reachable_candidate_sites": 217,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -131.0,
+        "maximum_path_loss_db": 157.3,
+        "coverage": 1.0,
+        "ok": true
+      },
+      {
+        "route": "pemi_bonds_long",
+        "geometry": "osm",
+        "samples": 377,
+        "reachable_candidate_sites": 217,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -131.0,
+        "maximum_path_loss_db": 157.3,
+        "coverage": 1.0,
+        "ok": true
+      },
+      {
+        "route": "squam_morgan_percival",
+        "geometry": "mixed_osm_chord",
+        "samples": 29,
+        "reachable_candidate_sites": 217,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -131.0,
+        "maximum_path_loss_db": 157.3,
+        "coverage": 1.0,
+        "ok": true
+      },
+      {
+        "route": "tuckerman_loop",
+        "geometry": "osm",
+        "samples": 254,
+        "reachable_candidate_sites": 217,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -131.0,
+        "maximum_path_loss_db": 157.3,
+        "coverage": 1.0,
+        "ok": true
+      },
+      {
+        "route": "valley_way_madison",
+        "geometry": "osm",
+        "samples": 127,
+        "reachable_candidate_sites": 217,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -131.0,
+        "maximum_path_loss_db": 157.3,
+        "coverage": 1.0,
+        "ok": true
+      }
+    ],
+    "routes_under_threshold": [],
+    "verdict": "PASS"
+  },
+  "planning_screen_with_unvalidated_short_link_assumption": {
+    "receiver_threshold_dbm": -100.0,
+    "maximum_path_loss_db": 126.3,
+    "backhaul_estimate": "q90 modeled received power",
+    "trail_estimate": "q50 modeled path loss (route input has no q90)",
+    "n_components": 79,
+    "n_usable_links": 218,
+    "allows_unvalidated_short_link_policy": true,
+    "n_excluded_short_link_policy": 0,
+    "n_assumed_short_link_policy": 52,
+    "components": [
+      {
+        "n_sites": 45,
+        "gateways": [
+          "gateway_marshfield",
+          "highland_center",
+          "pinkham_notch_vc",
+          "summit_shermanadams",
+          "wild_river_cg"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "ammo_relay",
+          "appalachia_th",
+          "boott_spur",
+          "caps_ridge_th",
+          "carter_dome",
+          "cherry_mtn",
+          "clay_relay",
+          "cog_skyline",
+          "crag_camp",
+          "dolly_copp",
+          "durand_ridge",
+          "eisenhower_relay",
+          "gateway_marshfield",
+          "glen_house",
+          "grayknob_cabin",
+          "great_gulf_th",
+          "hermit_lake",
+          "highland_center",
+          "imp_shelter",
+          "isolation_davis",
+          "jackson_summit",
+          "jefferson_lawn",
+          "jewell_relay",
+          "lakes_hut",
+          "lion_head",
+          "madison_hut",
+          "madison_summit",
+          "middle_carter",
+          "mizpah_hut",
+          "monroe_flank",
+          "moriah_summit",
+          "mt_hight",
+          "nelson_crag",
+          "north_carter",
+          "pierce_relay",
+          "pinkham_notch_vc",
+          "south_carter",
+          "summit_shermanadams",
+          "thunderstorm_jct",
+          "webster_cliff",
+          "wild_river_blue_brook",
+          "wild_river_cg",
+          "wildcat_a",
+          "wildcat_d",
+          "zeta_pass"
+        ]
+      },
+      {
+        "n_sites": 18,
+        "gateways": [
+          "cannon_tram_top",
+          "flume_vc",
+          "lafayette_place",
+          "loon_summit"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "bondcliff",
+          "cannon_tram_top",
+          "flume_vc",
+          "galehead_hut",
+          "garfield_summit",
+          "greenleaf_hut",
+          "hancock_th",
+          "kinsman_n",
+          "kinsman_pond",
+          "lafayette_place",
+          "lafayette_summit",
+          "liberty_summit",
+          "little_haystack",
+          "lonesome_lake_hut",
+          "loon_summit",
+          "owls_head_slide",
+          "south_twin",
+          "thirteen_falls"
+        ]
+      },
+      {
+        "n_sites": 9,
+        "gateways": [
+          "notchland_inn"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "carrigain_summit",
+          "guyot_summit",
+          "notchland_inn",
+          "sawyer_river_th",
+          "signal_ridge",
+          "tremont_summit",
+          "willey_summit",
+          "zeacliff",
+          "zealand_hut"
+        ]
+      },
+      {
+        "n_sites": 7,
+        "gateways": [
+          "stark_village"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "cabot_summit",
+          "nash_stream_th",
+          "stark_village",
+          "sugarloaf_nash",
+          "the_bulge",
+          "the_horn",
+          "victor_head"
+        ]
+      },
+      {
+        "n_sites": 7,
+        "gateways": [
+          "castle_clouds"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "bald_knob_ossipee",
+          "black_snout",
+          "castle_clouds",
+          "faraway_ledge",
+          "mt_roberts",
+          "ossipee_saddle",
+          "shaw_summit"
+        ]
+      },
+      {
+        "n_sites": 7,
+        "gateways": [
+          "washington_town"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "bryant_ledge",
+          "faxon_hill",
+          "greenway_mid",
+          "kittredge_hill",
+          "millen_pond",
+          "pillsbury_sp",
+          "washington_town"
+        ]
+      },
+      {
+        "n_sites": 5,
+        "gateways": [
+          "cranmore_top"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "black_cap",
+          "cranmore_ledge",
+          "cranmore_top",
+          "hurricane_col",
+          "kearsarge_north"
+        ]
+      },
+      {
+        "n_sites": 5,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "champney_th",
+          "chocorua_summit",
+          "flat_mtn_pond",
+          "passaconaway",
+          "piper_th"
+        ]
+      },
+      {
+        "n_sites": 5,
+        "gateways": [
+          "tecumseh_ski_top",
+          "waterville_valley"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "noon_peak",
+          "osceola_summit",
+          "tecumseh_ski_top",
+          "tripyramid_n",
+          "waterville_valley"
+        ]
+      },
+      {
+        "n_sites": 4,
+        "gateways": [
+          "attitash_base"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "attitash_base",
+          "iron_mtn",
+          "iron_s_ledge",
+          "rocky_branch_knoll"
+        ]
+      },
+      {
+        "n_sites": 4,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "black_mtn_benton",
+          "glencliff_th",
+          "moosilauke_s_peak",
+          "moosilauke_summit"
+        ]
+      },
+      {
+        "n_sites": 4,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "kilburn_ridge",
+          "kilburn_th",
+          "pisgah_ridge",
+          "pisgah_w_knoll"
+        ]
+      },
+      {
+        "n_sites": 4,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "jennings_peak",
+          "mt_israel",
+          "sandwich_dome",
+          "whiteface_summit"
+        ]
+      },
+      {
+        "n_sites": 3,
+        "gateways": [
+          "dartmouth_skiway"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "dartmouth_skiway",
+          "holts_ledge",
+          "lyme_dorchester_th"
+        ]
+      },
+      {
+        "n_sites": 3,
+        "gateways": [
+          "miller_hq"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "miller_hq",
+          "pack_monadnock",
+          "temple_mtn_ledges"
+        ]
+      },
+      {
+        "n_sites": 3,
+        "gateways": [
+          "moose_mtn_lodge"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "moose_mtn_at",
+          "moose_mtn_lodge",
+          "moose_s_ledge"
+        ]
+      },
+      {
+        "n_sites": 3,
+        "gateways": [
+          "mt_cube_farm"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "cube_s_ledge",
+          "mt_cube",
+          "mt_cube_farm"
+        ]
+      },
+      {
+        "n_sites": 3,
+        "gateways": [
+          "rockywold_camps"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "rattlesnake_west",
+          "red_hill_tower",
+          "rockywold_camps"
+        ]
+      },
+      {
+        "n_sites": 3,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "lambert_ridge",
+          "smarts_mtn",
+          "smarts_ranger_ledge"
+        ]
+      },
+      {
+        "n_sites": 3,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "dickey_ledges",
+          "welch_dickey_th",
+          "welch_ledges"
+        ]
+      },
+      {
+        "n_sites": 2,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "baldface_s",
+          "north_baldface"
+        ]
+      },
+      {
+        "n_sites": 2,
+        "gateways": [
+          "balsams_gateway"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "balsams_gateway",
+          "table_rock"
+        ]
+      },
+      {
+        "n_sites": 2,
+        "gateways": [
+          "bear_brook_hq"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "bear_brook_hq",
+          "bear_brook_tower"
+        ]
+      },
+      {
+        "n_sites": 2,
+        "gateways": [
+          "cardigan_lodge"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "cardigan_lodge",
+          "cardigan_summit"
+        ]
+      },
+      {
+        "n_sites": 2,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "carter_notch_hut",
+          "pulpit_rock"
+        ]
+      },
+      {
+        "n_sites": 2,
+        "gateways": [
+          "crotched_base"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "crotched_base",
+          "crotched_summit"
+        ]
+      },
+      {
+        "n_sites": 2,
+        "gateways": [
+          "deer_mtn_cg"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "deer_mtn_cg",
+          "deer_mtn_pittsburg"
+        ]
+      },
+      {
+        "n_sites": 2,
+        "gateways": [
+          "gunstock_top"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "gunstock_top",
+          "major_summit"
+        ]
+      },
+      {
+        "n_sites": 2,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "blue_ridge_ledge",
+          "kinsman_notch"
+        ]
+      },
+      {
+        "n_sites": 2,
+        "gateways": [
+          "ragged_ski_base"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "ragged_mtn",
+          "ragged_ski_base"
+        ]
+      },
+      {
+        "n_sites": 2,
+        "gateways": [
+          "buffalo_rd_lot"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "buffalo_rd_lot",
+          "rumney_cliff_top"
+        ]
+      },
+      {
+        "n_sites": 2,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "kilkenny_lookout",
+          "unknown_pond"
+        ]
+      },
+      {
+        "n_sites": 2,
+        "gateways": [
+          "winslow_hq"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "kearsarge_summit",
+          "winslow_hq"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "belknap_summit"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "berlin_gateway"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "berlin_gateway"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "blue_job"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "blue_job"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "doublehead_n"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "dublin_th"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "ferncroft_th"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "first_lake_dam"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "first_lake_dam"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "gentian_pond"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "glen_ellis"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "gorham_info"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "gorham_info"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "greeley_ponds"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "green_mtn_effingham"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "green_mtn_effingham"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "jackson_village"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "jackson_village"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "kanc_pass"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "lincoln_woods_th"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "lincoln_woods_th"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "lovewell_mtn"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "magalloway_tower"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "magalloway_tower"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "mead_base"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "mead_base"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "milan_hill"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "milan_hill"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "monadnock_hq"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "monadnock_hq"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "monadnock_summit"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "morgan_percival"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "mt_hale"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "mt_hayes"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "newbury_station"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "newbury_station"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "pawtuckaway_hq"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "pawtuckaway_hq"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "pawtuckaway_tower"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "percy_peaks"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "piper_mtn_belknap"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "pisgah_hq"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "pisgah_hq"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "pittsburg_village"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "pittsburg_village"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "prospect_weeks"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "prospect_weeks"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "rattlesnake_rumney"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "ravine_lodge"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "ravine_lodge"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "rumney_village"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "rumney_village"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "second_lake_dam"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "second_lake_dam"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "stinson_lake_gw"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "stinson_lake_gw"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "stinson_summit"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "success_summit"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "sugarloaf_middle"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "sunapee_summit"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "sunapee_summit"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "turtleback_mtn"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "twin_mountain_village"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "twin_mountain_village"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "uncanoonuc_s"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "uncanoonuc_s"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "waumbek_summit"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "white_ledge_cg"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "white_ledge_cg"
+        ]
+      }
+    ],
+    "stranded_sites": [
+      "baldface_s",
+      "belknap_summit",
+      "black_mtn_benton",
+      "blue_ridge_ledge",
+      "carter_notch_hut",
+      "champney_th",
+      "chocorua_summit",
+      "dickey_ledges",
+      "doublehead_n",
+      "dublin_th",
+      "ferncroft_th",
+      "flat_mtn_pond",
+      "gentian_pond",
+      "glen_ellis",
+      "glencliff_th",
+      "greeley_ponds",
+      "jennings_peak",
+      "kanc_pass",
+      "kilburn_ridge",
+      "kilburn_th",
+      "kilkenny_lookout",
+      "kinsman_notch",
+      "lambert_ridge",
+      "lovewell_mtn",
+      "monadnock_summit",
+      "moosilauke_s_peak",
+      "moosilauke_summit",
+      "morgan_percival",
+      "mt_hale",
+      "mt_hayes",
+      "mt_israel",
+      "north_baldface",
+      "passaconaway",
+      "pawtuckaway_tower",
+      "percy_peaks",
+      "piper_mtn_belknap",
+      "piper_th",
+      "pisgah_ridge",
+      "pisgah_w_knoll",
+      "pulpit_rock",
+      "rattlesnake_rumney",
+      "sandwich_dome",
+      "smarts_mtn",
+      "smarts_ranger_ledge",
+      "stinson_summit",
+      "success_summit",
+      "sugarloaf_middle",
+      "turtleback_mtn",
+      "unknown_pond",
+      "waumbek_summit",
+      "welch_dickey_th",
+      "welch_ledges",
+      "whiteface_summit"
+    ],
+    "trail_coverage": [
+      {
+        "route": "chocorua_piper",
+        "geometry": "osm",
+        "samples": 154,
+        "reachable_candidate_sites": 164,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 0.0,
+        "ok": false
+      },
+      {
+        "route": "rumney_rattlesnake",
+        "geometry": "chord",
+        "samples": 16,
+        "reachable_candidate_sites": 164,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 0.375,
+        "ok": false
+      },
+      {
+        "route": "squam_morgan_percival",
+        "geometry": "mixed_osm_chord",
+        "samples": 29,
+        "reachable_candidate_sites": 164,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 0.517241,
+        "ok": false
+      },
+      {
+        "route": "belknap_range_walk",
+        "geometry": "mixed_osm_chord",
+        "samples": 80,
+        "reachable_candidate_sites": 164,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 0.55,
+        "ok": false
+      },
+      {
+        "route": "carrigain_signal_ridge",
+        "geometry": "mixed_osm_chord",
+        "samples": 20,
+        "reachable_candidate_sites": 164,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 0.55,
+        "ok": false
+      },
+      {
+        "route": "baldface_wild_river",
+        "geometry": "osm",
+        "samples": 437,
+        "reachable_candidate_sites": 164,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 0.617849,
+        "ok": false
+      },
+      {
+        "route": "hale_zealand_loop",
+        "geometry": "mixed_osm_chord",
+        "samples": 321,
+        "reachable_candidate_sites": 164,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 0.619938,
+        "ok": false
+      },
+      {
+        "route": "moosilauke_gorge_brook",
+        "geometry": "osm",
+        "samples": 160,
+        "reachable_candidate_sites": 164,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 0.625,
+        "ok": false
+      },
+      {
+        "route": "owls_head_marathon",
+        "geometry": "osm",
+        "samples": 169,
+        "reachable_candidate_sites": 164,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 0.633136,
+        "ok": false
+      },
+      {
+        "route": "cardigan_west_ridge",
+        "geometry": "osm",
+        "samples": 47,
+        "reachable_candidate_sites": 164,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 0.702128,
+        "ok": false
+      },
+      {
+        "route": "kearsarge_winslow",
+        "geometry": "osm",
+        "samples": 55,
+        "reachable_candidate_sites": 164,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 0.709091,
+        "ok": false
+      },
+      {
+        "route": "monadnock_white_dot",
+        "geometry": "osm",
+        "samples": 110,
+        "reachable_candidate_sites": 164,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 0.754545,
+        "ok": false
+      },
+      {
+        "route": "carter_wildcat",
+        "geometry": "osm",
+        "samples": 232,
+        "reachable_candidate_sites": 164,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 0.793103,
+        "ok": false
+      },
+      {
+        "route": "pemi_bonds_long",
+        "geometry": "osm",
+        "samples": 377,
+        "reachable_candidate_sites": 164,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 0.877984,
+        "ok": true
+      },
+      {
+        "route": "osceola_greeley",
+        "geometry": "chord",
+        "samples": 41,
+        "reachable_candidate_sites": 164,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 0.95122,
+        "ok": true
+      },
+      {
+        "route": "valley_way_madison",
+        "geometry": "osm",
+        "samples": 127,
+        "reachable_candidate_sites": 164,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 0.952756,
+        "ok": true
+      },
+      {
+        "route": "isolation_glen_boulder",
+        "geometry": "osm",
+        "samples": 405,
+        "reachable_candidate_sites": 164,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 0.967901,
+        "ok": true
+      },
+      {
+        "route": "franconia_ridge_loop",
+        "geometry": "osm",
+        "samples": 223,
+        "reachable_candidate_sites": 164,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 0.973094,
+        "ok": true
+      },
+      {
+        "route": "crawford_traverse",
+        "geometry": "osm",
+        "samples": 462,
+        "reachable_candidate_sites": 164,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 0.97619,
+        "ok": true
+      },
+      {
+        "route": "ammo_jewell_loop",
+        "geometry": "osm",
+        "samples": 433,
+        "reachable_candidate_sites": 164,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 1.0,
+        "ok": true
+      },
+      {
+        "route": "bear_brook_loop",
+        "geometry": "chord",
+        "samples": 9,
+        "reachable_candidate_sites": 164,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 1.0,
+        "ok": true
+      },
+      {
+        "route": "great_gulf_osgood",
+        "geometry": "osm",
+        "samples": 98,
+        "reachable_candidate_sites": 164,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 1.0,
+        "ok": true
+      },
+      {
+        "route": "lonesome_lake_family",
+        "geometry": "osm",
+        "samples": 83,
+        "reachable_candidate_sites": 164,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 1.0,
+        "ok": true
+      },
+      {
+        "route": "pack_monadnock_loop",
+        "geometry": "osm",
+        "samples": 48,
+        "reachable_candidate_sites": 164,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 1.0,
+        "ok": true
+      },
+      {
+        "route": "tuckerman_loop",
+        "geometry": "osm",
+        "samples": 254,
+        "reachable_candidate_sites": 164,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 1.0,
+        "ok": true
+      }
+    ],
+    "routes_under_threshold": [
+      "chocorua_piper",
+      "rumney_rattlesnake",
+      "squam_morgan_percival",
+      "belknap_range_walk",
+      "carrigain_signal_ridge",
+      "baldface_wild_river",
+      "hale_zealand_loop",
+      "moosilauke_gorge_brook",
+      "owls_head_marathon",
+      "cardigan_west_ridge",
+      "kearsarge_winslow",
+      "monadnock_white_dot",
+      "carter_wildcat"
+    ],
+    "verdict": "FAIL"
+  },
+  "planning_screen": {
+    "receiver_threshold_dbm": -100.0,
+    "maximum_path_loss_db": 126.3,
+    "backhaul_estimate": "q90 modeled received power",
+    "trail_estimate": "q50 modeled path loss (route input has no q90)",
+    "n_components": 113,
+    "n_usable_links": 166,
+    "allows_unvalidated_short_link_policy": false,
+    "n_excluded_short_link_policy": 52,
+    "n_assumed_short_link_policy": 0,
+    "components": [
+      {
+        "n_sites": 39,
+        "gateways": [
+          "gateway_marshfield",
+          "highland_center",
+          "pinkham_notch_vc",
+          "summit_shermanadams",
+          "wild_river_cg"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "ammo_relay",
+          "boott_spur",
+          "caps_ridge_th",
+          "carter_dome",
+          "cherry_mtn",
+          "clay_relay",
+          "cog_skyline",
+          "crag_camp",
+          "dolly_copp",
+          "eisenhower_relay",
+          "gateway_marshfield",
+          "glen_house",
+          "great_gulf_th",
+          "hermit_lake",
+          "highland_center",
+          "imp_shelter",
+          "isolation_davis",
+          "jackson_summit",
+          "jefferson_lawn",
+          "jewell_relay",
+          "lakes_hut",
+          "lion_head",
+          "madison_summit",
+          "middle_carter",
+          "mizpah_hut",
+          "monroe_flank",
+          "moriah_summit",
+          "nelson_crag",
+          "north_carter",
+          "pinkham_notch_vc",
+          "south_carter",
+          "summit_shermanadams",
+          "thunderstorm_jct",
+          "webster_cliff",
+          "wild_river_blue_brook",
+          "wild_river_cg",
+          "wildcat_a",
+          "wildcat_d",
+          "zeta_pass"
+        ]
+      },
+      {
+        "n_sites": 17,
+        "gateways": [
+          "cannon_tram_top",
+          "flume_vc",
+          "lafayette_place",
+          "loon_summit"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "bondcliff",
+          "cannon_tram_top",
+          "flume_vc",
+          "galehead_hut",
+          "garfield_summit",
+          "greenleaf_hut",
+          "hancock_th",
+          "kinsman_n",
+          "kinsman_pond",
+          "lafayette_place",
+          "lafayette_summit",
+          "liberty_summit",
+          "little_haystack",
+          "lonesome_lake_hut",
+          "loon_summit",
+          "owls_head_slide",
+          "thirteen_falls"
+        ]
+      },
+      {
+        "n_sites": 9,
+        "gateways": [
+          "notchland_inn"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "carrigain_summit",
+          "guyot_summit",
+          "notchland_inn",
+          "sawyer_river_th",
+          "signal_ridge",
+          "tremont_summit",
+          "willey_summit",
+          "zeacliff",
+          "zealand_hut"
+        ]
+      },
+      {
+        "n_sites": 5,
+        "gateways": [
+          "stark_village"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "nash_stream_th",
+          "stark_village",
+          "sugarloaf_nash",
+          "the_horn",
+          "victor_head"
+        ]
+      },
+      {
+        "n_sites": 5,
+        "gateways": [
+          "tecumseh_ski_top",
+          "waterville_valley"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "noon_peak",
+          "osceola_summit",
+          "tecumseh_ski_top",
+          "tripyramid_n",
+          "waterville_valley"
+        ]
+      },
+      {
+        "n_sites": 4,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "black_mtn_benton",
+          "glencliff_th",
+          "moosilauke_s_peak",
+          "moosilauke_summit"
+        ]
+      },
+      {
+        "n_sites": 4,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "jennings_peak",
+          "mt_israel",
+          "sandwich_dome",
+          "whiteface_summit"
+        ]
+      },
+      {
+        "n_sites": 3,
+        "gateways": [
+          "dartmouth_skiway"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "dartmouth_skiway",
+          "holts_ledge",
+          "lyme_dorchester_th"
+        ]
+      },
+      {
+        "n_sites": 3,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "appalachia_th",
+          "durand_ridge",
+          "madison_hut"
+        ]
+      },
+      {
+        "n_sites": 3,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "faxon_hill",
+          "greenway_mid",
+          "millen_pond"
+        ]
+      },
+      {
+        "n_sites": 3,
+        "gateways": [
+          "mt_cube_farm"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "cube_s_ledge",
+          "mt_cube",
+          "mt_cube_farm"
+        ]
+      },
+      {
+        "n_sites": 3,
+        "gateways": [
+          "rockywold_camps"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "rattlesnake_west",
+          "red_hill_tower",
+          "rockywold_camps"
+        ]
+      },
+      {
+        "n_sites": 2,
+        "gateways": [
+          "attitash_base"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "attitash_base",
+          "rocky_branch_knoll"
+        ]
+      },
+      {
+        "n_sites": 2,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "baldface_s",
+          "north_baldface"
+        ]
+      },
+      {
+        "n_sites": 2,
+        "gateways": [
+          "bear_brook_hq"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "bear_brook_hq",
+          "bear_brook_tower"
+        ]
+      },
+      {
+        "n_sites": 2,
+        "gateways": [
+          "cardigan_lodge"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "cardigan_lodge",
+          "cardigan_summit"
+        ]
+      },
+      {
+        "n_sites": 2,
+        "gateways": [
+          "castle_clouds"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "bald_knob_ossipee",
+          "castle_clouds"
+        ]
+      },
+      {
+        "n_sites": 2,
+        "gateways": [
+          "cranmore_top"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "cranmore_ledge",
+          "cranmore_top"
+        ]
+      },
+      {
+        "n_sites": 2,
+        "gateways": [
+          "deer_mtn_cg"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "deer_mtn_cg",
+          "deer_mtn_pittsburg"
+        ]
+      },
+      {
+        "n_sites": 2,
+        "gateways": [
+          "gunstock_top"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "gunstock_top",
+          "major_summit"
+        ]
+      },
+      {
+        "n_sites": 2,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "iron_mtn",
+          "iron_s_ledge"
+        ]
+      },
+      {
+        "n_sites": 2,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "hurricane_col",
+          "kearsarge_north"
+        ]
+      },
+      {
+        "n_sites": 2,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "blue_ridge_ledge",
+          "kinsman_notch"
+        ]
+      },
+      {
+        "n_sites": 2,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "lambert_ridge",
+          "smarts_ranger_ledge"
+        ]
+      },
+      {
+        "n_sites": 2,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "faraway_ledge",
+          "mt_roberts"
+        ]
+      },
+      {
+        "n_sites": 2,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "pack_monadnock",
+          "temple_mtn_ledges"
+        ]
+      },
+      {
+        "n_sites": 2,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "flat_mtn_pond",
+          "passaconaway"
+        ]
+      },
+      {
+        "n_sites": 2,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "champney_th",
+          "piper_th"
+        ]
+      },
+      {
+        "n_sites": 2,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "pisgah_ridge",
+          "pisgah_w_knoll"
+        ]
+      },
+      {
+        "n_sites": 2,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "kilkenny_lookout",
+          "unknown_pond"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "balsams_gateway"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "balsams_gateway"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "belknap_summit"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "berlin_gateway"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "berlin_gateway"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "black_cap"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "black_snout"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "blue_job"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "blue_job"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "bryant_ledge"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "buffalo_rd_lot"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "buffalo_rd_lot"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "cabot_summit"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "carter_notch_hut"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "chocorua_summit"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "crotched_base"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "crotched_base"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "crotched_summit"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "dickey_ledges"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "doublehead_n"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "dublin_th"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "ferncroft_th"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "first_lake_dam"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "first_lake_dam"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "gentian_pond"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "glen_ellis"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "gorham_info"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "gorham_info"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "grayknob_cabin"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "greeley_ponds"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "green_mtn_effingham"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "green_mtn_effingham"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "jackson_village"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "jackson_village"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "kanc_pass"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "kearsarge_summit"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "kilburn_ridge"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "kilburn_th"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "kittredge_hill"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "lincoln_woods_th"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "lincoln_woods_th"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "lovewell_mtn"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "magalloway_tower"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "magalloway_tower"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "mead_base"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "mead_base"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "milan_hill"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "milan_hill"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "miller_hq"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "miller_hq"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "monadnock_hq"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "monadnock_hq"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "monadnock_summit"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "moose_mtn_at"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "moose_mtn_lodge"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "moose_mtn_lodge"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "moose_s_ledge"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "morgan_percival"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "mt_hale"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "mt_hayes"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "mt_hight"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "newbury_station"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "newbury_station"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "ossipee_saddle"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "pawtuckaway_hq"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "pawtuckaway_hq"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "pawtuckaway_tower"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "percy_peaks"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "pierce_relay"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "pillsbury_sp"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "piper_mtn_belknap"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "pisgah_hq"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "pisgah_hq"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "pittsburg_village"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "pittsburg_village"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "prospect_weeks"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "prospect_weeks"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "pulpit_rock"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "ragged_mtn"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "ragged_ski_base"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "ragged_ski_base"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "rattlesnake_rumney"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "ravine_lodge"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "ravine_lodge"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "rumney_cliff_top"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "rumney_village"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "rumney_village"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "second_lake_dam"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "second_lake_dam"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "shaw_summit"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "smarts_mtn"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "south_twin"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "stinson_lake_gw"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "stinson_lake_gw"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "stinson_summit"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "success_summit"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "sugarloaf_middle"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "sunapee_summit"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "sunapee_summit"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "table_rock"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "the_bulge"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "turtleback_mtn"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "twin_mountain_village"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "twin_mountain_village"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "uncanoonuc_s"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "uncanoonuc_s"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "washington_town"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "washington_town"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "waumbek_summit"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "welch_dickey_th"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [],
+        "reaches_backhaul": false,
+        "members": [
+          "welch_ledges"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "white_ledge_cg"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "white_ledge_cg"
+        ]
+      },
+      {
+        "n_sites": 1,
+        "gateways": [
+          "winslow_hq"
+        ],
+        "reaches_backhaul": true,
+        "members": [
+          "winslow_hq"
+        ]
+      }
+    ],
+    "stranded_sites": [
+      "appalachia_th",
+      "baldface_s",
+      "belknap_summit",
+      "black_cap",
+      "black_mtn_benton",
+      "black_snout",
+      "blue_ridge_ledge",
+      "bryant_ledge",
+      "cabot_summit",
+      "carter_notch_hut",
+      "champney_th",
+      "chocorua_summit",
+      "crotched_summit",
+      "dickey_ledges",
+      "doublehead_n",
+      "dublin_th",
+      "durand_ridge",
+      "faraway_ledge",
+      "faxon_hill",
+      "ferncroft_th",
+      "flat_mtn_pond",
+      "gentian_pond",
+      "glen_ellis",
+      "glencliff_th",
+      "grayknob_cabin",
+      "greeley_ponds",
+      "greenway_mid",
+      "hurricane_col",
+      "iron_mtn",
+      "iron_s_ledge",
+      "jennings_peak",
+      "kanc_pass",
+      "kearsarge_north",
+      "kearsarge_summit",
+      "kilburn_ridge",
+      "kilburn_th",
+      "kilkenny_lookout",
+      "kinsman_notch",
+      "kittredge_hill",
+      "lambert_ridge",
+      "lovewell_mtn",
+      "madison_hut",
+      "millen_pond",
+      "monadnock_summit",
+      "moose_mtn_at",
+      "moose_s_ledge",
+      "moosilauke_s_peak",
+      "moosilauke_summit",
+      "morgan_percival",
+      "mt_hale",
+      "mt_hayes",
+      "mt_hight",
+      "mt_israel",
+      "mt_roberts",
+      "north_baldface",
+      "ossipee_saddle",
+      "pack_monadnock",
+      "passaconaway",
+      "pawtuckaway_tower",
+      "percy_peaks",
+      "pierce_relay",
+      "pillsbury_sp",
+      "piper_mtn_belknap",
+      "piper_th",
+      "pisgah_ridge",
+      "pisgah_w_knoll",
+      "pulpit_rock",
+      "ragged_mtn",
+      "rattlesnake_rumney",
+      "rumney_cliff_top",
+      "sandwich_dome",
+      "shaw_summit",
+      "smarts_mtn",
+      "smarts_ranger_ledge",
+      "south_twin",
+      "stinson_summit",
+      "success_summit",
+      "sugarloaf_middle",
+      "table_rock",
+      "temple_mtn_ledges",
+      "the_bulge",
+      "turtleback_mtn",
+      "unknown_pond",
+      "waumbek_summit",
+      "welch_dickey_th",
+      "welch_ledges",
+      "whiteface_summit"
+    ],
+    "trail_coverage": [
+      {
+        "route": "chocorua_piper",
+        "geometry": "osm",
+        "samples": 154,
+        "reachable_candidate_sites": 130,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 0.0,
+        "ok": false
+      },
+      {
+        "route": "valley_way_madison",
+        "geometry": "osm",
+        "samples": 127,
+        "reachable_candidate_sites": 130,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 0.173228,
+        "ok": false
+      },
+      {
+        "route": "kearsarge_winslow",
+        "geometry": "osm",
+        "samples": 55,
+        "reachable_candidate_sites": 130,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 0.218182,
+        "ok": false
+      },
+      {
+        "route": "rumney_rattlesnake",
+        "geometry": "chord",
+        "samples": 16,
+        "reachable_candidate_sites": 130,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 0.375,
+        "ok": false
+      },
+      {
+        "route": "hale_zealand_loop",
+        "geometry": "mixed_osm_chord",
+        "samples": 321,
+        "reachable_candidate_sites": 130,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 0.489097,
+        "ok": false
+      },
+      {
+        "route": "squam_morgan_percival",
+        "geometry": "mixed_osm_chord",
+        "samples": 29,
+        "reachable_candidate_sites": 130,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 0.517241,
+        "ok": false
+      },
+      {
+        "route": "belknap_range_walk",
+        "geometry": "mixed_osm_chord",
+        "samples": 80,
+        "reachable_candidate_sites": 130,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 0.55,
+        "ok": false
+      },
+      {
+        "route": "carrigain_signal_ridge",
+        "geometry": "mixed_osm_chord",
+        "samples": 20,
+        "reachable_candidate_sites": 130,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 0.55,
+        "ok": false
+      },
+      {
+        "route": "baldface_wild_river",
+        "geometry": "osm",
+        "samples": 437,
+        "reachable_candidate_sites": 130,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 0.599542,
+        "ok": false
+      },
+      {
+        "route": "moosilauke_gorge_brook",
+        "geometry": "osm",
+        "samples": 160,
+        "reachable_candidate_sites": 130,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 0.625,
+        "ok": false
+      },
+      {
+        "route": "owls_head_marathon",
+        "geometry": "osm",
+        "samples": 169,
+        "reachable_candidate_sites": 130,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 0.633136,
+        "ok": false
+      },
+      {
+        "route": "pack_monadnock_loop",
+        "geometry": "osm",
+        "samples": 48,
+        "reachable_candidate_sites": 130,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 0.6875,
+        "ok": false
+      },
+      {
+        "route": "cardigan_west_ridge",
+        "geometry": "osm",
+        "samples": 47,
+        "reachable_candidate_sites": 130,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 0.702128,
+        "ok": false
+      },
+      {
+        "route": "monadnock_white_dot",
+        "geometry": "osm",
+        "samples": 110,
+        "reachable_candidate_sites": 130,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 0.754545,
+        "ok": false
+      },
+      {
+        "route": "carter_wildcat",
+        "geometry": "osm",
+        "samples": 232,
+        "reachable_candidate_sites": 130,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 0.793103,
+        "ok": false
+      },
+      {
+        "route": "pemi_bonds_long",
+        "geometry": "osm",
+        "samples": 377,
+        "reachable_candidate_sites": 130,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 0.877984,
+        "ok": true
+      },
+      {
+        "route": "crawford_traverse",
+        "geometry": "osm",
+        "samples": 462,
+        "reachable_candidate_sites": 130,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 0.930736,
+        "ok": true
+      },
+      {
+        "route": "osceola_greeley",
+        "geometry": "chord",
+        "samples": 41,
+        "reachable_candidate_sites": 130,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 0.95122,
+        "ok": true
+      },
+      {
+        "route": "great_gulf_osgood",
+        "geometry": "osm",
+        "samples": 98,
+        "reachable_candidate_sites": 130,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 0.959184,
+        "ok": true
+      },
+      {
+        "route": "isolation_glen_boulder",
+        "geometry": "osm",
+        "samples": 405,
+        "reachable_candidate_sites": 130,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 0.967901,
+        "ok": true
+      },
+      {
+        "route": "franconia_ridge_loop",
+        "geometry": "osm",
+        "samples": 223,
+        "reachable_candidate_sites": 130,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 0.973094,
+        "ok": true
+      },
+      {
+        "route": "ammo_jewell_loop",
+        "geometry": "osm",
+        "samples": 433,
+        "reachable_candidate_sites": 130,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 1.0,
+        "ok": true
+      },
+      {
+        "route": "bear_brook_loop",
+        "geometry": "chord",
+        "samples": 9,
+        "reachable_candidate_sites": 130,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 1.0,
+        "ok": true
+      },
+      {
+        "route": "lonesome_lake_family",
+        "geometry": "osm",
+        "samples": 83,
+        "reachable_candidate_sites": 130,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 1.0,
+        "ok": true
+      },
+      {
+        "route": "tuckerman_loop",
+        "geometry": "osm",
+        "samples": 254,
+        "reachable_candidate_sites": 130,
+        "estimate_quantile": "loss_db_q50",
+        "receiver_threshold_dbm": -100.0,
+        "maximum_path_loss_db": 126.3,
+        "coverage": 1.0,
+        "ok": true
+      }
+    ],
+    "routes_under_threshold": [
+      "chocorua_piper",
+      "valley_way_madison",
+      "kearsarge_winslow",
+      "rumney_rattlesnake",
+      "hale_zealand_loop",
+      "squam_morgan_percival",
+      "belknap_range_walk",
+      "carrigain_signal_ridge",
+      "baldface_wild_river",
+      "moosilauke_gorge_brook",
+      "owls_head_marathon",
+      "pack_monadnock_loop",
+      "cardigan_west_ridge",
+      "monadnock_white_dot",
+      "carter_wildcat"
+    ],
+    "verdict": "FAIL"
+  },
+  "n_components": 113,
+  "components": [
+    {
+      "n_sites": 39,
+      "gateways": [
+        "gateway_marshfield",
+        "highland_center",
+        "pinkham_notch_vc",
+        "summit_shermanadams",
+        "wild_river_cg"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "ammo_relay",
+        "boott_spur",
+        "caps_ridge_th",
+        "carter_dome",
+        "cherry_mtn",
+        "clay_relay",
+        "cog_skyline",
+        "crag_camp",
+        "dolly_copp",
+        "eisenhower_relay",
+        "gateway_marshfield",
+        "glen_house",
+        "great_gulf_th",
+        "hermit_lake",
+        "highland_center",
+        "imp_shelter",
+        "isolation_davis",
+        "jackson_summit",
+        "jefferson_lawn",
+        "jewell_relay",
+        "lakes_hut",
+        "lion_head",
+        "madison_summit",
+        "middle_carter",
+        "mizpah_hut",
+        "monroe_flank",
+        "moriah_summit",
+        "nelson_crag",
+        "north_carter",
+        "pinkham_notch_vc",
+        "south_carter",
+        "summit_shermanadams",
+        "thunderstorm_jct",
+        "webster_cliff",
+        "wild_river_blue_brook",
+        "wild_river_cg",
+        "wildcat_a",
+        "wildcat_d",
+        "zeta_pass"
+      ]
+    },
+    {
+      "n_sites": 17,
+      "gateways": [
+        "cannon_tram_top",
+        "flume_vc",
+        "lafayette_place",
+        "loon_summit"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "bondcliff",
+        "cannon_tram_top",
+        "flume_vc",
+        "galehead_hut",
+        "garfield_summit",
+        "greenleaf_hut",
+        "hancock_th",
+        "kinsman_n",
+        "kinsman_pond",
+        "lafayette_place",
+        "lafayette_summit",
+        "liberty_summit",
+        "little_haystack",
+        "lonesome_lake_hut",
+        "loon_summit",
+        "owls_head_slide",
+        "thirteen_falls"
+      ]
+    },
+    {
+      "n_sites": 9,
+      "gateways": [
+        "notchland_inn"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "carrigain_summit",
+        "guyot_summit",
+        "notchland_inn",
+        "sawyer_river_th",
+        "signal_ridge",
+        "tremont_summit",
+        "willey_summit",
+        "zeacliff",
+        "zealand_hut"
+      ]
+    },
+    {
+      "n_sites": 5,
+      "gateways": [
+        "stark_village"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "nash_stream_th",
+        "stark_village",
+        "sugarloaf_nash",
+        "the_horn",
+        "victor_head"
+      ]
+    },
+    {
+      "n_sites": 5,
+      "gateways": [
+        "tecumseh_ski_top",
+        "waterville_valley"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "noon_peak",
+        "osceola_summit",
+        "tecumseh_ski_top",
+        "tripyramid_n",
+        "waterville_valley"
+      ]
+    },
+    {
+      "n_sites": 4,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "black_mtn_benton",
+        "glencliff_th",
+        "moosilauke_s_peak",
+        "moosilauke_summit"
+      ]
+    },
+    {
+      "n_sites": 4,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "jennings_peak",
+        "mt_israel",
+        "sandwich_dome",
+        "whiteface_summit"
+      ]
+    },
+    {
+      "n_sites": 3,
+      "gateways": [
+        "dartmouth_skiway"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "dartmouth_skiway",
+        "holts_ledge",
+        "lyme_dorchester_th"
+      ]
+    },
+    {
+      "n_sites": 3,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "appalachia_th",
+        "durand_ridge",
+        "madison_hut"
+      ]
+    },
+    {
+      "n_sites": 3,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "faxon_hill",
+        "greenway_mid",
+        "millen_pond"
+      ]
+    },
+    {
+      "n_sites": 3,
+      "gateways": [
+        "mt_cube_farm"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "cube_s_ledge",
+        "mt_cube",
+        "mt_cube_farm"
+      ]
+    },
+    {
+      "n_sites": 3,
+      "gateways": [
+        "rockywold_camps"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "rattlesnake_west",
+        "red_hill_tower",
+        "rockywold_camps"
+      ]
+    },
+    {
+      "n_sites": 2,
+      "gateways": [
+        "attitash_base"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "attitash_base",
+        "rocky_branch_knoll"
+      ]
+    },
+    {
+      "n_sites": 2,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "baldface_s",
+        "north_baldface"
+      ]
+    },
+    {
+      "n_sites": 2,
+      "gateways": [
+        "bear_brook_hq"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "bear_brook_hq",
+        "bear_brook_tower"
+      ]
+    },
+    {
+      "n_sites": 2,
+      "gateways": [
+        "cardigan_lodge"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "cardigan_lodge",
+        "cardigan_summit"
+      ]
+    },
+    {
+      "n_sites": 2,
+      "gateways": [
+        "castle_clouds"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "bald_knob_ossipee",
+        "castle_clouds"
+      ]
+    },
+    {
+      "n_sites": 2,
+      "gateways": [
+        "cranmore_top"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "cranmore_ledge",
+        "cranmore_top"
+      ]
+    },
+    {
+      "n_sites": 2,
+      "gateways": [
+        "deer_mtn_cg"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "deer_mtn_cg",
+        "deer_mtn_pittsburg"
+      ]
+    },
+    {
+      "n_sites": 2,
+      "gateways": [
+        "gunstock_top"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "gunstock_top",
+        "major_summit"
+      ]
+    },
+    {
+      "n_sites": 2,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "iron_mtn",
+        "iron_s_ledge"
+      ]
+    },
+    {
+      "n_sites": 2,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "hurricane_col",
+        "kearsarge_north"
+      ]
+    },
+    {
+      "n_sites": 2,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "blue_ridge_ledge",
+        "kinsman_notch"
+      ]
+    },
+    {
+      "n_sites": 2,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "lambert_ridge",
+        "smarts_ranger_ledge"
+      ]
+    },
+    {
+      "n_sites": 2,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "faraway_ledge",
+        "mt_roberts"
+      ]
+    },
+    {
+      "n_sites": 2,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "pack_monadnock",
+        "temple_mtn_ledges"
+      ]
+    },
+    {
+      "n_sites": 2,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "flat_mtn_pond",
+        "passaconaway"
+      ]
+    },
+    {
+      "n_sites": 2,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "champney_th",
+        "piper_th"
+      ]
+    },
+    {
+      "n_sites": 2,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "pisgah_ridge",
+        "pisgah_w_knoll"
+      ]
+    },
+    {
+      "n_sites": 2,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "kilkenny_lookout",
+        "unknown_pond"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [
+        "balsams_gateway"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "balsams_gateway"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "belknap_summit"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [
+        "berlin_gateway"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "berlin_gateway"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "black_cap"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "black_snout"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [
+        "blue_job"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "blue_job"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "bryant_ledge"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [
+        "buffalo_rd_lot"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "buffalo_rd_lot"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "cabot_summit"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "carter_notch_hut"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "chocorua_summit"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [
+        "crotched_base"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "crotched_base"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "crotched_summit"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "dickey_ledges"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "doublehead_n"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "dublin_th"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "ferncroft_th"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [
+        "first_lake_dam"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "first_lake_dam"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "gentian_pond"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "glen_ellis"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [
+        "gorham_info"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "gorham_info"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "grayknob_cabin"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "greeley_ponds"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [
+        "green_mtn_effingham"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "green_mtn_effingham"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [
+        "jackson_village"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "jackson_village"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "kanc_pass"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "kearsarge_summit"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "kilburn_ridge"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "kilburn_th"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "kittredge_hill"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [
+        "lincoln_woods_th"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "lincoln_woods_th"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "lovewell_mtn"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [
+        "magalloway_tower"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "magalloway_tower"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [
+        "mead_base"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "mead_base"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [
+        "milan_hill"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "milan_hill"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [
+        "miller_hq"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "miller_hq"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [
+        "monadnock_hq"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "monadnock_hq"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "monadnock_summit"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "moose_mtn_at"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [
+        "moose_mtn_lodge"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "moose_mtn_lodge"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "moose_s_ledge"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "morgan_percival"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "mt_hale"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "mt_hayes"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "mt_hight"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [
+        "newbury_station"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "newbury_station"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "ossipee_saddle"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [
+        "pawtuckaway_hq"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "pawtuckaway_hq"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "pawtuckaway_tower"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "percy_peaks"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "pierce_relay"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "pillsbury_sp"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "piper_mtn_belknap"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [
+        "pisgah_hq"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "pisgah_hq"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [
+        "pittsburg_village"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "pittsburg_village"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [
+        "prospect_weeks"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "prospect_weeks"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "pulpit_rock"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "ragged_mtn"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [
+        "ragged_ski_base"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "ragged_ski_base"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "rattlesnake_rumney"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [
+        "ravine_lodge"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "ravine_lodge"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "rumney_cliff_top"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [
+        "rumney_village"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "rumney_village"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [
+        "second_lake_dam"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "second_lake_dam"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "shaw_summit"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "smarts_mtn"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "south_twin"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [
+        "stinson_lake_gw"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "stinson_lake_gw"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "stinson_summit"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "success_summit"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "sugarloaf_middle"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [
+        "sunapee_summit"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "sunapee_summit"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "table_rock"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "the_bulge"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "turtleback_mtn"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [
+        "twin_mountain_village"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "twin_mountain_village"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [
+        "uncanoonuc_s"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "uncanoonuc_s"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [
+        "washington_town"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "washington_town"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "waumbek_summit"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "welch_dickey_th"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [],
+      "reaches_backhaul": false,
+      "members": [
+        "welch_ledges"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [
+        "white_ledge_cg"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "white_ledge_cg"
+      ]
+    },
+    {
+      "n_sites": 1,
+      "gateways": [
+        "winslow_hq"
+      ],
+      "reaches_backhaul": true,
+      "members": [
+        "winslow_hq"
+      ]
+    }
+  ],
+  "stranded_sites": [
+    "appalachia_th",
+    "baldface_s",
+    "belknap_summit",
+    "black_cap",
+    "black_mtn_benton",
+    "black_snout",
+    "blue_ridge_ledge",
+    "bryant_ledge",
+    "cabot_summit",
+    "carter_notch_hut",
+    "champney_th",
+    "chocorua_summit",
+    "crotched_summit",
+    "dickey_ledges",
+    "doublehead_n",
+    "dublin_th",
+    "durand_ridge",
+    "faraway_ledge",
+    "faxon_hill",
+    "ferncroft_th",
+    "flat_mtn_pond",
+    "gentian_pond",
+    "glen_ellis",
+    "glencliff_th",
+    "grayknob_cabin",
+    "greeley_ponds",
+    "greenway_mid",
+    "hurricane_col",
+    "iron_mtn",
+    "iron_s_ledge",
+    "jennings_peak",
+    "kanc_pass",
+    "kearsarge_north",
+    "kearsarge_summit",
+    "kilburn_ridge",
+    "kilburn_th",
+    "kilkenny_lookout",
+    "kinsman_notch",
+    "kittredge_hill",
+    "lambert_ridge",
+    "lovewell_mtn",
+    "madison_hut",
+    "millen_pond",
+    "monadnock_summit",
+    "moose_mtn_at",
+    "moose_s_ledge",
+    "moosilauke_s_peak",
+    "moosilauke_summit",
+    "morgan_percival",
+    "mt_hale",
+    "mt_hayes",
+    "mt_hight",
+    "mt_israel",
+    "mt_roberts",
+    "north_baldface",
+    "ossipee_saddle",
+    "pack_monadnock",
+    "passaconaway",
+    "pawtuckaway_tower",
+    "percy_peaks",
+    "pierce_relay",
+    "pillsbury_sp",
+    "piper_mtn_belknap",
+    "piper_th",
+    "pisgah_ridge",
+    "pisgah_w_knoll",
+    "pulpit_rock",
+    "ragged_mtn",
+    "rattlesnake_rumney",
+    "rumney_cliff_top",
+    "sandwich_dome",
+    "shaw_summit",
+    "smarts_mtn",
+    "smarts_ranger_ledge",
+    "south_twin",
+    "stinson_summit",
+    "success_summit",
+    "sugarloaf_middle",
+    "table_rock",
+    "temple_mtn_ledges",
+    "the_bulge",
+    "turtleback_mtn",
+    "unknown_pond",
+    "waumbek_summit",
+    "welch_dickey_th",
+    "welch_ledges",
+    "whiteface_summit"
+  ],
+  "trail_coverage": [
+    {
+      "route": "chocorua_piper",
+      "geometry": "osm",
+      "samples": 154,
+      "reachable_candidate_sites": 130,
+      "estimate_quantile": "loss_db_q50",
+      "receiver_threshold_dbm": -100.0,
+      "maximum_path_loss_db": 126.3,
+      "coverage": 0.0,
+      "ok": false
+    },
+    {
+      "route": "valley_way_madison",
+      "geometry": "osm",
+      "samples": 127,
+      "reachable_candidate_sites": 130,
+      "estimate_quantile": "loss_db_q50",
+      "receiver_threshold_dbm": -100.0,
+      "maximum_path_loss_db": 126.3,
+      "coverage": 0.173228,
+      "ok": false
+    },
+    {
+      "route": "kearsarge_winslow",
+      "geometry": "osm",
+      "samples": 55,
+      "reachable_candidate_sites": 130,
+      "estimate_quantile": "loss_db_q50",
+      "receiver_threshold_dbm": -100.0,
+      "maximum_path_loss_db": 126.3,
+      "coverage": 0.218182,
+      "ok": false
+    },
+    {
+      "route": "rumney_rattlesnake",
+      "geometry": "chord",
+      "samples": 16,
+      "reachable_candidate_sites": 130,
+      "estimate_quantile": "loss_db_q50",
+      "receiver_threshold_dbm": -100.0,
+      "maximum_path_loss_db": 126.3,
+      "coverage": 0.375,
+      "ok": false
+    },
+    {
+      "route": "hale_zealand_loop",
+      "geometry": "mixed_osm_chord",
+      "samples": 321,
+      "reachable_candidate_sites": 130,
+      "estimate_quantile": "loss_db_q50",
+      "receiver_threshold_dbm": -100.0,
+      "maximum_path_loss_db": 126.3,
+      "coverage": 0.489097,
+      "ok": false
+    },
+    {
+      "route": "squam_morgan_percival",
+      "geometry": "mixed_osm_chord",
+      "samples": 29,
+      "reachable_candidate_sites": 130,
+      "estimate_quantile": "loss_db_q50",
+      "receiver_threshold_dbm": -100.0,
+      "maximum_path_loss_db": 126.3,
+      "coverage": 0.517241,
+      "ok": false
+    },
+    {
+      "route": "belknap_range_walk",
+      "geometry": "mixed_osm_chord",
+      "samples": 80,
+      "reachable_candidate_sites": 130,
+      "estimate_quantile": "loss_db_q50",
+      "receiver_threshold_dbm": -100.0,
+      "maximum_path_loss_db": 126.3,
+      "coverage": 0.55,
+      "ok": false
+    },
+    {
+      "route": "carrigain_signal_ridge",
+      "geometry": "mixed_osm_chord",
+      "samples": 20,
+      "reachable_candidate_sites": 130,
+      "estimate_quantile": "loss_db_q50",
+      "receiver_threshold_dbm": -100.0,
+      "maximum_path_loss_db": 126.3,
+      "coverage": 0.55,
+      "ok": false
+    },
+    {
+      "route": "baldface_wild_river",
+      "geometry": "osm",
+      "samples": 437,
+      "reachable_candidate_sites": 130,
+      "estimate_quantile": "loss_db_q50",
+      "receiver_threshold_dbm": -100.0,
+      "maximum_path_loss_db": 126.3,
+      "coverage": 0.599542,
+      "ok": false
+    },
+    {
+      "route": "moosilauke_gorge_brook",
+      "geometry": "osm",
+      "samples": 160,
+      "reachable_candidate_sites": 130,
+      "estimate_quantile": "loss_db_q50",
+      "receiver_threshold_dbm": -100.0,
+      "maximum_path_loss_db": 126.3,
+      "coverage": 0.625,
+      "ok": false
+    },
+    {
+      "route": "owls_head_marathon",
+      "geometry": "osm",
+      "samples": 169,
+      "reachable_candidate_sites": 130,
+      "estimate_quantile": "loss_db_q50",
+      "receiver_threshold_dbm": -100.0,
+      "maximum_path_loss_db": 126.3,
+      "coverage": 0.633136,
+      "ok": false
+    },
+    {
+      "route": "pack_monadnock_loop",
+      "geometry": "osm",
+      "samples": 48,
+      "reachable_candidate_sites": 130,
+      "estimate_quantile": "loss_db_q50",
+      "receiver_threshold_dbm": -100.0,
+      "maximum_path_loss_db": 126.3,
+      "coverage": 0.6875,
+      "ok": false
+    },
+    {
+      "route": "cardigan_west_ridge",
+      "geometry": "osm",
+      "samples": 47,
+      "reachable_candidate_sites": 130,
+      "estimate_quantile": "loss_db_q50",
+      "receiver_threshold_dbm": -100.0,
+      "maximum_path_loss_db": 126.3,
+      "coverage": 0.702128,
+      "ok": false
+    },
+    {
+      "route": "monadnock_white_dot",
+      "geometry": "osm",
+      "samples": 110,
+      "reachable_candidate_sites": 130,
+      "estimate_quantile": "loss_db_q50",
+      "receiver_threshold_dbm": -100.0,
+      "maximum_path_loss_db": 126.3,
+      "coverage": 0.754545,
+      "ok": false
+    },
+    {
+      "route": "carter_wildcat",
+      "geometry": "osm",
+      "samples": 232,
+      "reachable_candidate_sites": 130,
+      "estimate_quantile": "loss_db_q50",
+      "receiver_threshold_dbm": -100.0,
+      "maximum_path_loss_db": 126.3,
+      "coverage": 0.793103,
+      "ok": false
+    },
+    {
+      "route": "pemi_bonds_long",
+      "geometry": "osm",
+      "samples": 377,
+      "reachable_candidate_sites": 130,
+      "estimate_quantile": "loss_db_q50",
+      "receiver_threshold_dbm": -100.0,
+      "maximum_path_loss_db": 126.3,
+      "coverage": 0.877984,
+      "ok": true
+    },
+    {
+      "route": "crawford_traverse",
+      "geometry": "osm",
+      "samples": 462,
+      "reachable_candidate_sites": 130,
+      "estimate_quantile": "loss_db_q50",
+      "receiver_threshold_dbm": -100.0,
+      "maximum_path_loss_db": 126.3,
+      "coverage": 0.930736,
+      "ok": true
+    },
+    {
+      "route": "osceola_greeley",
+      "geometry": "chord",
+      "samples": 41,
+      "reachable_candidate_sites": 130,
+      "estimate_quantile": "loss_db_q50",
+      "receiver_threshold_dbm": -100.0,
+      "maximum_path_loss_db": 126.3,
+      "coverage": 0.95122,
+      "ok": true
+    },
+    {
+      "route": "great_gulf_osgood",
+      "geometry": "osm",
+      "samples": 98,
+      "reachable_candidate_sites": 130,
+      "estimate_quantile": "loss_db_q50",
+      "receiver_threshold_dbm": -100.0,
+      "maximum_path_loss_db": 126.3,
+      "coverage": 0.959184,
+      "ok": true
+    },
+    {
+      "route": "isolation_glen_boulder",
+      "geometry": "osm",
+      "samples": 405,
+      "reachable_candidate_sites": 130,
+      "estimate_quantile": "loss_db_q50",
+      "receiver_threshold_dbm": -100.0,
+      "maximum_path_loss_db": 126.3,
+      "coverage": 0.967901,
+      "ok": true
+    },
+    {
+      "route": "franconia_ridge_loop",
+      "geometry": "osm",
+      "samples": 223,
+      "reachable_candidate_sites": 130,
+      "estimate_quantile": "loss_db_q50",
+      "receiver_threshold_dbm": -100.0,
+      "maximum_path_loss_db": 126.3,
+      "coverage": 0.973094,
+      "ok": true
+    },
+    {
+      "route": "ammo_jewell_loop",
+      "geometry": "osm",
+      "samples": 433,
+      "reachable_candidate_sites": 130,
+      "estimate_quantile": "loss_db_q50",
+      "receiver_threshold_dbm": -100.0,
+      "maximum_path_loss_db": 126.3,
+      "coverage": 1.0,
+      "ok": true
+    },
+    {
+      "route": "bear_brook_loop",
+      "geometry": "chord",
+      "samples": 9,
+      "reachable_candidate_sites": 130,
+      "estimate_quantile": "loss_db_q50",
+      "receiver_threshold_dbm": -100.0,
+      "maximum_path_loss_db": 126.3,
+      "coverage": 1.0,
+      "ok": true
+    },
+    {
+      "route": "lonesome_lake_family",
+      "geometry": "osm",
+      "samples": 83,
+      "reachable_candidate_sites": 130,
+      "estimate_quantile": "loss_db_q50",
+      "receiver_threshold_dbm": -100.0,
+      "maximum_path_loss_db": 126.3,
+      "coverage": 1.0,
+      "ok": true
+    },
+    {
+      "route": "tuckerman_loop",
+      "geometry": "osm",
+      "samples": 254,
+      "reachable_candidate_sites": 130,
+      "estimate_quantile": "loss_db_q50",
+      "receiver_threshold_dbm": -100.0,
+      "maximum_path_loss_db": 126.3,
+      "coverage": 1.0,
+      "ok": true
+    }
+  ],
+  "verdict": "FAIL"
+}

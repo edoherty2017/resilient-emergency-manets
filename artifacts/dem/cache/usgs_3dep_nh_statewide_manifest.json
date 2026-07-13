@@ -1,0 +1,31 @@
+{
+  "generated_at_utc": "2026-07-03T12:32:39.642928+00:00",
+  "source": "usgs-3dep-imageserver",
+  "service_url": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage",
+  "request_params": {
+    "bbox": "-72.557,42.696,-70.703,45.306",
+    "bboxSR": "4326",
+    "imageSR": "4326",
+    "size": "2000,3914",
+    "format": "tiff",
+    "pixelType": "F32",
+    "noDataInterpretation": "esriNoDataMatchAny",
+    "interpolation": "RSP_BilinearInterpolation"
+  },
+  "crs": "EPSG:4326",
+  "vertical_datum": "NAVD88 (3DEP native)",
+  "resolution_m_approx": 74.23,
+  "elev_range_m": [
+    -68.40234375,
+    1910.9716796875
+  ],
+  "nan_fraction": 0.0,
+  "outputs": {
+    "geotiff": "artifacts/dem/cache/usgs_3dep_nh_statewide.tif",
+    "npz": "artifacts/dem/cache/usgs_3dep_nh_statewide.npz"
+  },
+  "checksums_sha256": {
+    "artifacts/dem/cache/usgs_3dep_nh_statewide.tif": "f8e8bf72b18b9a81d2a911cef12e3f9ac3ea76fa59ac6ec08ae72845fe856351",
+    "artifacts/dem/cache/usgs_3dep_nh_statewide.npz": "1c432830990e916d08c60e44eb40b1bf688087c1eaa06f978018b0fcd9c1acb8"
+  }
+}

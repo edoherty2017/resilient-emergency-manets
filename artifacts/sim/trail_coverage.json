@@ -1,0 +1,439 @@
+{
+  "generated_at_utc": "2026-07-13T18:27:20.888817+00:00",
+  "audit_kind": "internal_model_screen",
+  "claim_status": "NOT_FIELD_VALIDATED",
+  "receiver_threshold_dbm": -100.0,
+  "gateway_reachable_sites_only": true,
+  "n_gateway_reachable_sites": 130,
+  "input_provenance": {
+    "generator": {
+      "path": "scripts/coverage_field.py",
+      "bytes": 17913,
+      "sha256": "9a14d50086580f61e54e9b1084a02b681e6b2cdb83d74fa0edc81b5cc6c70a9c"
+    },
+    "topology": {
+      "path": "artifacts/sim/topology_statewide.json",
+      "bytes": 299979,
+      "sha256": "97ec3986777aa0061788414e1e2874d6129e5e941ff889e2ec0cada27ce24330"
+    },
+    "routes": {
+      "path": "artifacts/sim/routes_statewide.json",
+      "bytes": 7382033,
+      "sha256": "b6e61359ff606749744c19634ff44d9294e02cce952241b5953090c6f165f5bb"
+    },
+    "dem": {
+      "path": "artifacts/dem/cache/usgs_3dep_nh_statewide.npz",
+      "bytes": 29798053,
+      "sha256": "1c432830990e916d08c60e44eb40b1bf688087c1eaa06f978018b0fcd9c1acb8"
+    },
+    "planning_audit": {
+      "path": "artifacts/sim/coverage_audit_statewide.json",
+      "bytes": 113826,
+      "sha256": "990e3a07c79190d6618643071fb55cc8cea55d41bd504b44c717d33d05172dd8"
+    }
+  },
+  "model_note": "Conservative contiguous viewshed+knife-edge polygons; offsets are aligned to the project's own ITM design links, not independent field observations.",
+  "limitations": [
+    "Internal model-to-model alignment is not field calibration.",
+    "Azimuth polygons stop at the first failed sample and may omit disconnected coverage islands.",
+    "Coverage excludes modeled relays that fail the planning-tier gateway-reachability screen."
+  ],
+  "calibration": {
+    "los_db": 0.006027722285693926,
+    "obs_db": 37.05739483461231,
+    "sigma_los": 5.189447295383301,
+    "sigma_obs": 10.21775575294177,
+    "n_los": 18,
+    "n_obs": 132
+  },
+  "area": {
+    "union_area_km2": 328.0,
+    "state_grid_area_km2": 23849.0,
+    "pct_of_state_grid": 1.4,
+    "pct_high_terrain_600m": 3.3
+  },
+  "per_route_coverage": {
+    "ammo_jewell_loop": 0.6322,
+    "tuckerman_loop": 0.3741,
+    "crawford_traverse": 0.5779,
+    "valley_way_madison": 0.0417,
+    "carter_wildcat": 0.2641,
+    "great_gulf_osgood": 0.2842,
+    "franconia_ridge_loop": 0.2368,
+    "lonesome_lake_family": 0.9511,
+    "pemi_bonds_long": 0.163,
+    "moosilauke_gorge_brook": 0.0,
+    "osceola_greeley": 0.2671,
+    "chocorua_piper": 0.0,
+    "carrigain_signal_ridge": 0.4133,
+    "monadnock_white_dot": 0.2759,
+    "cardigan_west_ridge": 0.373,
+    "belknap_range_walk": 0.2997,
+    "kearsarge_winslow": 0.0461,
+    "pack_monadnock_loop": 0.1176,
+    "squam_morgan_percival": 0.2072,
+    "rumney_rattlesnake": 0.1356,
+    "owls_head_marathon": 0.0535,
+    "isolation_glen_boulder": 0.0935,
+    "hale_zealand_loop": 0.183,
+    "baldface_wild_river": 0.0997,
+    "bear_brook_loop": 0.4839
+  },
+  "worst_routes": [
+    [
+      "moosilauke_gorge_brook",
+      0.0
+    ],
+    [
+      "chocorua_piper",
+      0.0
+    ],
+    [
+      "valley_way_madison",
+      0.0417
+    ],
+    [
+      "kearsarge_winslow",
+      0.0461
+    ],
+    [
+      "owls_head_marathon",
+      0.0535
+    ],
+    [
+      "isolation_glen_boulder",
+      0.0935
+    ],
+    [
+      "baldface_wild_river",
+      0.0997
+    ],
+    [
+      "pack_monadnock_loop",
+      0.1176
+    ]
+  ],
+  "n_gap_segments": 156,
+  "gap_segments": [
+    {
+      "route": "baldface_wild_river",
+      "from_idx": 87,
+      "to_idx": 1658,
+      "lat": 44.23458,
+      "lon": -71.0681,
+      "length_pts": 1571
+    },
+    {
+      "route": "owls_head_marathon",
+      "from_idx": 18,
+      "to_idx": 655,
+      "lat": 44.12016,
+      "lon": -71.60448,
+      "length_pts": 637
+    },
+    {
+      "route": "moosilauke_gorge_brook",
+      "from_idx": 0,
+      "to_idx": 635,
+      "lat": 44.02421,
+      "lon": -71.83108,
+      "length_pts": 635
+    },
+    {
+      "route": "chocorua_piper",
+      "from_idx": 0,
+      "to_idx": 613,
+      "lat": 43.95022,
+      "lon": -71.398,
+      "length_pts": 613
+    },
+    {
+      "route": "carter_wildcat",
+      "from_idx": 104,
+      "to_idx": 620,
+      "lat": 44.26278,
+      "lon": -71.20124,
+      "length_pts": 516
+    },
+    {
+      "route": "hale_zealand_loop",
+      "from_idx": 402,
+      "to_idx": 845,
+      "lat": 44.18002,
+      "lon": -71.52158,
+      "length_pts": 443
+    },
+    {
+      "route": "isolation_glen_boulder",
+      "from_idx": 0,
+      "to_idx": 413,
+      "lat": 44.24202,
+      "lon": -71.29141,
+      "length_pts": 413
+    },
+    {
+      "route": "isolation_glen_boulder",
+      "from_idx": 1202,
+      "to_idx": 1615,
+      "lat": 44.24202,
+      "lon": -71.29141,
+      "length_pts": 413
+    },
+    {
+      "route": "crawford_traverse",
+      "from_idx": 27,
+      "to_idx": 383,
+      "lat": 44.22895,
+      "lon": -71.3623,
+      "length_pts": 356
+    },
+    {
+      "route": "monadnock_white_dot",
+      "from_idx": 60,
+      "to_idx": 375,
+      "lat": 42.86111,
+      "lon": -72.10777,
+      "length_pts": 315
+    },
+    {
+      "route": "hale_zealand_loop",
+      "from_idx": 15,
+      "to_idx": 315,
+      "lat": 44.22202,
+      "lon": -71.50845,
+      "length_pts": 300
+    },
+    {
+      "route": "hale_zealand_loop",
+      "from_idx": 964,
+      "to_idx": 1264,
+      "lat": 44.22248,
+      "lon": -71.50826,
+      "length_pts": 300
+    },
+    {
+      "route": "pemi_bonds_long",
+      "from_idx": 221,
+      "to_idx": 517,
+      "lat": 44.14193,
+      "lon": -71.53125,
+      "length_pts": 296
+    },
+    {
+      "route": "pemi_bonds_long",
+      "from_idx": 986,
+      "to_idx": 1282,
+      "lat": 44.14198,
+      "lon": -71.53116,
+      "length_pts": 296
+    },
+    {
+      "route": "franconia_ridge_loop",
+      "from_idx": 603,
+      "to_idx": 857,
+      "lat": 44.13887,
+      "lon": -71.66489,
+      "length_pts": 254
+    },
+    {
+      "route": "crawford_traverse",
+      "from_idx": 404,
+      "to_idx": 649,
+      "lat": 44.24611,
+      "lon": -71.33842,
+      "length_pts": 245
+    },
+    {
+      "route": "valley_way_madison",
+      "from_idx": 0,
+      "to_idx": 241,
+      "lat": 44.34452,
+      "lon": -71.28885,
+      "length_pts": 241
+    },
+    {
+      "route": "valley_way_madison",
+      "from_idx": 262,
+      "to_idx": 503,
+      "lat": 44.34452,
+      "lon": -71.28885,
+      "length_pts": 241
+    },
+    {
+      "route": "kearsarge_winslow",
+      "from_idx": 5,
+      "to_idx": 212,
+      "lat": 43.38317,
+      "lon": -71.85751,
+      "length_pts": 207
+    },
+    {
+      "route": "isolation_glen_boulder",
+      "from_idx": 500,
+      "to_idx": 693,
+      "lat": 44.2407,
+      "lon": -71.30094,
+      "length_pts": 193
+    },
+    {
+      "route": "isolation_glen_boulder",
+      "from_idx": 922,
+      "to_idx": 1115,
+      "lat": 44.2407,
+      "lon": -71.30094,
+      "length_pts": 193
+    },
+    {
+      "route": "pemi_bonds_long",
+      "from_idx": 18,
+      "to_idx": 205,
+      "lat": 44.10212,
+      "lon": -71.57245,
+      "length_pts": 187
+    },
+    {
+      "route": "pemi_bonds_long",
+      "from_idx": 1298,
+      "to_idx": 1485,
+      "lat": 44.10212,
+      "lon": -71.57245,
+      "length_pts": 187
+    },
+    {
+      "route": "tuckerman_loop",
+      "from_idx": 194,
+      "to_idx": 379,
+      "lat": 44.26288,
+      "lon": -71.29991,
+      "length_pts": 185
+    },
+    {
+      "route": "ammo_jewell_loop",
+      "from_idx": 1092,
+      "to_idx": 1269,
+      "lat": 44.28128,
+      "lon": -71.31601,
+      "length_pts": 177
+    },
+    {
+      "route": "tuckerman_loop",
+      "from_idx": 436,
+      "to_idx": 607,
+      "lat": 44.2652,
+      "lon": -71.29801,
+      "length_pts": 171
+    },
+    {
+      "route": "pack_monadnock_loop",
+      "from_idx": 14,
+      "to_idx": 173,
+      "lat": 42.86162,
+      "lon": -71.87803,
+      "length_pts": 159
+    },
+    {
+      "route": "ammo_jewell_loop",
+      "from_idx": 779,
+      "to_idx": 923,
+      "lat": 44.27884,
+      "lon": -71.31355,
+      "length_pts": 144
+    },
+    {
+      "route": "belknap_range_walk",
+      "from_idx": 206,
+      "to_idx": 317,
+      "lat": 43.52174,
+      "lon": -71.37251,
+      "length_pts": 111
+    },
+    {
+      "route": "franconia_ridge_loop",
+      "from_idx": 258,
+      "to_idx": 367,
+      "lat": 44.16054,
+      "lon": -71.65026,
+      "length_pts": 109
+    },
+    {
+      "route": "carter_wildcat",
+      "from_idx": 691,
+      "to_idx": 792,
+      "lat": 44.24795,
+      "lon": -71.23242,
+      "length_pts": 101
+    },
+    {
+      "route": "ammo_jewell_loop",
+      "from_idx": 968,
+      "to_idx": 1067,
+      "lat": 44.28404,
+      "lon": -71.3199,
+      "length_pts": 99
+    },
+    {
+      "route": "great_gulf_osgood",
+      "from_idx": 44,
+      "to_idx": 143,
+      "lat": 44.32679,
+      "lon": -71.26789,
+      "length_pts": 99
+    },
+    {
+      "route": "great_gulf_osgood",
+      "from_idx": 244,
+      "to_idx": 343,
+      "lat": 44.32679,
+      "lon": -71.26789,
+      "length_pts": 99
+    },
+    {
+      "route": "tuckerman_loop",
+      "from_idx": 610,
+      "to_idx": 700,
+      "lat": 44.26503,
+      "lon": -71.29555,
+      "length_pts": 90
+    },
+    {
+      "route": "franconia_ridge_loop",
+      "from_idx": 60,
+      "to_idx": 150,
+      "lat": 44.14417,
+      "lon": -71.6677,
+      "length_pts": 90
+    },
+    {
+      "route": "squam_morgan_percival",
+      "from_idx": 2,
+      "to_idx": 90,
+      "lat": 43.781,
+      "lon": -71.54734,
+      "length_pts": 88
+    },
+    {
+      "route": "isolation_glen_boulder",
+      "from_idx": 418,
+      "to_idx": 495,
+      "lat": 44.25359,
+      "lon": -71.28544,
+      "length_pts": 77
+    },
+    {
+      "route": "isolation_glen_boulder",
+      "from_idx": 1120,
+      "to_idx": 1197,
+      "lat": 44.25359,
+      "lon": -71.28544,
+      "length_pts": 77
+    },
+    {
+      "route": "tuckerman_loop",
+      "from_idx": 55,
+      "to_idx": 131,
+      "lat": 44.26329,
+      "lon": -71.27461,
+      "length_pts": 76
+    }
+  ]
+}

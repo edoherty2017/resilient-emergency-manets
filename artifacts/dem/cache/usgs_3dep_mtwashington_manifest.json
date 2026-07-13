@@ -1,0 +1,31 @@
+{
+  "generated_at_utc": "2026-06-12T15:53:00.693509+00:00",
+  "source": "usgs-3dep-imageserver",
+  "service_url": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage",
+  "request_params": {
+    "bbox": "-71.42,44.235,-71.255,44.325",
+    "bboxSR": "4326",
+    "imageSR": "4326",
+    "size": "1800,1371",
+    "format": "tiff",
+    "pixelType": "F32",
+    "noDataInterpretation": "esriNoDataMatchAny",
+    "interpolation": "RSP_BilinearInterpolation"
+  },
+  "crs": "EPSG:4326",
+  "vertical_datum": "NAVD88 (3DEP native)",
+  "resolution_m_approx": 7.31,
+  "elev_range_m": [
+    464.0928649902344,
+    1914.5587158203125
+  ],
+  "nan_fraction": 0.0,
+  "outputs": {
+    "geotiff": "artifacts/dem/cache/usgs_3dep_mtwashington.tif",
+    "npz": "artifacts/dem/cache/usgs_3dep_mtwashington.npz"
+  },
+  "checksums_sha256": {
+    "artifacts/dem/cache/usgs_3dep_mtwashington.tif": "4ace41ab5286373ba356e2b18ff146d138c166a12b81299ae0c25fbf889d5876",
+    "artifacts/dem/cache/usgs_3dep_mtwashington.npz": "16635bc6bc0d31ae259acf7c771a2487124b1946eeea73524676e5c1177e32f8"
+  }
+}

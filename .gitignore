@@ -4,6 +4,8 @@ artifacts/*
 !artifacts/coverage_prediction/
 artifacts/coverage_prediction/*
 !artifacts/coverage_prediction/trial1_report.tex
+!artifacts/coverage_prediction/trial1_report.pdf
+!artifacts/coverage_prediction/trial1_report_manifest.json
 !artifacts/itm/
 artifacts/itm/*
 !artifacts/itm/relay_links_itm.csv
@@ -26,14 +28,45 @@ __pycache__/
 .DS_Store
 
 # simulation-phase artifacts: traces/viewers are bulky and regenerable;
-# keep the small decision-grade outputs
+# keep the compact inputs and decision-grade outputs needed by a clean clone.
+# The directory itself must be re-included before child negations can work.
+!artifacts/sim/
 artifacts/sim/*
+!artifacts/sim/topology.json
+!artifacts/sim/topology_statewide.json
+!artifacts/sim/routes.json
+!artifacts/sim/routes_statewide.json
+!artifacts/sim/weather_year.json
+!artifacts/sim/README.md
+!artifacts/sim/run_manifest*.json
 !artifacts/sim/coverage_audit_statewide.json
 !artifacts/sim/region_bom.csv
 !artifacts/sim/statewide_proposal_map.png
+!artifacts/sim/statewide_proposal_map_manifest.json
 !artifacts/sim/link_matrix_statewide.csv
 !artifacts/sim/trail_coverage.json
+!artifacts/sim/coverage_field_stats.json
+!artifacts/sim/service_areas.json
+# Corrected post-audit results go in this compact, reviewable bundle. Existing
+# pre-audit summaries remain local evidence but are not promoted as validated.
+!artifacts/sim/validated/
+artifacts/sim/validated/*
+!artifacts/sim/validated/*.json
+!artifacts/sim/validated/*.csv
+!artifacts/sim/validated/*.md
+# Small source manifests and OSM graph inputs are required to audit/rebuild the
+# derived route/topology inputs. Large DEM rasters and arrays stay ignored.
+!artifacts/dem/
+artifacts/dem/*
+!artifacts/dem/cache/
 artifacts/dem/cache/*
+!artifacts/dem/cache/usgs_3dep_mtwashington_manifest.json
+!artifacts/dem/cache/usgs_3dep_presidentials_wide_manifest.json
+!artifacts/dem/cache/usgs_3dep_nh_statewide_manifest.json
+!artifacts/dem/cache/copernicus_glo30_brenta_manifest.json
+!artifacts/osm/
 artifacts/osm/*
+!artifacts/osm/nh_boundary.json
+!artifacts/osm/trails_*.json
 artifacts/vendor/*
 fastsim/target/

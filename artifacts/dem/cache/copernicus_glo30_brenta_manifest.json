@@ -1,0 +1,29 @@
+{
+  "generated_at_utc": "2026-06-12T20:11:02.428749+00:00",
+  "source": "copernicus-glo30-dsm",
+  "license": "ESA Copernicus open data (free use with attribution)",
+  "tiles": [
+    "https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_N46_00_E010_00_DEM/Copernicus_DSM_COG_10_N46_00_E010_00_DEM.tif"
+  ],
+  "crs": "EPSG:4326",
+  "vertical_datum": "EGM2008 (Copernicus native)",
+  "model_type": "DSM (surface model: includes canopy/buildings)",
+  "resolution_m_approx": 30,
+  "aoi": {
+    "lat_min": 46.1,
+    "lat_max": 46.26,
+    "lon_min": 10.78,
+    "lon_max": 11.0
+  },
+  "elev_range_m": [
+    788.8964233398438,
+    3134.941162109375
+  ],
+  "nan_fraction": 0.0,
+  "outputs": {
+    "npz": "artifacts/dem/cache/copernicus_glo30_brenta.npz"
+  },
+  "checksums_sha256": {
+    "artifacts/dem/cache/copernicus_glo30_brenta.npz": "4dd6ecbd445fae1c0c80f9e5354b9ceac9f24e05873fb75c3c3ee37f4586365d"
+  }
+}

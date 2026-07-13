@@ -1,0 +1,31 @@
+{
+  "generated_at_utc": "2026-07-03T12:14:32.700611+00:00",
+  "source": "usgs-3dep-imageserver",
+  "service_url": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage",
+  "request_params": {
+    "bbox": "-71.47,44.13,-71.15,44.4",
+    "bboxSR": "4326",
+    "imageSR": "4326",
+    "size": "2200,2592",
+    "format": "tiff",
+    "pixelType": "F32",
+    "noDataInterpretation": "esriNoDataMatchAny",
+    "interpolation": "RSP_BilinearInterpolation"
+  },
+  "crs": "EPSG:4326",
+  "vertical_datum": "NAVD88 (3DEP native)",
+  "resolution_m_approx": 11.6,
+  "elev_range_m": [
+    146.60000610351562,
+    1914.5709228515625
+  ],
+  "nan_fraction": 0.0,
+  "outputs": {
+    "geotiff": "artifacts/dem/cache/usgs_3dep_presidentials_wide.tif",
+    "npz": "artifacts/dem/cache/usgs_3dep_presidentials_wide.npz"
+  },
+  "checksums_sha256": {
+    "artifacts/dem/cache/usgs_3dep_presidentials_wide.tif": "27c983e3e8613f73b5e3c3c44ab01cb07f93d62b7681814b2549ec0551605259",
+    "artifacts/dem/cache/usgs_3dep_presidentials_wide.npz": "df76cc82db4d5f821aa824873c65e7cc678ee5e56c0846832507f223404c3022"
+  }
+}

@@ -16,10 +16,15 @@
     ]
   },
   "radio": {
-    "eirp_dbm": 26.3,
+    "tx_conducted_dbm": 22.0,
+    "tx_antenna_gain_dbi": 2.15,
+    "tx_eirp_dbm": 24.15,
+    "rx_antenna_gain_dbi": 2.15,
+    "rx_power_reference_dbm": 26.3,
     "rx_sensitivity_dbm": -131.0,
     "planning_threshold_dbm": -100.0
   },
+  "metadata_correction_2026_07_13": "The generator originally mislabeled the 26.3 dBm TX-plus-RX terminal reference as EIRP. Numerical received-power predictions are unchanged; transmitter EIRP is 24.15 dBm under the stated zero-feed-loss assumption.",
   "dem": "artifacts/dem/cache/usgs_3dep_mtwashington.npz",
   "limitations": [
     "ITM models terrain diffraction only \u2014 vegetation/canopy excess loss is NOT included; budget separately for paths below treeline (see fraction_path_below_treeline)",

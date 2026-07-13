@@ -1,5 +1,7 @@
-# Pinned environment for resilient-emergency-manets pipeline scripts (.venv).
-# Recreate: python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+# Direct requirements for resilient-emergency-manets pipeline scripts (.venv).
+# requirements.lock constrains the complete CPython 3.14 runtime dependency closure.
+# Recreate: python3.14 -m venv .venv && .venv/bin/pip install -r requirements.txt
+-c requirements.lock
 folium==0.20.0
 itmlogic==1.2
 numpy==2.4.6
@@ -15,4 +17,7 @@ cycler==0.12.1
 fonttools==4.63.0
 kiwisolver==1.5.0
 matplotlib==3.11.0
+simpy==4.1.2
+scikit-learn==1.9.0
+joblib==1.5.3
 pytest==9.1.0

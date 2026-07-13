@@ -1,15 +1,27 @@
 {
-  "generated_at_utc": "2026-06-12T20:16:10.358087+00:00",
-  "status": "PRE-REGISTERED PREDICTION \u2014 frozen before travel; do not edit after the trek begins",
+  "generated_at_utc": "2026-07-13T18:24:59.121612+00:00",
+  "status": "PROSPECTIVE PREDICTION \u2014 NOT YET FROZEN",
   "model": "Longley-Rice ITM v7.0 (itmlogic 1.2)",
   "freq_mhz": 869.525,
-  "region_note": "Meshtastic EU_868 (869.4-869.65 MHz, 10% duty cycle); US 915 MHz is NOT legal in Italy",
+  "region_note": "Do not use the US_915 profile. EU_868 is only a candidate; verify exact-device RED/DoC scope, Italian implementation, frequency, ERP, aggregate airtime, antenna, and permissions before transmitting.",
   "radio": {
-    "eirp_dbm": 26.3,
+    "tx_conducted_dbm": 22.0,
+    "tx_antenna_gain_dbi": 2.15,
+    "tx_feed_loss_db": 0.0,
+    "tx_eirp_dbm": 24.15,
+    "rx_antenna_gain_dbi": 2.15,
+    "rx_feed_loss_db": 0.0,
+    "rx_power_reference_dbm": 26.299999999999997,
     "rx_sensitivity_dbm": -131.0,
     "planning_threshold_dbm": -100.0
   },
-  "dem": "copernicus_glo30_brenta.npz (DSM \u2014 includes canopy below treeline; conservative)",
+  "dem": "copernicus_glo30_brenta.npz (surface model; vegetation/building representation and bias direction are not independently validated)",
+  "evidence_limitations": [
+    "Model predictions are not observations or proof of zero connectivity.",
+    "Generation does not create an immutable preregistration; preserve hashes and amendments before collection.",
+    "Receiver thresholds, feed/body/antenna losses, coordinates, heights, and local clutter require bench/field verification.",
+    "The candidate radio profile is not a legal-authorization or conformity determination."
+  ],
   "sites": {
     "campiglio": {
       "lat": 46.22699,
