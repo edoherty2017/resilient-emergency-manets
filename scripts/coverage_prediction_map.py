@@ -4,7 +4,7 @@
 No field data required — uses FSPL at 915 MHz plus terrain-class loss estimates.
 Outputs:
   artifacts/coverage_prediction/coverage_map.html     — interactive Folium map
-  artifacts/coverage_prediction/rssi_vs_distance.png  — seaborn range curves
+  artifacts/coverage_prediction/rssi_vs_distance.png  — range curves
 """
 from __future__ import annotations
 
@@ -18,17 +18,27 @@ import folium
 import folium.plugins
 import matplotlib.pyplot as plt
 import numpy as np
-import seaborn as sns
+
+from radio_link_budget import (
+    RX_ANTENNA_GAIN_DBI,
+    RX_POWER_REFERENCE_DBM,
+    RX_SENSITIVITY_DBM,
+    TX_ANTENNA_GAIN_DBI,
+    TX_CONDUCTED_DBM,
+    TX_EIRP_DBM,
+)
 
 # ---------------------------------------------------------------------------
 # Radio parameters (Heltec V3 + LoRa @ 915 MHz, Meshtastic defaults)
 # ---------------------------------------------------------------------------
 FREQ_MHZ       = 915.0
-TX_POWER_DBM   = 22.0
-ANT_GAIN_DBI   = 2.15
-RX_SENS_DBM    = -130.0
+TX_POWER_DBM   = TX_CONDUCTED_DBM
+TX_ANT_GAIN_DBI = TX_ANTENNA_GAIN_DBI
+RX_ANT_GAIN_DBI = RX_ANTENNA_GAIN_DBI
+RX_SENS_DBM    = RX_SENSITIVITY_DBM
+RX_POWER_REF_DBM = RX_POWER_REFERENCE_DBM
 
-LINK_BUDGET_DB = TX_POWER_DBM + 2 * ANT_GAIN_DBI - RX_SENS_DBM
+LINK_BUDGET_DB = RX_POWER_REF_DBM - RX_SENS_DBM
 
 TERRAIN_LOSS = {
     "Open / Alpine (above treeline)": 3,
@@ -155,7 +165,7 @@ def fspl_db(d_km: float) -> float:
 
 
 def pred_rssi(d_km: float, extra_loss_db: float = 0.0) -> float:
-    return TX_POWER_DBM + 2 * ANT_GAIN_DBI - fspl_db(d_km) - extra_loss_db
+    return RX_POWER_REF_DBM - fspl_db(d_km) - extra_loss_db
 
 
 def rssi_to_color(rssi: float) -> str:
@@ -186,7 +196,7 @@ def compass_label(b: float) -> str:
 
 
 # FSPL-based hop plausibility.
-# Expected direct-link RSSI = TX_POWER + 2*ANT_GAIN - FSPL(d_km).
+# Expected direct-link RSSI = TX_EIRP + RX_GAIN - FSPL(d_km).
 # If obs_rssi is more than RELAY_THRESHOLD_DB above this prediction,
 # the signal cannot have traveled that distance in one hop — it was relayed.
 # With our link budget (22 dBm TX, 2 dBi each end) and conservative ±20 dB
@@ -454,7 +464,7 @@ def build_map(out_path: Path) -> None:  # noqa: C901
         list(SUMMIT),
         tooltip=folium.Tooltip(
             f"<b>Mt. Washington Summit — meshradiohead2 (HEAD)</b><br>"
-            f"1917 m · 915 MHz SF12 · TX {TX_POWER_DBM:.0f} dBm · Link budget {LINK_BUDGET_DB:.0f} dB",
+            f"1917 m · LongFast SF11/BW250 · TX {TX_POWER_DBM:.0f} dBm · Link budget {LINK_BUDGET_DB:.1f} dB",
             sticky=False),
         icon=folium.Icon(color="blue", icon="star"),
     ).add_to(m)
@@ -596,7 +606,7 @@ Deviation: {hop_detail}<br>
 <b>Mt. Washington Summit — HEAD Node (meshradiohead2)</b><br>
 Elevation: 1917 m (6,288 ft) &nbsp;·&nbsp; GPS: 44.2703°N, 71.3033°W<br>
 <hr style="margin:4px 0">
-Radio: Heltec V3 · 915 MHz · SF12 · BW 125 kHz<br>
+Radio assumption: Heltec V3 · 915 MHz · LongFast SF11 · BW 250 kHz<br>
 TX power: {TX_POWER_DBM:.0f} dBm · Dipole antenna · RX sensitivity: {RX_SENS_DBM:.0f} dBm<br>
 Link budget: {LINK_BUDGET_DB:.0f} dB (theoretical max range ~1700 km in free space)<br>
 <hr style="margin:4px 0">
@@ -610,7 +620,7 @@ for all distance/RSSI calculations on this map.
         popup=folium.Popup(
             f"<b>meshradiohead2 — HEAD node</b><br>"
             f"Elevation: 1917 m<br>"
-            f"Freq: 915 MHz · SF12 · TX {TX_POWER_DBM:.0f} dBm<br>"
+            f"Freq: 915 MHz · LongFast SF11/BW250 · TX {TX_POWER_DBM:.0f} dBm<br>"
             f"Link budget: {LINK_BUDGET_DB:.0f} dB",
             max_width=240),
         icon=folium.Icon(color="blue", icon="star"),
@@ -1079,7 +1089,7 @@ before the hike; collect on the way down.
 
 <div id="legend-box">
   <b style="font-size:12px">Resilient Emergency MANET</b><br>
-  <span style="color:#555">915 MHz LoRa · SF12 · TX 22 dBm · Dipole</span>
+  <span style="color:#555">915 MHz LoRa · LongFast SF11/BW250 · TX 22 dBm · Dipole</span>
   <hr style="margin:5px 0">
   <span style="font-size:10px">
     <span style="background:#E3F2FD;color:#1565C0;padding:1px 5px;border-radius:8px;font-weight:bold">REAL</span>
@@ -1111,8 +1121,7 @@ before the hike; collect on the way down.
 
 <script>
 window.addEventListener('load', function() {{
-  const TX_DBM     = {TX_POWER_DBM};
-  const ANT_GAIN   = {ANT_GAIN_DBI};
+  const RX_POWER_REF_DBM = {RX_POWER_REF_DBM};
   const FREQ_MHZ   = {FREQ_MHZ};
   const RX_SENS    = {RX_SENS_DBM};
 
@@ -1131,7 +1140,7 @@ window.addEventListener('load', function() {{
     return 32.44 + 20*Math.log10(Math.max(dKm, 0.001)) + 20*Math.log10(FREQ_MHZ);
   }}
   function predRssi(dKm, extraDb) {{
-    return TX_DBM + 2*ANT_GAIN - fsplDb(dKm) - extraDb;
+    return RX_POWER_REF_DBM - fsplDb(dKm) - extraDb;
   }}
   function terrainLoss(elevM) {{
     if (elevM >= 1500) return 3;
@@ -1314,7 +1323,9 @@ window.addEventListener('load', function() {{
 # ---------------------------------------------------------------------------
 
 def build_distance_plot(out_path: Path) -> None:
-    sns.set_theme(style="darkgrid", palette="muted")
+    # Use Matplotlib's bundled style instead of requiring a plotting package
+    # solely for global cosmetics.
+    plt.style.use("seaborn-v0_8-darkgrid")
     fig, ax = plt.subplots(figsize=(12, 7))
 
     # Extend range to cover all known nodes
@@ -1370,7 +1381,7 @@ def build_distance_plot(out_path: Path) -> None:
     ax.set_ylabel("Observed / Predicted RSSI (dBm)", fontsize=12)
     ax.set_title(
         "Mt. Washington — Observed RSSI vs FSPL Prediction  (hop plausibility validation)\n"
-        f"915 MHz · TX {TX_POWER_DBM:.0f} dBm · Dipole · SF12 · RX sens {RX_SENS_DBM:.0f} dBm",
+        f"915 MHz · TX {TX_POWER_DBM:.0f} dBm · Dipoles each end · LongFast SF11/BW250 · RX sens {RX_SENS_DBM:.0f} dBm",
         fontsize=11,
     )
     ax.set_xlim(0, max_d)
@@ -1406,7 +1417,9 @@ def main() -> None:
     load_trails(Path(args.mapdata))
     print("\nBuilding pre-trial coverage prediction...")
     print(f"  Link budget: {LINK_BUDGET_DB:.1f} dB  "
-          f"({TX_POWER_DBM} dBm TX + {2*ANT_GAIN_DBI:.1f} dB antenna − {RX_SENS_DBM} dBm sens)")
+          f"({TX_POWER_DBM} dBm conducted + {TX_ANT_GAIN_DBI:.2f} dBi TX antenna "
+          f"+ {RX_ANT_GAIN_DBI:.2f} dBi RX antenna − {RX_SENS_DBM} dBm sensitivity; "
+          f"TX EIRP {TX_EIRP_DBM:.2f} dBm)")
 
     build_map(out_dir / "coverage_map.html")
     build_distance_plot(out_dir / "rssi_vs_distance.png")

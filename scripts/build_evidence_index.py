@@ -10,31 +10,51 @@ Usage:
 """
 from __future__ import annotations
 
+import hashlib
 import json
+import os
 import subprocess
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+READ_ERRORS: dict[str, str] = {}
 
 
 def _read_json(path: Path) -> dict:
+    if not path.exists():
+        return {}
     try:
-        return json.loads(path.read_text())
-    except Exception:
+        value = json.loads(
+            path.read_text(encoding="utf-8"),
+            parse_constant=lambda token: (_ for _ in ()).throw(ValueError(token)),
+        )
+        if not isinstance(value, dict):
+            raise ValueError("top-level JSON value is not an object")
+        return value
+    except Exception as exc:
+        READ_ERRORS[str(path.relative_to(ROOT))] = f"{type(exc).__name__}: {exc}"
         return {}
 
 
 def _git_commit(root: Path) -> str:
     try:
-        return subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], cwd=root).decode().strip()
+        return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root).decode().strip()
     except Exception:
         return "unknown"
 
 
+def _git_dirty(root: Path) -> bool | None:
+    try:
+        return bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=root).decode().strip())
+    except Exception:
+        return None
+
+
 def _file_entry(rel: str) -> dict:
     p = ROOT / rel
-    return {"path": rel, "exists": p.exists(), "size_bytes": p.stat().st_size if p.exists() else 0}
+    return {"path": rel, "exists": p.is_file(), "size_bytes": p.stat().st_size if p.is_file() else 0}
 
 
 def _fmt(value, spec: str = "", default: str = "—") -> str:
@@ -47,15 +67,36 @@ def _fmt(value, spec: str = "", default: str = "—") -> str:
         return str(value)
 
 
+def _atomic_write_text(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(tmp_name, path)
+    except Exception:
+        try:
+            os.unlink(tmp_name)
+        except FileNotFoundError:
+            pass
+        raise
+
+
 def main() -> int:
+    READ_ERRORS.clear()
     out_dir = ROOT / "artifacts/release"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     now = datetime.now(timezone.utc)
     git = _git_commit(ROOT)
+    git_dirty = _git_dirty(ROOT)
 
     # ── Load gate summaries ──────────────────────────────────────────────────
     schema_rep  = _read_json(ROOT / "artifacts/reports/schema_validation_meshradiohead2.json")
+    schema_rep_node = _read_json(ROOT / "artifacts/reports/schema_validation_meshnode1.json")
+    schema_summary = _read_json(ROOT / "artifacts/reports/schema_validation_summary.json")
     quality_g   = _read_json(ROOT / "artifacts/airmap/live_trial/quality_gates.json")
     metrics_g   = _read_json(ROOT / "artifacts/airmap/live_trial/metrics_global.json")
     cal         = _read_json(ROOT / "artifacts/airmap/live_trial/calibration_deltas.json")
@@ -78,26 +119,41 @@ def main() -> int:
     cal_elig = metrics_g.get("calibration_eligible", {}) if isinstance(metrics_g, dict) else {}
     held_out = (cal.get("blocked_cv") or {}).get("held_out_rmse_db", {}) if cal else {}
     fit = cal.get("floating_intercept") if cal else None
+    validator_path = ROOT / "scripts/validation/schema_validate.py"
+    validator_sha256 = hashlib.sha256(validator_path.read_bytes()).hexdigest() if validator_path.is_file() else None
+    schema_gate_ok = (
+        schema_rep.get("ok") is True
+        and schema_rep_node.get("ok") is True
+        and schema_summary.get("overall_ok") is True
+        and schema_summary.get("canonical_validator_sha256") == validator_sha256
+    )
 
     pipeline = [
         {
             "step": "schema_validation",
             "script": "scripts/validation/schema_validate.py",
-            "inputs": ["(live JSONL from meshradiohead2 via rsync)"],
-            "outputs": [_file_entry("artifacts/reports/schema_validation_meshradiohead2.json")],
-            "gate": "PASS" if schema_rep.get("ok") else "FAIL",
+            "inputs": ["(immutable/synchronized JSONL from meshradiohead2 and meshnode1)"],
+            "outputs": [
+                _file_entry("artifacts/reports/schema_validation_meshradiohead2.json"),
+                _file_entry("artifacts/reports/schema_validation_meshnode1.json"),
+                _file_entry("artifacts/reports/schema_validation_summary.json"),
+            ],
+            "gate": "PASS" if schema_gate_ok else "FAIL",
             "key_metrics": {
                 "total_records": schema_rep.get("total_records"),
                 "data_invalid_records": schema_rep.get("data_invalid_records", schema_rep.get("invalid_records", 0)),
                 "parse_error_records": schema_rep.get("parse_error_records", 0),
                 "pass_rate": schema_rep.get("pass_rate"),
+                "head_ok": schema_rep.get("ok"),
+                "node_ok": schema_rep_node.get("ok"),
+                "validator_hash_matches": schema_summary.get("canonical_validator_sha256") == validator_sha256,
             },
         },
         {
             "step": "airmap_live_trial",
             "script": "scripts/airmap_live_trial.py",
             "inputs": [
-                "/tmp/manet_ingest/meshradiohead2/jsonl/telemetry_stream.jsonl",
+                "<ingest-root>/meshradiohead2/jsonl/telemetry_stream.jsonl",
                 "config/airmap/model-baseline.yaml",
                 "config/airmap/calibration-and-eval.yaml",
             ],
@@ -181,8 +237,8 @@ def main() -> int:
             "step": "coverage_overlay",
             "script": "scripts/coverage_overlay_mvp.py",
             "inputs": [
-                "/tmp/manet_ingest/meshradiohead2/jsonl/telemetry_stream.jsonl",
-                "/tmp/manet_ingest/meshradiohead2/connectivity_events.jsonl",
+                "<ingest-root>/meshradiohead2/jsonl/telemetry_stream.jsonl",
+                "<ingest-root>/meshradiohead2/connectivity_events.jsonl",
                 "artifacts/airmap/live_trial/predictions_postcalibration.parquet",
             ],
             "outputs": [
@@ -191,17 +247,27 @@ def main() -> int:
                 _file_entry("artifacts/overlay/transition_window_summary.json"),
                 _file_entry("artifacts/overlay/overlay_summary.json"),
             ],
-            "gate": "PASS" if overlay_s.get("gps_gate_passed") and overlay_s.get("transition_window_pass") else "WARN",
+            "gate": "PASS" if overlay_s.get("gps_gate_passed") and overlay_s.get("transition_window_pass") else "FAIL",
             "key_metrics": {
                 "rows_total": overlay_s.get("rows_total"),
                 "rows_with_gps": overlay_s.get("rows_with_gps"),
                 "coverage_mode_counts": overlay_s.get("coverage_mode_counts"),
                 "control_plane_mode_counts": overlay_s.get("control_plane_mode_counts"),
+                "control_plane_evidence_pct": overlay_s.get("control_plane_evidence_pct"),
                 "transition_window_pass": overlay_s.get("transition_window_pass"),
                 "mesh_only_coverage_pct": transition.get("MESH_ONLY", {}).get("coverage_pct"),
             },
         },
     ]
+
+    # A stale PASS document is not enough when the artifact it purports to
+    # index is absent. Make completeness explicit and fail the affected step.
+    for step in pipeline:
+        missing_outputs = [entry["path"] for entry in step["outputs"] if not entry["exists"]]
+        step["outputs_complete"] = not missing_outputs
+        step["missing_outputs"] = missing_outputs
+        if missing_outputs:
+            step["gate"] = "FAIL"
 
     # ── Standalone analyses (not part of the per-row pipeline gate) ───────────
     itm_links = itm_sum.get("links", []) if isinstance(itm_sum, dict) else []
@@ -240,34 +306,41 @@ def main() -> int:
     }
 
     known_limitations = [
-        "rsrp_dbm is null for all LoRa records — RSSI/ESP is the correct metric; RSRP is a cellular concept (category error). Proposal scope amendment pending.",
-        "No calibration-grade rows from Trial 1 (no hop telemetry, no controlled links) — error metrics and path-loss-exponent fit await Trial 2.",
+        "LoRa RSSI/ESP and cellular RSRP are different observables; any fallback or service-layer comparison must remain explicitly labeled.",
+        "Historical Trial 1 artifacts reported no calibration-grade rows; regenerate current gates before making a statement about the present dataset.",
         "ITM predictions use a real USGS 3DEP DEM but model terrain diffraction only; vegetation/canopy excess loss is budgeted separately, not modeled.",
-        "Cellular leg of the Mesh-vs-World comparison: collector built (cellular_ping_collector.py); no field data collected yet.",
-        "Weather stratification: Open-Meteo archive feed available (weather_enrich.py); rerun required to replace any legacy synthetic tags.",
-        "All RF data is single-node (meshradiohead2); multi-hop propagation analysis pending a second deployed node.",
+        "Cellular, weather, multi-node, GNSS, and controlled-link sufficiency must be established from the current source artifacts, not inherited from earlier snapshots.",
+        "The fallback command path has no field-proven deployed remote responder that returns authenticated ACK records.",
+        "Runtime storage has a capacity gate but no automatic evidence archival/rotation policy.",
     ]
 
     # Compute overall_gate from individual step results (p6_artifact_index.json is
     # not yet written when this script runs as the last p6 step — reading it would
     # see the previous run's state).
     step_gates = [s["gate"] for s in pipeline]
-    overall_gate = "PASS" if all(g == "PASS" for g in step_gates) else "FAIL"
+    overall_gate = "PASS" if (
+        all(g == "PASS" for g in step_gates)
+        and not READ_ERRORS
+        and git_dirty is False
+        and git != "unknown"
+    ) else "FAIL"
 
     index = {
         "generated_at_utc": now.isoformat(),
         "git_commit": git,
+        "source_tree_dirty": git_dirty,
         "overall_gate": overall_gate,
         "trial_id": "trial-live",
         "node_id": "meshradiohead2",
         "pipeline": pipeline,
         "standalone_analyses": analyses,
         "known_limitations": known_limitations,
+        "input_read_errors": READ_ERRORS,
         "artifact_count": p6_idx.get("artifact_count"),
         "p6_artifact_index": "artifacts/release/p6_artifact_index.json",
     }
 
-    (out_dir / "evidence_index.json").write_text(json.dumps(index, indent=2))
+    _atomic_write_text(out_dir / "evidence_index.json", json.dumps(index, indent=2, allow_nan=False) + "\n")
 
     # ── Markdown summary ─────────────────────────────────────────────────────
     def gate_badge(g: str) -> str:
@@ -278,6 +351,7 @@ def main() -> int:
         f"",
         f"**Generated:** {now.strftime('%Y-%m-%d %H:%M UTC')}  ",
         f"**Git commit:** `{git}`  ",
+        f"**Source tree dirty:** `{git_dirty}`  ",
         f"**Node:** `meshradiohead2`  ",
         f"**Overall gate:** {gate_badge(overall_gate)}",
         f"",
@@ -292,8 +366,8 @@ def main() -> int:
     for s in pipeline:
         km = s["key_metrics"]
         if s["step"] == "schema_validation":
-            kstr = (f"{km['total_records']} rows, {km['data_invalid_records']} data-invalid, "
-                    f"{km['parse_error_records']} parse-errors, {km['pass_rate']:.1%} pass")
+            kstr = (f"{_fmt(km.get('total_records'))} rows, {_fmt(km.get('data_invalid_records'))} data-invalid, "
+                    f"{_fmt(km.get('parse_error_records'))} parse-errors, {_fmt(km.get('pass_rate'), '.1%')} pass")
         elif s["step"] == "airmap_live_trial":
             ho = km.get("held_out_rmse_db") or {}
             best = km.get("baseline_predictor") or "fspl"
@@ -305,11 +379,12 @@ def main() -> int:
         elif s["step"] == "error_quantifier":
             kstr = f"n={_fmt(km.get('n'))}, RMSE={_fmt(km.get('rmse_db'), '.1f')} dB (threshold {_fmt(km.get('max_rmse_threshold_db'))} dB)"
         elif s["step"] == "weather_guard":
-            kstr = f"{km['risk_state']} → {km['recommendation']}"
+            kstr = f"{_fmt(km.get('risk_state'))} → {_fmt(km.get('recommendation'))}"
         elif s["step"] == "coverage_overlay":
             m = km.get("coverage_mode_counts") or {}
             kstr = (f"GPS rows={_fmt(km.get('rows_with_gps'))}, MESH={m.get('MESH',0)}, "
-                    f"SAT={m.get('SATELLITE',0)}, NONE={m.get('NONE',0)}")
+                    f"SAT={m.get('SATELLITE',0)}, NONE={m.get('NONE',0)}, "
+                    f"control-plane evidence={_fmt(km.get('control_plane_evidence_pct'), '.1f')}%")
         else:
             kstr = ""
         lines.append(f"| {s['step']} | `{s['script']}` | {gate_badge(s['gate'])} | {kstr} |")
@@ -352,7 +427,9 @@ def main() -> int:
         f"",
         f"---",
         f"",
-        f"## Connectivity Coverage (Transition Windows)",
+        f"## Connectivity-Mode Intervals (Receive-Side Indicator Presence)",
+        f"",
+        f"These rows describe recently observed control-plane intervals and per-record RF/satellite indicators; they are not independent delivery trials.",
         f"",
         f"| Control-Plane Mode | Rows | Covered | Coverage % | 95% Wilson CI | Pass |",
         f"|---|---|---|---|---|---|",
@@ -360,13 +437,13 @@ def main() -> int:
 
     for mode in ["IP_FULL", "IP_DEGRADED", "MESH_ONLY"]:
         t = transition.get(mode, {})
-        n = t.get("n_rows", 0)
-        cov = t.get("covered_rows", 0)
-        pct = t.get("coverage_pct", 0.0)
+        n = t.get("n_rows")
+        cov = t.get("covered_rows")
+        pct = t.get("coverage_pct")
         ci = t.get("coverage_pct_wilson95")
         ci_str = f"[{ci[0]:.1f}, {ci[1]:.1f}]%" if ci else "—"
-        p = "✅" if t.get("pass", True) else "❌"
-        lines.append(f"| {mode} | {n} | {cov} | {pct:.1f}% | {ci_str} | {p} |")
+        p = "✅" if t.get("pass", False) else "❌"
+        lines.append(f"| {mode} | {_fmt(n)} | {_fmt(cov)} | {_fmt(pct, '.1f')}% | {ci_str} | {p} |")
 
     lines += [
         f"",
@@ -377,6 +454,11 @@ def main() -> int:
     ]
     for lim in known_limitations:
         lines.append(f"- {lim}")
+
+    if READ_ERRORS:
+        lines += [f"", f"## Corrupt JSON Inputs", f""]
+        for path, error in sorted(READ_ERRORS.items()):
+            lines.append(f"- `{path}`: {error}")
 
     lines += [
         f"",
@@ -391,8 +473,8 @@ def main() -> int:
         f"",
     ]
 
-    md = "\n".join(lines)
-    (out_dir / "evidence_summary.md").write_text(md)
+    md = "\n".join(lines) + "\n"
+    _atomic_write_text(out_dir / "evidence_summary.md", md)
 
     print(f"evidence_index.json  → {out_dir/'evidence_index.json'}")
     print(f"evidence_summary.md  → {out_dir/'evidence_summary.md'}")

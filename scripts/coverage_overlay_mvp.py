@@ -1,35 +1,75 @@
 #!/usr/bin/env python3
 import argparse
+import html
 import json
 import math
+import os
+import re
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import pandas as pd
 
 
-SAT_POSITIVE = {"connected", "up", "online", "active", "true", "1", "yes"}
+SAT_POSITIVE = {"connected"}
+SATELLITE_STATES = {"connected", "degraded", "disconnected", "unknown"}
+CONTROL_PLANE_MODES = {"IP_FULL", "IP_DEGRADED", "MESH_ONLY"}
 TIME_BIN_ORDER = ["dawn", "day", "dusk", "evening_peak", "night", "unknown"]
 RAVINE_NOTCH_KEYWORDS = ("ravine", "notch", "gorge", "gulch", "canyon", "col", "gap")
 RAVINE_NOTCH_TOPOGRAPHY = {"valley", "ravine", "notch", "gorge", "canyon"}
+
+
+def atomic_write_text(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(tmp_name, path)
+    except Exception:
+        try:
+            os.unlink(tmp_name)
+        except FileNotFoundError:
+            pass
+        raise
 
 
 def load_jsonl(path: Path) -> pd.DataFrame:
     if not path.exists():
         return pd.DataFrame()
     rows = []
-    with path.open() as f:
-        for line in f:
+    with path.open(encoding="utf-8", errors="strict") as f:
+        for line_no, line in enumerate(f, start=1):
             line = line.strip()
             if not line:
                 continue
             try:
-                rows.append(json.loads(line))
-            except json.JSONDecodeError:
-                continue
+                record = json.loads(
+                    line,
+                    parse_constant=lambda value: (_ for _ in ()).throw(ValueError(value)),
+                )
+            except (json.JSONDecodeError, ValueError) as exc:
+                raise ValueError(f"invalid JSON in {path} line {line_no}: {exc}") from exc
+            if not isinstance(record, dict):
+                raise ValueError(f"non-object record in {path} line {line_no}")
+            rows.append(record)
     df = pd.DataFrame(rows)
-    if "timestamp_utc" in df.columns:
-        df["timestamp_utc"] = pd.to_datetime(df["timestamp_utc"], utc=True, errors="coerce")
+    if not df.empty:
+        if "timestamp_utc" not in df.columns:
+            raise ValueError(f"missing timestamp_utc in {path}")
+        raw_timestamps = df["timestamp_utc"]
+        parsed = pd.to_datetime(raw_timestamps, utc=False, errors="coerce")
+        invalid_utc = raw_timestamps.map(
+            lambda value: not isinstance(value, str)
+            or not (value.endswith("Z") or value.endswith("+00:00"))
+        )
+        if parsed.isna().any() or invalid_utc.any():
+            raise ValueError(f"invalid/non-UTC timestamp_utc in {path}")
+        df["timestamp_utc"] = pd.to_datetime(raw_timestamps, utc=True, errors="raise")
     return df
 
 
@@ -38,10 +78,27 @@ def load_residuals(live_trial_dir: Path) -> pd.DataFrame:
     if not p.exists():
         return pd.DataFrame()
     pred = pd.read_parquet(p)
-    if "timestamp_utc" in pred.columns:
-        pred["timestamp_utc"] = pd.to_datetime(pred["timestamp_utc"], utc=True, errors="coerce")
+    required = {"timestamp_utc", "node_id", "trial_id", "obs_metric_dbm", "pred_rssi_dbm"}
+    missing = required - set(pred.columns)
+    if missing:
+        raise ValueError(f"residual artifact missing columns: {sorted(missing)}")
+    parsed_ts = pd.to_datetime(pred["timestamp_utc"], utc=True, errors="coerce")
+    if parsed_ts.isna().any():
+        raise ValueError("residual artifact contains invalid timestamps")
+    pred["timestamp_utc"] = parsed_ts
     if "obs_metric_dbm" in pred.columns and "pred_rssi_dbm" in pred.columns:
-        pred["abs_error_db"] = (pd.to_numeric(pred["obs_metric_dbm"], errors="coerce") - pd.to_numeric(pred["pred_rssi_dbm"], errors="coerce")).abs()
+        observed = pd.to_numeric(pred["obs_metric_dbm"], errors="coerce")
+        predicted = pd.to_numeric(pred["pred_rssi_dbm"], errors="coerce")
+        invalid_observed = pred["obs_metric_dbm"].notna() & observed.isna()
+        invalid_predicted = pred["pred_rssi_dbm"].notna() & predicted.isna()
+        if (
+            invalid_observed.any()
+            or invalid_predicted.any()
+            or not observed.dropna().map(math.isfinite).all()
+            or not predicted.dropna().map(math.isfinite).all()
+        ):
+            raise ValueError("residual artifact contains invalid metric values")
+        pred["abs_error_db"] = (observed - predicted).abs()
     keep = [
         c
         for c in [
@@ -55,14 +112,36 @@ def load_residuals(live_trial_dir: Path) -> pd.DataFrame:
         ]
         if c in pred.columns
     ]
-    return pred[keep].dropna(subset=["timestamp_utc"]) if keep else pd.DataFrame()
+    out = pred[keep]
+    keys = ["timestamp_utc", "node_id", "trial_id"]
+    if out.duplicated(subset=keys).any():
+        raise ValueError("residual artifact has duplicate timestamp/node/trial keys")
+    return out
+
+
+def strict_numeric_column(
+    df: pd.DataFrame,
+    field: str,
+    minimum: float,
+    maximum: float,
+) -> pd.Series:
+    if field not in df.columns:
+        return pd.Series(float("nan"), index=df.index, dtype=float)
+    original = df[field]
+    converted = pd.to_numeric(original, errors="coerce")
+    invalid = original.notna() & converted.isna()
+    finite = converted.dropna().map(math.isfinite)
+    out_of_range = converted.notna() & ~converted.between(minimum, maximum)
+    if invalid.any() or not finite.all() or out_of_range.any():
+        raise ValueError(f"invalid {field} values in telemetry")
+    return converted
 
 
 def build_coverage(df: pd.DataFrame) -> pd.DataFrame:
     out = df.copy()
-    out["mesh_metric_dbm"] = pd.to_numeric(out.get("rssi_dbm"), errors="coerce")
-    out["mesh_snr_db"] = pd.to_numeric(out.get("snr_db"), errors="coerce")
-    out["cell_rsrp_dbm"] = pd.to_numeric(out.get("rsrp_dbm"), errors="coerce")
+    out["mesh_metric_dbm"] = strict_numeric_column(out, "rssi_dbm", -200, 50)
+    out["mesh_snr_db"] = strict_numeric_column(out, "snr_db", -40, 40)
+    out["cell_rsrp_dbm"] = strict_numeric_column(out, "rsrp_dbm", -200, 50)
 
     # merge_starlink_into_telemetry uses satellite_link_status_starlink to avoid
     # collision with the MANET connectivity_mode field; alias it here.
@@ -71,6 +150,9 @@ def build_coverage(df: pd.DataFrame) -> pd.DataFrame:
     else:
         sat = out.get("satellite_link_status")
     out["satellite_link_status"] = (sat.fillna("unknown").astype(str) if sat is not None else pd.Series("unknown", index=out.index))
+    invalid_satellite_states = set(out["satellite_link_status"].str.lower()) - SATELLITE_STATES
+    if invalid_satellite_states:
+        raise ValueError(f"invalid satellite_link_status values: {sorted(invalid_satellite_states)}")
 
     out["has_mesh_metric"] = out["mesh_metric_dbm"].notna() | out["mesh_snr_db"].notna()
     out["has_cell_metric"] = out["cell_rsrp_dbm"].notna()
@@ -106,10 +188,14 @@ def normalize_time_bin(value) -> str:
     return v if v in TIME_BIN_ORDER else "unknown"
 
 
-def infer_time_bin_from_timestamp(ts) -> str:
+def infer_time_bin_from_timestamp(ts, local_timezone: ZoneInfo | None = None) -> str:
     if pd.isna(ts):
         return "unknown"
-    h = int(pd.Timestamp(ts).hour)
+    local_timezone = local_timezone or ZoneInfo("America/New_York")
+    stamp = pd.Timestamp(ts)
+    if stamp.tzinfo is None:
+        raise ValueError("time-bin inference requires a timezone-aware timestamp")
+    h = int(stamp.tz_convert(local_timezone).hour)
     if 5 <= h < 8:
         return "dawn"
     if 8 <= h < 17:
@@ -129,7 +215,7 @@ def is_ravine_notch_segment(segment_id, topography_class) -> bool:
     return any(tok in seg for tok in RAVINE_NOTCH_KEYWORDS)
 
 
-def enrich_overlay_features(df: pd.DataFrame) -> pd.DataFrame:
+def enrich_overlay_features(df: pd.DataFrame, local_timezone: ZoneInfo | None = None) -> pd.DataFrame:
     out = df.copy()
     if "time_bin" not in out.columns:
         out["time_bin"] = pd.NA
@@ -141,7 +227,9 @@ def enrich_overlay_features(df: pd.DataFrame) -> pd.DataFrame:
     out["time_bin"] = out["time_bin"].apply(normalize_time_bin)
     unknown_mask = out["time_bin"] == "unknown"
     if unknown_mask.any() and "timestamp_utc" in out.columns:
-        out.loc[unknown_mask, "time_bin"] = out.loc[unknown_mask, "timestamp_utc"].apply(infer_time_bin_from_timestamp)
+        out.loc[unknown_mask, "time_bin"] = out.loc[unknown_mask, "timestamp_utc"].apply(
+            lambda value: infer_time_bin_from_timestamp(value, local_timezone)
+        )
 
     out["topography_class"] = out["topography_class"].fillna("unknown").astype(str)
     out["segment_id"] = out["segment_id"].fillna("").astype(str)
@@ -154,7 +242,7 @@ def enrich_overlay_features(df: pd.DataFrame) -> pd.DataFrame:
 def render_leaflet_html(df_map: pd.DataFrame, out_html: Path, title: str) -> None:
     max_points = 6000
     if len(df_map) > max_points:
-        stride = max(1, len(df_map) // max_points)
+        stride = max(1, math.ceil(len(df_map) / max_points))
         df_map = df_map.iloc[::stride].copy()
 
     points = []
@@ -165,18 +253,18 @@ def render_leaflet_html(df_map: pd.DataFrame, out_html: Path, title: str) -> Non
                 "lon": float(r["lon"]),
                 "elev_m": None if pd.isna(r.get("elev_m")) else float(r.get("elev_m")),
                 "ts": None if pd.isna(r.get("timestamp_utc")) else r.get("timestamp_utc").isoformat(),
-                "node_id": str(r.get("node_id", "")),
-                "trial_id": str(r.get("trial_id", "")),
-                "coverage_mode": str(r.get("coverage_mode", "NONE")),
-                "control_plane_mode": str(r.get("control_plane_mode", "IP_FULL")),
+                "node_id": html.escape(str(r.get("node_id", "")), quote=True),
+                "trial_id": html.escape(str(r.get("trial_id", "")), quote=True),
+                "coverage_mode": html.escape(str(r.get("coverage_mode", "NONE")), quote=True),
+                "control_plane_mode": html.escape(str(r.get("control_plane_mode", "UNKNOWN")), quote=True),
                 "mesh_metric_dbm": None if pd.isna(r.get("mesh_metric_dbm")) else float(r.get("mesh_metric_dbm")),
                 "cell_rsrp_dbm": None if pd.isna(r.get("cell_rsrp_dbm")) else float(r.get("cell_rsrp_dbm")),
-                "satellite_link_status": str(r.get("satellite_link_status", "unknown")),
+                "satellite_link_status": html.escape(str(r.get("satellite_link_status", "unknown")), quote=True),
                 "abs_error_db": None if pd.isna(r.get("abs_error_db")) else float(r.get("abs_error_db")),
-                "error_band": str(r.get("error_band", "unknown")),
-                "time_bin": str(r.get("time_bin", "unknown")),
-                "topography_class": str(r.get("topography_class", "unknown")),
-                "segment_id": str(r.get("segment_id", "")),
+                "error_band": html.escape(str(r.get("error_band", "unknown")), quote=True),
+                "time_bin": html.escape(str(r.get("time_bin", "unknown")), quote=True),
+                "topography_class": html.escape(str(r.get("topography_class", "unknown")), quote=True),
+                "segment_id": html.escape(str(r.get("segment_id", "")), quote=True),
                 "ravine_notch_segment": bool(r.get("ravine_notch_segment", False)),
                 "ts_epoch": int(r["timestamp_utc"].timestamp()) if not pd.isna(r.get("timestamp_utc")) else None,
             }
@@ -185,12 +273,13 @@ def render_leaflet_html(df_map: pd.DataFrame, out_html: Path, title: str) -> Non
     center_lat = float(df_map["lat"].median()) if len(df_map) else 44.26
     center_lon = float(df_map["lon"].median()) if len(df_map) else -71.29
 
-    html = f"""<!doctype html>
+    safe_title = html.escape(title, quote=True)
+    html_doc = f"""<!doctype html>
 <html>
 <head>
   <meta charset='utf-8' />
   <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-  <title>{title}</title>
+  <title>{safe_title}</title>
   <link rel='stylesheet' href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css' />
   <style>
     html, body {{ margin:0; padding:0; height:100%; font-family:Arial,sans-serif; background:#0f0f0f; color:#eee; }}
@@ -204,7 +293,7 @@ def render_leaflet_html(df_map: pd.DataFrame, out_html: Path, title: str) -> Non
 <body>
 <div id='map'></div>
 <div id='bar'>
-  <strong>{title}</strong><br/>
+  <strong>{safe_title}</strong><br/>
   <span class='chip' style='background:#2ecc71;color:#111'>MESH</span>
   <span class='chip' style='background:#3498db'>CELLULAR</span>
   <span class='chip' style='background:#9b59b6'>SATELLITE</span>
@@ -226,7 +315,7 @@ def render_leaflet_html(df_map: pd.DataFrame, out_html: Path, title: str) -> Non
 </div>
 <script src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'></script>
 <script>
-const points = {json.dumps(points)};
+const points = {json.dumps(points, allow_nan=False)};
 const timeBinOrder = {json.dumps(TIME_BIN_ORDER)};
 const modeColor = (mode) => ({{'MESH':'#2ecc71','CELLULAR':'#3498db','SATELLITE':'#9b59b6','NONE':'#7f8c8d'}}[mode] || '#7f8c8d');
 const errFill = (band) => ({{'low':'#f1c40f','medium':'#e67e22','high':'#e74c3c','unknown':null}}[band] || null);
@@ -273,7 +362,8 @@ function render(pct) {{
   let counts = {{MESH:0,CELLULAR:0,SATELLITE:0,NONE:0}};
   let shown = 0;
   let latlngs = [];
-  let ravineLatLngs = [];
+  let latlngsByNode = {{}};
+  let ravineLatLngsByNode = {{}};
   let shownBinCounts = {{}};
 
   for (const p of points) {{
@@ -285,9 +375,15 @@ function render(pct) {{
     counts[p.coverage_mode] = (counts[p.coverage_mode] || 0) + 1;
     shownBinCounts[bin] = (shownBinCounts[bin] || 0) + 1;
     latlngs.push([p.lat,p.lon]);
+    const nodeKey = p.node_id || 'unknown';
+    if (!latlngsByNode[nodeKey]) latlngsByNode[nodeKey] = [];
+    latlngsByNode[nodeKey].push([p.lat,p.lon]);
 
     const highlightThis = highlightRavineNotch && p.ravine_notch_segment;
-    if (highlightThis) ravineLatLngs.push([p.lat,p.lon]);
+    if (highlightThis) {{
+      if (!ravineLatLngsByNode[nodeKey]) ravineLatLngsByNode[nodeKey] = [];
+      ravineLatLngsByNode[nodeKey].push([p.lat,p.lon]);
+    }}
     const fill = errFill(p.error_band);
     const marker = L.circleMarker([p.lat,p.lon], {{
       radius: highlightThis ? 6 : 4,
@@ -296,16 +392,20 @@ function render(pct) {{
       fillColor: fill || modeColor(p.coverage_mode),
       fillOpacity: fill ? 0.95 : 0.80
     }}).addTo(layer);
-    marker.bindPopup(`<b>${{p.coverage_mode}}</b><br/>ctrl_plane: ${{p.control_plane_mode || 'IP_FULL'}}<br/>ts: ${{p.ts || 'n/a'}}<br/>time_bin: ${{bin}}<br/>topography: ${{p.topography_class || 'unknown'}}<br/>segment_id: ${{p.segment_id || 'n/a'}}<br/>ravine_notch_segment: ${{Boolean(p.ravine_notch_segment)}}<br/>node: ${{p.node_id}}<br/>elev_m: ${{p.elev_m ?? 'n/a'}}<br/>mesh_rssi: ${{p.mesh_metric_dbm ?? 'n/a'}}<br/>cell_rsrp: ${{p.cell_rsrp_dbm ?? 'n/a'}}<br/>abs_error_db: ${{p.abs_error_db ?? 'n/a'}}<br/>sat: ${{p.satellite_link_status}}`);
+    marker.bindPopup(`<b>${{p.coverage_mode}}</b><br/>ctrl_plane: ${{p.control_plane_mode || 'UNKNOWN'}}<br/>ts: ${{p.ts || 'n/a'}}<br/>time_bin: ${{bin}}<br/>topography: ${{p.topography_class || 'unknown'}}<br/>segment_id: ${{p.segment_id || 'n/a'}}<br/>ravine_notch_segment: ${{Boolean(p.ravine_notch_segment)}}<br/>node: ${{p.node_id}}<br/>elev_m: ${{p.elev_m ?? 'n/a'}}<br/>mesh_rssi: ${{p.mesh_metric_dbm ?? 'n/a'}}<br/>cell_rsrp: ${{p.cell_rsrp_dbm ?? 'n/a'}}<br/>abs_error_db: ${{p.abs_error_db ?? 'n/a'}}<br/>sat: ${{p.satellite_link_status}}`);
   }}
 
   if (latlngs.length > 1) {{
-    const line = L.polyline(latlngs, {{color:'#f39c12', weight:2, opacity:0.55}}).addTo(layer);
-    map.fitBounds(line.getBounds(), {{padding:[20,20]}});
+    for (const nodeLatLngs of Object.values(latlngsByNode)) {{
+      if (nodeLatLngs.length > 1) L.polyline(nodeLatLngs, {{color:'#f39c12', weight:2, opacity:0.55}}).addTo(layer);
+    }}
+    map.fitBounds(L.latLngBounds(latlngs), {{padding:[20,20]}});
   }}
 
-  if (highlightRavineNotch && ravineLatLngs.length > 1) {{
-    L.polyline(ravineLatLngs, {{color:'#ff4fa3', weight:4, opacity:0.85, dashArray:'6,4'}}).addTo(layer);
+  if (highlightRavineNotch) {{
+    for (const nodeLatLngs of Object.values(ravineLatLngsByNode)) {{
+      if (nodeLatLngs.length > 1) L.polyline(nodeLatLngs, {{color:'#ff4fa3', weight:4, opacity:0.85, dashArray:'6,4'}}).addTo(layer);
+    }}
   }}
 
   const binStats = timeBinOrder.map(bin => `${{bin}}=${{shownBinCounts[bin] || 0}}`).join(' ');
@@ -327,7 +427,7 @@ render(100);
 </body>
 </html>
 """
-    out_html.write_text(html)
+    atomic_write_text(out_html, html_doc)
 
 
 def load_connectivity_events(path: Path) -> pd.DataFrame:
@@ -335,28 +435,57 @@ def load_connectivity_events(path: Path) -> pd.DataFrame:
     if not path.exists():
         return pd.DataFrame()
     rows = []
-    with path.open() as f:
-        for line in f:
+    with path.open(encoding="utf-8", errors="strict") as f:
+        for line_no, line in enumerate(f, start=1):
             line = line.strip()
             if not line:
                 continue
             try:
-                rows.append(json.loads(line))
-            except json.JSONDecodeError:
-                continue
+                record = json.loads(
+                    line,
+                    parse_constant=lambda value: (_ for _ in ()).throw(ValueError(value)),
+                )
+            except (json.JSONDecodeError, ValueError) as exc:
+                raise ValueError(f"invalid connectivity JSON in {path} line {line_no}: {exc}") from exc
+            if not isinstance(record, dict):
+                raise ValueError(f"non-object connectivity record in {path} line {line_no}")
+            rows.append(record)
     if not rows:
         return pd.DataFrame()
     df = pd.DataFrame(rows)
-    df["timestamp_utc"] = pd.to_datetime(df["timestamp_utc"], utc=True, errors="coerce")
-    return df.dropna(subset=["timestamp_utc"]).sort_values("timestamp_utc").reset_index(drop=True)
+    required = {"timestamp_utc", "connectivity_mode"}
+    missing = required - set(df.columns)
+    if missing:
+        raise ValueError(f"connectivity evidence missing columns: {sorted(missing)}")
+    raw_timestamps = df["timestamp_utc"]
+    invalid_utc = raw_timestamps.map(
+        lambda value: not isinstance(value, str)
+        or not (value.endswith("Z") or value.endswith("+00:00"))
+    )
+    df["timestamp_utc"] = pd.to_datetime(raw_timestamps, utc=True, errors="coerce")
+    if df["timestamp_utc"].isna().any() or invalid_utc.any():
+        raise ValueError("connectivity evidence contains invalid/non-UTC timestamps")
+    if df["connectivity_mode"].isna().any():
+        raise ValueError("connectivity evidence contains null connectivity_mode")
+    return df.sort_values("timestamp_utc").reset_index(drop=True)
 
 
-def assign_control_plane_mode(telemetry: pd.DataFrame, events: pd.DataFrame) -> pd.DataFrame:
-    """merge_asof connectivity events onto telemetry rows; default is IP_FULL."""
+def assign_control_plane_mode(
+    telemetry: pd.DataFrame,
+    events: pd.DataFrame,
+    max_event_age_seconds: float = 300.0,
+) -> pd.DataFrame:
+    """Assign observed connectivity state; unobserved periods remain UNKNOWN."""
     out = telemetry.copy()
     if events.empty or "connectivity_mode" not in events.columns:
-        out["control_plane_mode"] = "IP_FULL"
+        out["control_plane_mode"] = "UNKNOWN"
         return out
+    invalid_modes = set(events["connectivity_mode"].dropna().astype(str)) - CONTROL_PLANE_MODES
+    if invalid_modes:
+        raise ValueError(f"invalid connectivity modes: {sorted(invalid_modes)}")
+    conflicts = events.groupby("timestamp_utc")["connectivity_mode"].nunique(dropna=False)
+    if (conflicts > 1).any():
+        raise ValueError("conflicting connectivity modes share a timestamp")
     ev = events[["timestamp_utc", "connectivity_mode"]].rename(columns={"connectivity_mode": "control_plane_mode"})
     ev = ev.drop_duplicates(subset=["timestamp_utc"]).sort_values("timestamp_utc")
     merged = pd.merge_asof(
@@ -364,8 +493,9 @@ def assign_control_plane_mode(telemetry: pd.DataFrame, events: pd.DataFrame) -> 
         ev,
         on="timestamp_utc",
         direction="backward",
+        tolerance=pd.Timedelta(seconds=max_event_age_seconds),
     )
-    merged["control_plane_mode"] = merged["control_plane_mode"].fillna("IP_FULL")
+    merged["control_plane_mode"] = merged["control_plane_mode"].fillna("UNKNOWN")
     return merged
 
 
@@ -380,11 +510,16 @@ def wilson_ci(k: int, n: int, z: float = 1.96) -> tuple[float, float]:
     return (round(100.0 * max(center - half, 0.0), 2), round(100.0 * min(center + half, 1.0), 2))
 
 
-def transition_window_summary(timeline: pd.DataFrame) -> dict:
+def transition_window_summary(
+    timeline: pd.DataFrame,
+    min_rows: int = 4,
+    min_coverage_pct: float = 95.0,
+) -> dict:
     """Emit per-mode pass/fail stats for coverage-transition windows.
 
-    Coverage here means "≥1 packet/sample of the given mode observed in the row's
-    window" — a receive-side presence signal, NOT end-to-end deliverability.
+    Coverage here means "an RF/satellite indicator is present on the telemetry
+    record assigned to this connectivity-mode interval" — a receive-side
+    presence signal, NOT an independently measured window or end-to-end delivery.
     Rows are temporally autocorrelated, so even the Wilson CI is optimistic;
     treat these as descriptive statistics.
     """
@@ -395,10 +530,16 @@ def transition_window_summary(timeline: pd.DataFrame) -> dict:
         sub = timeline[timeline["control_plane_mode"] == mode]
         n = int(len(sub))
         if n == 0:
-            result[mode] = {"n_rows": 0, "coverage_mode_counts": {}, "pass": True}
+            result[mode] = {
+                "n_rows": 0,
+                "coverage_mode_counts": {},
+                "pass": False,
+                "reason": "no observations for required connectivity mode",
+            }
             continue
         counts = sub["coverage_mode"].value_counts(dropna=False).to_dict()
-        # pass = at least some connectivity (MESH or better)
+        # Gate on a declared minimum sample count and receive-side coverage
+        # percentage; a token single observation cannot establish a window.
         covered = sum(v for k, v in counts.items() if k != "NONE")
         lo, hi = wilson_ci(covered, n)
         result[mode] = {
@@ -407,8 +548,10 @@ def transition_window_summary(timeline: pd.DataFrame) -> dict:
             "covered_rows": covered,
             "coverage_pct": round(100.0 * covered / n, 2) if n else 0.0,
             "coverage_pct_wilson95": [lo, hi],
-            "definition": "receive-side presence per row window; not end-to-end deliverability; rows autocorrelated",
-            "pass": covered > 0,
+            "definition": "receive-side indicator presence per telemetry record in the mode interval; not an independent window or end-to-end delivery; rows autocorrelated",
+            "minimum_rows": min_rows,
+            "minimum_coverage_pct": min_coverage_pct,
+            "pass": n >= min_rows and (100.0 * covered / n) >= min_coverage_pct,
         }
     return result
 
@@ -418,49 +561,134 @@ def main():
     ap.add_argument("--ingest-root", default="/home/doher/manet_ingest")
     ap.add_argument("--node-id", default="meshradiohead2", help="Primary telemetry node to load")
     ap.add_argument("--hiker-id", default="", help="Optional hiker node to merge in (leave empty if not available)")
-    ap.add_argument("--trial-id", default="trial_live")
+    ap.add_argument("--trial-id", default="trial-live")
     ap.add_argument("--out-dir", default="artifacts/overlay")
     ap.add_argument("--live-trial-dir", default="artifacts/airmap/live_trial")
     ap.add_argument("--gps-min-rows", type=int, default=100)
     ap.add_argument("--strict-gps", action="store_true")
+    ap.add_argument("--min-transition-rows", type=int, default=4)
+    ap.add_argument("--min-transition-coverage-pct", type=float, default=95.0)
+    ap.add_argument("--max-connectivity-event-age-sec", type=float, default=300.0)
+    ap.add_argument("--min-control-plane-evidence-pct", type=float, default=95.0)
+    ap.add_argument("--local-timezone", default="America/New_York")
+    ap.add_argument(
+        "--allow-missing-connectivity-events",
+        action="store_true",
+        help="Generate a diagnostic overlay with UNKNOWN control-plane state; transition gates still fail",
+    )
     args = ap.parse_args()
+    if args.min_transition_rows <= 0:
+        raise SystemExit("--min-transition-rows must be greater than zero")
+    if not 0 <= args.min_transition_coverage_pct <= 100:
+        raise SystemExit("--min-transition-coverage-pct must be between 0 and 100")
+    if args.max_connectivity_event_age_sec <= 0:
+        raise SystemExit("--max-connectivity-event-age-sec must be greater than zero")
+    if not 0 <= args.min_control_plane_evidence_pct <= 100:
+        raise SystemExit("--min-control-plane-evidence-pct must be between 0 and 100")
+    if args.gps_min_rows < 0:
+        raise SystemExit("--gps-min-rows cannot be negative")
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+", args.node_id) or args.node_id in {".", ".."}:
+        raise SystemExit("--node-id contains unsafe characters")
+    if args.hiker_id and (
+        not re.fullmatch(r"[A-Za-z0-9_.-]+", args.hiker_id)
+        or args.hiker_id in {".", ".."}
+    ):
+        raise SystemExit("--hiker-id contains unsafe characters")
+    if args.hiker_id and args.hiker_id == args.node_id:
+        raise SystemExit("--hiker-id must differ from --node-id")
+    try:
+        local_timezone = ZoneInfo(args.local_timezone)
+    except ZoneInfoNotFoundError as exc:
+        raise SystemExit(f"unknown --local-timezone: {args.local_timezone}") from exc
 
     root = Path(args.ingest_root)
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     head = load_jsonl(root / f"{args.node_id}/jsonl/telemetry_stream.jsonl")
+    if head.empty:
+        raise SystemExit(f"No primary telemetry rows found for {args.node_id}")
+    if (
+        "node_id" not in head.columns
+        or head["node_id"].isna().any()
+        or set(head["node_id"].astype(str)) != {args.node_id}
+    ):
+        raise SystemExit(f"telemetry identity does not match ingest directory: {args.node_id}")
+    head["_ingest_source_node_id"] = args.node_id
     frames = [head]
+    loaded_node_ids = [args.node_id]
     if args.hiker_id:
         hiker = load_jsonl(root / f"{args.hiker_id}/jsonl/telemetry_stream.jsonl")
-        if not hiker.empty:
-            frames.append(hiker)
+        if hiker.empty:
+            raise SystemExit(f"No requested hiker telemetry rows found for {args.hiker_id}")
+        if (
+            "node_id" not in hiker.columns
+            or hiker["node_id"].isna().any()
+            or set(hiker["node_id"].astype(str)) != {args.hiker_id}
+        ):
+            raise SystemExit(f"telemetry identity does not match ingest directory: {args.hiker_id}")
+        hiker["_ingest_source_node_id"] = args.hiker_id
+        frames.append(hiker)
+        loaded_node_ids.append(args.hiker_id)
     df = pd.concat(frames, ignore_index=True, sort=False)
     if df.empty:
         raise SystemExit("No telemetry rows found")
 
-    # Load connectivity events (one per transition, merge_asof backward → each row gets its mode).
-    events_path = root / args.node_id / "connectivity_events.jsonl"
-    events = load_connectivity_events(events_path)
+    # Each node gets only its own observed transition stream. Applying the HEAD
+    # state to a hiker node would fabricate control-plane evidence.
+    events_by_node: dict[str, pd.DataFrame] = {}
+    for source_node_id in loaded_node_ids:
+        events_path = root / source_node_id / "connectivity_events.jsonl"
+        events = load_connectivity_events(events_path)
+        if events.empty and not args.allow_missing_connectivity_events:
+            raise SystemExit(f"Connectivity transition evidence missing or empty: {events_path}")
+        if not events.empty and (
+            "node_id" not in events.columns
+            or events["node_id"].isna().any()
+            or set(events["node_id"].astype(str)) != {source_node_id}
+        ):
+            raise SystemExit(f"connectivity identity does not match ingest directory: {source_node_id}")
+        events_by_node[source_node_id] = events
 
-    if "trial_id" in df.columns and args.trial_id:
+    if "trial_id" not in df.columns or df["trial_id"].isna().any():
+        raise SystemExit("telemetry is missing required trial_id values")
+    if args.trial_id:
         filtered = df[df["trial_id"] == args.trial_id].copy()
-        if not filtered.empty:
-            df = filtered
+        if filtered.empty:
+            raise SystemExit(f"No telemetry rows match trial_id={args.trial_id!r}")
+        df = filtered
 
     df = build_coverage(df).sort_values("timestamp_utc")
-    df = assign_control_plane_mode(df, events)
+    mode_frames = []
+    for source_node_id in loaded_node_ids:
+        node_rows = df[df["_ingest_source_node_id"] == source_node_id].copy()
+        mode_frames.append(
+            assign_control_plane_mode(
+                node_rows,
+                events_by_node[source_node_id],
+                max_event_age_seconds=args.max_connectivity_event_age_sec,
+            )
+        )
+    df = pd.concat(mode_frames, ignore_index=True, sort=False).sort_values("timestamp_utc")
 
     # Merge residual/error bands from live trial outputs where available.
     residuals = load_residuals(Path(args.live_trial_dir))
     if not residuals.empty:
-        merge_keys = [k for k in ["timestamp_utc", "node_id", "trial_id"] if k in df.columns and k in residuals.columns]
-        if merge_keys:
-            df = df.merge(residuals, how="left", on=merge_keys)
+        merge_keys = ["timestamp_utc", "node_id", "trial_id"]
+        residual_columns = merge_keys + [
+            column for column in residuals.columns
+            if column not in merge_keys and column not in df.columns
+        ]
+        df = df.merge(
+            residuals[residual_columns],
+            how="left",
+            on=merge_keys,
+            validate="many_to_one",
+        )
     if "abs_error_db" not in df.columns:
         df["abs_error_db"] = pd.NA
     df["error_band"] = df["abs_error_db"].apply(error_band)
-    df = enrich_overlay_features(df)
+    df = enrich_overlay_features(df, local_timezone)
 
     timeline_cols = [
         "timestamp_utc", "trial_id", "node_id", "head_id", "lat", "lon", "elev_m",
@@ -474,23 +702,57 @@ def main():
             df[c] = pd.NA
 
     timeline = df[timeline_cols].copy()
-    timeline.to_csv(out_dir / "coverage_timeline.csv", index=False)
 
-    map_df = timeline.dropna(subset=["lat", "lon", "timestamp_utc"]).copy()
+    gps_any = timeline["lat"].notna() | timeline["lon"].notna()
+    gps_complete = timeline["lat"].notna() & timeline["lon"].notna()
+    if (gps_any & ~gps_complete).any():
+        raise SystemExit(f"incomplete GPS pairs in overlay input: {int((gps_any & ~gps_complete).sum())}")
+    timeline["elev_m"] = strict_numeric_column(timeline, "elev_m", -1000, 12000)
+    timeline["abs_error_db"] = strict_numeric_column(timeline, "abs_error_db", 0, 10000)
+    map_df = timeline[gps_complete & timeline["timestamp_utc"].notna()].copy()
+    if not map_df.empty:
+        map_df["lat"] = pd.to_numeric(map_df["lat"], errors="coerce")
+        map_df["lon"] = pd.to_numeric(map_df["lon"], errors="coerce")
+        invalid_gps = (
+            map_df["lat"].isna()
+            | map_df["lon"].isna()
+            | ~map_df["lat"].map(math.isfinite)
+            | ~map_df["lon"].map(math.isfinite)
+            | ~map_df["lat"].between(-90, 90)
+            | ~map_df["lon"].between(-180, 180)
+        )
+        if invalid_gps.any():
+            raise SystemExit(f"invalid GPS rows in overlay input: {int(invalid_gps.sum())}")
     gps_warning = None
     if len(map_df) < args.gps_min_rows:
         gps_warning = f"gps rows below threshold: {len(map_df)} < {args.gps_min_rows}"
         if args.strict_gps:
             raise SystemExit(gps_warning)
 
+    atomic_write_text(out_dir / "coverage_timeline.csv", timeline.to_csv(index=False))
     render_leaflet_html(map_df, out_dir / "coverage_overlay.html", "Coverage Overlay V2 (Route+Time+Error)")
 
-    transition_summary = transition_window_summary(timeline)
-    overall_transition_pass = all(v.get("pass", True) for v in transition_summary.values())
+    transition_summary = transition_window_summary(
+        timeline,
+        min_rows=args.min_transition_rows,
+        min_coverage_pct=args.min_transition_coverage_pct,
+    )
+    observed_control_plane_rows = int(timeline["control_plane_mode"].isin(CONTROL_PLANE_MODES).sum())
+    control_plane_evidence_pct = (
+        100.0 * observed_control_plane_rows / len(timeline) if len(timeline) else 0.0
+    )
+    control_plane_evidence_pass = control_plane_evidence_pct >= args.min_control_plane_evidence_pct
+    overall_transition_pass = control_plane_evidence_pass and bool(transition_summary) and all(
+        v.get("pass", False) for v in transition_summary.values()
+    )
 
     summary = {
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "out_dir": str(out_dir.resolve()),
+        "loaded_node_ids": loaded_node_ids,
+        "trial_id": args.trial_id,
+        "local_timezone_for_inferred_time_bins": args.local_timezone,
+        "max_connectivity_event_age_sec": args.max_connectivity_event_age_sec,
         "rows_total": int(len(timeline)),
         "rows_with_gps": int(len(map_df)),
         "gps_min_rows": int(args.gps_min_rows),
@@ -501,9 +763,19 @@ def main():
         "error_band_counts": {str(k): int(v) for k, v in timeline["error_band"].value_counts(dropna=False).items()},
         "transition_window_summary": transition_summary,
         "transition_window_pass": overall_transition_pass,
+        "control_plane_observed_rows": observed_control_plane_rows,
+        "control_plane_evidence_pct": round(control_plane_evidence_pct, 2),
+        "control_plane_evidence_min_pct": args.min_control_plane_evidence_pct,
+        "control_plane_evidence_pass": control_plane_evidence_pass,
+        "analysis_definition": "records grouped by recently observed connectivity-mode intervals; coverage is receive-side indicator presence, not end-to-end delivery",
+        "transition_gate_min_rows": args.min_transition_rows,
+        "transition_gate_min_coverage_pct": args.min_transition_coverage_pct,
     }
-    (out_dir / "overlay_summary.json").write_text(json.dumps(summary, indent=2))
-    (out_dir / "transition_window_summary.json").write_text(json.dumps(transition_summary, indent=2))
+    atomic_write_text(out_dir / "overlay_summary.json", json.dumps(summary, indent=2, allow_nan=False) + "\n")
+    atomic_write_text(
+        out_dir / "transition_window_summary.json",
+        json.dumps(transition_summary, indent=2, allow_nan=False) + "\n",
+    )
     print(json.dumps(summary, indent=2))
 
 
