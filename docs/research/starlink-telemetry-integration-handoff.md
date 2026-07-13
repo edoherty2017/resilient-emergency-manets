@@ -1,4 +1,17 @@
-# Starlink Telemetry Integration Handoff (Live Capture Only)
+# Starlink Telemetry Integration Handoff (Historical Design Record)
+
+> **Status (2026-07-13): historical, not an executable runbook.** This file
+> records the design that preceded the hardened implementation. The current
+> deployment and verification authority is
+> `meshradio-head-runtime/README.md`, `ops/provision_head2.sh`, and the scripts
+> and units installed from `meshradio-head-runtime`. Historical paths, package
+> commands, API-field assumptions, and unchecked gates below are not evidence
+> that the integration is deployed or has passed a field trial.
+>
+> Current safety corrections: an RPC failure means **measurement status
+> unknown**, not a proved dish disconnect; the external gRPC dependency must be
+> installed from a reviewed full 40-character commit; and Phase 2/AIRMap work
+> must not treat a prior design checkbox or stale report as a current PASS.
 
 ## Objective
 Integrate **live Starlink telemetry capture** into MANET AIRMap field trials so that existing telemetry and evaluation outputs can be populated with real satellite quality evidence:
@@ -28,8 +41,9 @@ Primary purpose is **engineering validation + data quality calibration evidence*
 
 ---
 
-## Current repo/pipeline constraints (verified)
-- Repo: `/home/doher/projects/manet/resilient-emergency-manets`
+## Repo/pipeline constraints at handoff time (historical)
+- Historical development checkout: `/home/doher/projects/manet/resilient-emergency-manets`.
+  This is not the deployed runtime path.
 - Live trial script already consumes optional sat fields and emits sat artifacts:
   - `scripts/airmap_live_trial.py`
   - outputs include `satellite_timebin_metrics.csv`, `satellite_outage_events.csv`
@@ -59,7 +73,10 @@ Use `null` when unknown/unavailable; never emit sentinel strings for numeric fie
 
 ### Windowing contract
 - Recommended base poll: **15 s** for status + history stats.
-- Aggregation window for telemetry row enrichment: **60 s tumbling** (default), configurable.
+- Aggregation target for telemetry row enrichment: **four complete polls / 60 s**
+  at the default cadence. The implementation records both the 60 s target and
+  the actually observed first-to-last poll span; it must not represent a
+  polling batch as 60 seconds of continuously observed data.
 - Hard rule from Starlink history behavior: poll interval must be `<900 s` to avoid history loss.
 
 ---
@@ -68,7 +85,7 @@ Use `null` when unknown/unavailable; never emit sentinel strings for numeric fie
 
 | Method | Hardware/account prerequisites | Available fields (for our schema) | Cadence limits | Field/offline reliability | Legal/ToS risk | Pi complexity | Schema fit |
 |---|---|---|---|---|---|---|---|
-| **A. Dish local gRPC (recommended)** via `192.168.100.1:9200` using `starlink-grpc-tools` (`dish_grpc_text.py`) | Device must be L2/L3-reachable to dish mgmt IP; no cloud dependency. Location requires explicit app toggle + login once. | RTT, throughput, packet loss, state, obstruction fraction, alerts; enough to compute all required sat fields. | 1–60 s practical; must remain `<900 s` for history continuity. | Best in field; works without internet/cloud as long as local dish interface reachable. | **Medium**: unofficial/undocumented API use, but widely used read-only telemetry. | Medium | **Excellent** |
+| **A. Dish local gRPC (selected design)** via `192.168.100.1:9200` using a pinned `starlink-grpc-tools` revision | Device must be L2/L3-reachable to dish mgmt IP; no cloud dependency. Location requires explicit app toggle + login once. | Candidate source for RTT, throughput, packet loss, state, obstruction fraction, and alerts. Exact fields are version-sensitive and must be verified against the pinned revision and live dish firmware. | 1–60 s practical; must remain `<900 s` for history continuity. | Intended to work without internet/cloud while the local dish interface is reachable; this still requires field proof. | **Medium**: unofficial/undocumented API use, with policy and stability risk. | Medium | Potentially excellent; field-gated |
 | **B. Starlink app/manual debug export** (mobile app/UI) | Logged-in app session; operator action needed. | Rich status snapshots, but not robust streaming feed. | Human/manual; not deterministic. | Poor for unattended trials. | Low-Med (official app path, but no stable automation API). | Low for manual, High for automation | Weak |
 | **C. Router/admin HTTP surfaces scraping** (`http://192.168.100.1` UI reverse parsing) | Local access to router UI responses; firmware-dependent. | Some status indicators; usually incomplete for p50/p95 and packet loss history. | Unstable with UI changes; no contract. | Fragile in field updates. | Medium-High (unsupported scraping). | Medium-High | Partial |
 | **D. Cloud/account portal scraping/API guessing** | Active internet + account session/auth; uncertain APIs. | Potential usage stats, often delayed/coarse; not per-second trial telemetry. | Not suitable for near-real-time. | Poor when backhaul intermittent. | High (auth + anti-automation + unclear permissions). | High | Poor |
@@ -89,7 +106,8 @@ Use `null` when unknown/unavailable; never emit sentinel strings for numeric fie
      - `artifacts/starlink/raw/starlink_status_history.jsonl`
 2. **starlink_window_aggregator.py** (new)
    - Reads raw JSONL stream.
-   - Maintains 60 s tumbling windows.
+   - Aggregates complete four-poll batches at the default cadence and records
+     target duration separately from observed poll span.
    - Emits normalized sat telemetry JSONL:
      - `artifacts/starlink/derived/starlink_window_metrics.jsonl`
 3. **merge_starlink_into_telemetry.py** (new)
@@ -102,7 +120,12 @@ Use `null` when unknown/unavailable; never emit sentinel strings for numeric fie
 - `satellite_link_status`:
   - `CONNECTED` -> `connected`
   - `OBSTRUCTED`, `NO_PINGS`, `SLOW/THROTTLED-like alerts` -> `degraded`
-  - `SEARCHING`, `NO_SATS`, `NO_DOWNLINK`, unreachable -> `disconnected`
+  - explicit dish states such as `SEARCHING`, `NO_SATS`, `NO_DOWNLINK` may map
+    to `disconnected` only when the pinned API revision exposes and documents
+    that state consistently
+  - RPC timeout/unreachable/parse failure -> `unknown` with
+    `_measurement_status=error` and `_heartbeat=true` (never infer a physical
+    disconnect from collector failure)
   - else `unknown`
 - `satellite_packet_loss_pct` = `(total_ping_drop / samples) * 100`
 - `satellite_down_mbps` = `download_usage_bytes * 8 / window_seconds / 1e6` (if using usage stats) OR mean `downlink_throughput_bps/1e6` when available.
@@ -148,13 +171,20 @@ Use `null` when unknown/unavailable; never emit sentinel strings for numeric fie
 ## Practical implementation notes (Pi + field operations)
 
 1. **Use starlink-grpc-tools as dependency baseline**
-   - Supports status/history/bulk modes and CSV/text output.
-   - Documented local dish target is `192.168.100.1`.
+   - Use only a reviewed, full 40-character commit and record the resolved
+     commit plus Python package freeze in `/opt/manet/software-manifest`.
+   - Field names and response shapes are unofficial/version-sensitive; prove
+     them against that exact revision and the live firmware.
+   - The expected local dish target is `192.168.100.1:9200`, subject to a live
+     reachability check.
 2. **Polling discipline**
    - 15 s status+history stats default.
    - never exceed 900 s history poll interval.
 3. **Unreachable handling**
-   - On RPC failure, emit heartbeat row with `satellite_link_status=disconnected`, numeric fields null, plus error code.
+   - On RPC failure, emit a heartbeat row with
+     `satellite_link_status=unknown`, numeric fields null,
+     `_measurement_status=error`, and an error code. Collector reachability is
+     not evidence of the physical link state.
 4. **Timestamping**
    - Use UTC ISO-8601 from collector host at poll receive time.
    - Keep `local_hour`/`time_bin` derivation in existing AIRMap stage.
@@ -168,9 +198,13 @@ Use `null` when unknown/unavailable; never emit sentinel strings for numeric fie
 ## Validation checklist and acceptance gates
 
 ## Functional gates
-- [ ] Collector can run 60+ minutes in field with no crash.
-- [ ] Raw JSONL row count aligns with poll cadence (>=95% expected rows).
-- [ ] At least 5 of 7 sat numeric fields populated (non-null) during connected periods.
+- [ ] The **latest fresh contiguous run** spans 60+ minutes in the field.
+- [ ] At least 95% of consecutive intervals align with the configured poll
+      cadence; timestamps are strict UTC, unique, and monotonically increasing.
+- [ ] At least 95% of rows are real successful measurements with a recognized
+      state (`connected|degraded|disconnected`), not timed error heartbeats.
+- [ ] At least 95% of rows have acceptable clock-integrity evidence.
+- [ ] The last 60 minutes of the poller error log is empty and parseable.
 - [ ] `scripts/airmap_live_trial.py` runs unchanged with enriched telemetry.
 - [ ] `satellite_timebin_metrics.csv` and `satellite_outage_events.csv` generated and non-empty when outages occur.
 
@@ -179,10 +213,15 @@ Use `null` when unknown/unavailable; never emit sentinel strings for numeric fie
 - [ ] Throughput fields non-negative and realistic (<1000 Mbps expected for field kit).
 - [ ] Outage seconds in each window <= window length.
 - [ ] Timestamp monotonicity and max join skew to node telemetry <= configured tolerance (default 5 s).
+- [ ] Trial/node identity matches exactly across raw, derived, and MANET input;
+      the merge achieves its configured match threshold (95% by default).
 
 ## Reliability gates
 - [ ] Collector restart survives dish reboot/unreachable episodes.
 - [ ] QC log explicitly records telemetry gaps and RPC failures.
+- [ ] `python3 /opt/manet/head/scripts/starlink_phase1_gate.py` produces a new
+      PASS from current evidence. No earlier report or checkbox substitutes for
+      rerunning this gate.
 
 ---
 
@@ -204,10 +243,12 @@ Use `null` when unknown/unavailable; never emit sentinel strings for numeric fie
 - Create `scripts/starlink_window_aggregator.py` to compute schema fields every 60 s.
 - Produce raw + derived artifacts under `artifacts/starlink/`.
 
-### P2 — Telemetry merge + AIRMap compatibility (1 day)
+### P2 — Telemetry merge + AIRMap compatibility (historical estimate)
 - Create `scripts/merge_starlink_into_telemetry.py` (as-of UTC join).
 - Write enriched stream to staging path consumed by existing AIRMap scripts.
 - Verify `scripts/airmap_live_trial.py` outputs include expected sat metrics/events.
+- Start this phase only after the current Phase 1 gate passes on new field
+  evidence; implementation existence is not measurement validation.
 
 ### P3 — Operational hardening (1 day)
 - Add systemd unit files for poller + aggregator.
@@ -220,19 +261,26 @@ Use `null` when unknown/unavailable; never emit sentinel strings for numeric fie
 
 ---
 
-## First 10 concrete commands/scripts for the new agent
+## Historical bootstrap commands (superseded; do not execute)
 
-1. `cd /home/doher/projects/manet/resilient-emergency-manets`
-2. `python3 -m venv .venv && source .venv/bin/activate`
-3. `pip install -U pip wheel`
-4. `pip install pandas numpy pyyaml grpcio grpcio-tools`
-5. `git clone --depth 1 https://github.com/sparky8512/starlink-grpc-tools /tmp/starlink-grpc-tools`
-6. `pip install -r /tmp/starlink-grpc-tools/requirements.txt`
-7. `python /tmp/starlink-grpc-tools/dish_grpc_text.py -t 15 status ping_drop ping_latency usage -O artifacts/starlink/raw/starlink_poll.csv`
-8. **Create** `scripts/starlink_raw_poller.py` (wrap/normalize CSV->JSONL with UTC timestamps + error rows).
-9. **Create** `scripts/starlink_window_aggregator.py` (60 s windows -> required sat schema fields -> `artifacts/starlink/derived/starlink_window_metrics.jsonl/csv`).
-10. **Create** `scripts/merge_starlink_into_telemetry.py` and run:  
-   `python scripts/merge_starlink_into_telemetry.py --telemetry /home/doher/manet_ingest/meshhikernode1/jsonl/telemetry_stream.jsonl --starlink artifacts/starlink/derived/starlink_window_metrics.jsonl --out artifacts/starlink/derived/telemetry_enriched_starlink.jsonl`
+The original commands cloned an unpinned repository into `/tmp`, installed
+unreviewed current dependencies, wrote to development paths, and bypassed the
+deployed ownership/service model. They are intentionally retired.
+
+Use `ops/provision_head2.sh` from the reviewed workspace with
+`STARLINK_GRPC_COMMIT` set to a reviewed full 40-character commit. The current
+layout is:
+
+- root-owned runtime: `/opt/manet/head/scripts`
+- root-owned dependency checkout: `/opt/manet/vendor/starlink-grpc-tools`
+- root-owned dependency environment: `/opt/manet/venvs/starlink`
+- mutable evidence (owned by `pump`): `/home/pump/telemetry_head`
+- deployment manifest: `/opt/manet/software-manifest`
+- site configuration: root-owned `/etc/manet/head.env`
+
+After provisioning and configuring the site-specific destination and strict
+SSH host key, run the head readiness report and current Phase 1 gate. Their
+PASS outputs are prerequisites, not generated evidence by themselves.
 
 ---
 

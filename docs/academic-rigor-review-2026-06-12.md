@@ -4,6 +4,11 @@ Scope: full audit of `resilient-emergency-manets` (pipeline code, artifacts, Tri
 directed-study proposal V3) for mathematical correctness, statistical validity, and
 defensibility in front of an expert committee. Written as the harshest plausible reviewer.
 
+> **Historical snapshot:** This document describes the 2026-06-12 worktree. Some cited
+> code and claims have since been changed, while other findings remain open. It is not a
+> current-state certification and must not be used to claim that a listed defect is still
+> present—or fixed—without checking the present code, regenerated artifacts, and tests.
+
 **Verdict up front:** the measurement *platform* (Pi + Meshtastic collector + Garmin ground
 truth + Starlink gRPC telemetry + schema/provenance discipline) is sound and should be kept.
 The *modeling and evaluation layer* is not yet defensible: the propagation model is pure FSPL
@@ -325,12 +330,17 @@ into a pre-registered design:
     Hop filtering: calibration set = rows with `hops_away == 0` only (collector now logs
     `hop_limit`/`hop_start`). Blacklist co-located devices; drop rows with RSSI > −20 dBm as
     physically implausible for >10 m links.
-15. **Sample-size target (power analysis):** to estimate n̂ within ±0.25 (95% CI) given
-    σ ≈ 8 dB shadowing and distances spanning ~1.5 decades, you need ≈200 *independent*
-    samples per stratum; with temporal autocorrelation (×3–5 inflation) plan **600–1,000 raw
-    packets per terrain stratum** spread over the full distance range. This is consistent
-    with the proposal's 2,500-point commitment across three topographies — but only if
-    packets are spread across distance, not clustered at camp.
+15. **Sample-size target — corrected 2026-07-13:** the original paragraph called for
+    600–1,000 raw packets per stratum without checking field duration. At a fixed 30 s
+    cadence that consumes 5–8.3 hours *per stratum* and is infeasible on this route. It
+    also treated a heuristic autocorrelation multiplier as a power analysis without a
+    specified covariance model. The amended plan targets ≥40 scheduled opportunities per
+    primary stratum across independent full passes and reports exact counts. Packet-level
+    Wilson intervals are descriptive only if independence is defensible; primary
+    uncertainty must use whole-pass summaries or a pass/block-aware method. Smaller
+    strata remain underpowered. A larger independent-sample claim
+    requires a pilot-derived correlation structure and a prospective power calculation;
+    raw packet count must never be presented as independent sample size.
 16. **Protocol discipline:** GPS on both ends at ≥0.2 Hz; chrony/GPS time sync verified
     pre-departure (clock-offset audit artifact); pre-departure `head_readiness_report` gate;
     ≥2 repeat runs per segment (your own advisor-grade gate already requires this); fixed

@@ -6,10 +6,13 @@ Ordered by dependency; [C] = computable now (Claude), [E] = needs Ethan,
 
 ## Phase 1 — Trial 2 enablement (this week; field days must be plug-and-play)
 
-- [ ] **1.1 [C] Pre-registered prediction pack** — ITM-predicted RSSI/ESP and
-      fastsim-predicted PDR per terrain stratum for the Trial 2 beacon sites
-      and walk segments, for BOTH candidate radio configs (LongFast/Part 97
-      and 500 kHz/Part 15). Committed BEFORE the trial = pre-registration.
+- [ ] **1.1 [C] Prospective prediction pack** — ITM-predicted received power and
+      an explicitly assumed (not calibrated) receiver-threshold exceedance model per terrain stratum for
+      Trial 2 sites/segments and radio-config candidates. Do not equate LongFast
+      with Part 97 or nominal 500 kHz with Part 15 authorization. Freeze exact
+      data/config/code hashes, analysis rules, and amendments before collection;
+      an ordinary movable tag or dirty-worktree commit reference alone is not a
+      defensible preregistration.
       → `scripts/trial2_predictions.py`, `docs/trial2-preregistration.md`
 - [ ] **1.2 [C] Ingest dry-run** — run the full airmap pipeline end-to-end on
       the Trial 1 raw export today, so field day is data collection, not
@@ -37,8 +40,11 @@ Ordered by dependency; [C] = computable now (Claude), [E] = needs Ethan,
 
 ## Phase 3 — Model refinements (nice-to-have before Trial 2, cheap on fastsim)
 
-- [ ] **3.1 [C] Higher-resolution weather** — refetch kt from ERA5-Land (9 km)
-      vs ERA5 (30 km); quantify summit-kt delta; rerun key years if material.
+- [ ] **3.1 [C] Better weather evidence** — prefer a licensed/exported Mt. Washington
+      Observatory irradiance record; otherwise use an explicitly pinned reanalysis
+      product and archive its request URL and raw-response checksum. The corrected
+      fetcher explicitly requests ERA5 and fails closed when required fields are
+      absent. Quantify any summit-vs-grid bias before interpreting seasonal results.
 - [ ] **3.2 [C] Leaf-off canopy seasonality** — month-dependent tau for
       deciduous sites (leaf-off ≈ 0.4–0.6 literature); sensitivity run on
       winter deaths for below-treeline sites.
@@ -48,12 +54,15 @@ Ordered by dependency; [C] = computable now (Claude), [E] = needs Ethan,
 ## Phase 4 — End of term
 
 - [ ] **4.1 [E] Trial 2 field days** (late July + early-Aug weather backup)
-- [ ] **4.2 [C] Same-day data processing**: dataset release + calibration file
-      + gates verdict (machinery exists; one command each)
+- [ ] **4.2 [C] Same-day data processing**: immutable raw-data copy + provenance
+      manifest + per-gate quality report. Publish a calibration file only if the
+      preregistered eligibility gates pass; do not collapse distinct gates into one
+      promotional “PASS.”
 - [ ] **4.3 [C] Drop field results into 2.1 → final report by 3rd week of Aug**
 - [ ] **4.4 [E/A] Final submission + defense scheduling**
 
 ## Standing decisions still open (docs/open-decisions.md)
 A1 (RSRP amendment — draft = 2.2), A2 (FCC 🔜), A3 (geology cite-or-delete),
-A4 (seasonal vs $5k BOM), A5 (2,500-pt target awareness), B1 (Trial 2 sign-off),
+A4 (seasonal scope vs an as-yet-unvalidated hardened BOM), A5 (2,500-pt target
+awareness), B1 (Trial 2 sign-off),
 C-items (Brenta follow-ups), D1 (advisor memo = the email).

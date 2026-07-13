@@ -1,12 +1,19 @@
 # AIRMap Calibration Workflow (Week 4 Draft)
 
+> **Evidence status (2026-07-13):** this is a workflow specification, not a record
+> of completed calibration. The current `artifacts/airmap/live_trial/` run has zero
+> calibration-eligible rows and no HEAD GPX; its metrics and “postcalibration” files
+> must not be cited as model performance.
+
 ## Purpose
 Define a reproducible prediction→observation calibration path for MANET RF performance in mountainous terrain, with explicit metadata pinning and join-key integrity.
 
 ## Scope
 - Frequency regime: LoRa/Meshtastic-style sub-GHz links (field trial specific channel settings to be pinned in config).
 - Terrain regime: NH Presidential Range trial AOIs.
-- Model regime: first-pass terrain-aware baseline using ITM/Longley-Rice family assumptions, then calibrated with empirical trial telemetry.
+- Model regime: the implemented AIRMap baseline is FSPL-only; ITM/Longley-Rice is a
+  separate prospective terrain model. Either may be calibrated only with eligible
+  empirical trial telemetry and evaluated on held-out passes/days.
 
 ## Source Notes (initial research)
 - NTIA ITM model repo states applicability between **20 MHz and 20 GHz**, modeling free-space loss, diffraction, and troposcatter.
@@ -16,11 +23,14 @@ Define a reproducible prediction→observation calibration path for MANET RF per
 ## Canonical Data Contracts
 
 ### Observation Contract (from telemetry JSONL)
-Current live keys present on both nodes:
+Target observation fields (availability must be verified per input, not assumed):
 - `timestamp_utc`
 - `trial_id`
 - `head_id`
 - `node_id`
+- transmitter sequence/message ID and scheduled-opportunity index
+- direct-link evidence (`hops_away == 0` or equivalent authenticated field)
+- receiver and transmitter coordinates with explicit source/provenance
 - `lat`, `lon`, `elev_m`
 - `battery_mv`, `battery_pct`, `usb_power`, `is_charging`
 - `rsrp_dbm`, `satellite_link_status`, `weather_tag`
@@ -35,7 +45,7 @@ Required fields for every predicted row:
 - `distance_m`
 - `pred_path_loss_db`
 - `pred_rssi_dbm`
-- `pred_snr_db`
+- `pred_link_margin_db` (not SNR unless noise bandwidth/figure are modeled)
 - `topography_class`
 - `material_class`
 - `model_name`, `model_version`, `model_hash`

@@ -1,5 +1,10 @@
 # Weekly Execution Roadmap — Resilient Emergency MANETs for Wilderness Safety
 
+> **Status (2026-07-13):** this is the original course execution plan, not a record
+> that its milestones or acceptance criteria were achieved. Current evidence status,
+> superseded artifacts, and blockers are indexed in
+> [`audit-correction-ledger-2026-07-13.md`](audit-correction-ledger-2026-07-13.md).
+
 ## Scope Rules
 - Planning granularity is **weekly only** (no day-level scheduling).
 - Success is measured by completion of required course deliverables:

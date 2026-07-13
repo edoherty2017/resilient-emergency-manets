@@ -9,7 +9,13 @@
 
 ## What This Project Is
 
-A field-validated study of LoRa/Meshtastic mesh radio performance in the White Mountains, with the goal of proposing a fixed relay infrastructure for NH State Park emergency communications coverage. The HEAD node (a Raspberry Pi + Heltec LoRa32) was carried on a full summit hike while logging all received mesh packets. Real Garmin GPS data was used as ground truth for position throughout.
+A field-data collection and pipeline study of LoRa/Meshtastic observations in the
+White Mountains, with the longer-term goal of evaluating fixed relay infrastructure
+for emergency communications. Trial 1 exercised the equipment on a summit hike, but
+did not validate end-to-end relay coverage or a propagation model: it lacked a
+controlled remote transmitter, direct-hop labels, and an uninterrupted collector
+record. A Garmin track supplies independent receiver-position ground truth only; it
+does not establish transmitter position or RF-link ground truth.
 
 ---
 
@@ -25,12 +31,19 @@ What it shows:
 - Gray segment: Ammo ascent before collector came online
 - Red dashed segment: 2h48m collector offline gap (09:36–12:24 EDT)
 - Summit pin at 1917m, 14:23 EDT
-- All 50 heard mesh nodes colored by RSSI; 24 have known GPS positions
+- The map input contains 50 decoded node IDs; the separately generated mesh catalog
+  contains 41 unique RF source IDs, 24 with GPS. These artifact/filter definitions
+  have not been reconciled, so neither count should be presented as the single
+  authoritative “nodes heard” total.
 - Animated HEAD marker that follows the Garmin track in real time (Play/Pause)
 - Rolling 30-min node counter
 - **"PROPOSED — Relay Infrastructure"** layer: three fixed relay nodes with link budget tables at each marker (click to open)
-- **"PROPOSED — Coverage if Deployed"** layer: full trail colored by predicted RSSI from nearest relay, showing the 2h48m gap would have continuous coverage
-- **AIRMap Overlay button** (green, bottom-right): toggles 138 pre-calibration prediction error dots colored by magnitude (green = accurate ±5 dB, orange/red/purple = overestimate, blue = underestimate)
+- **"PROPOSED — Coverage if Deployed"** layer: a historical FSPL screening
+  visualization. Its label/legend can imply continuous coverage, but the later ITM
+  analysis contradicts that conclusion; do not use the layer as evidence of coverage.
+- **AIRMap Overlay button** (green, bottom-right): toggles 138 historical joined
+  residual dots. They are not calibration-eligible and their “error/accuracy” color
+  labels must not be interpreted as model-performance evidence.
 
 **Layer controls** (bottom-right, above the animation panel): toggle any layer on/off.  
 **"The Proposal" button** (top-right): slide-out pitch panel with link budget math, automation chain, and cost breakdown.
@@ -41,14 +54,25 @@ What it shows:
 **`artifacts/coverage_prediction/trial1_report.pdf`**  
 **`artifacts/coverage_prediction/trial1_report.tex`** (source)
 
-A mathematically rigorous LaTeX report covering:
+The PDF was reproducibly rebuilt from the corrected TeX on 2026-07-13 using
+Tectonic 0.16.9. `trial1_report_manifest.json` binds SHA-256 hashes for the build
+script, TeX source, and PDF (PDF `1c491082…`; source `a6ea9480…`). The PDF,
+manifest, and build script remain untracked pending review/commit, so the tracked
+TeX source is authoritative in the current repository state. A reproducible build
+does not turn the historical inputs into field-validation evidence.
+
+A technical LaTeX report covering (with the historical FSPL proposal explicitly
+superseded by its later ITM section):
 - Log-distance path loss model (Bianco et al. 2021): PL(d) = PL(d₀) + 10n·log₁₀(d/d₀) + Xσ
 - Floating-intercept calibration: PL(d) = α + 10β·log₁₀(d) + Xσ
 - FSPL baseline: 32.44 + 20·log₁₀(d_km) + 20·log₁₀(915 MHz)
-- Link budget: TX 22 dBm + 2×2.15 dBi ANT − (−130 dBm RX sensitivity) = **156.3 dB**
+- Link budget assumption: 22 dBm conducted + 2.15 dBi TX antenna + 2.15 dBi
+  RX antenna − (−131 dBm receiver sensitivity) = **157.3 dB**. Transmitter
+  EIRP is **24.15 dBm**; the receive-antenna gain is a separate link term.
 - LoRa data rate equation and SNR margin
 - Effective Signal Power (ESP) combining RSS + SNR
-- AIRMap calibration results (Section 7) with the 4-panel figure embedded
+- AIRMap pipeline output and the reasons Trial 1 yields zero defensible calibration
+  results (Section 7); the embedded 4-panel figure is historical and non-citable
 - Timeline of events, relay node coordinates, proposed infrastructure math
 
 ---
@@ -56,13 +80,23 @@ A mathematically rigorous LaTeX report covering:
 ### AIRMap Calibration Pipeline Data
 **`artifacts/airmap/live_trial/`**
 
-Raw pipeline outputs from `scripts/airmap_live_trial.py`. The calibration pipeline is correctly implemented (FSPL baseline + residual bias fit) but **Trial 1 did not produce valid calibration measurements** due to three structural gaps:
+The files currently in this directory are **not a canonical Garmin-ground-truthed
+Trial 1 regeneration**. `provenance.json` records a 2026-07-07 run whose input is the
+`meshhikernode1` JSONL export and whose `head_gpx` is null; `quality_gates.json` records
+zero calibration-eligible rows. The directory README says regeneration with the HEAD
+telemetry and Garmin GPX is still required, so the README and presence of the later
+run outputs must not be interpreted as a completed Trial 1 evidence pack. The current
+code implements an FSPL baseline and gated calibration workflow, but **Trial 1 did not
+produce valid calibration measurements** due to three structural gaps:
 
 1. **No `hop_count` field** — Meshtastic logs RSSI of the last hop, not the original sender. Cannot filter to direct links without it.
 2. **Adjacent device forwarding** — `!db51af80` (co-located with HEAD) forwarded packets from distant NH/VT/ME nodes. HEAD logged those with the distant node's GPS coordinates but the adjacent device's RSSI (~0 m away). Distance–RSSI pairs are physically invalid.
 3. **No independently placed static node** — no controlled source-to-receiver link with GPS on both ends.
 
-These files are retained as raw data for the pipeline record. The calibration numbers (delta, RMSE, MAE) should not be cited as results.
+These files are retained as pipeline-run artifacts, not raw data. The displayed
+delta/RMSE/MAE values include ineligible rows and must not be cited as model results.
+Regenerate from hashed raw inputs plus the Garmin GPX and preserve a manifest before
+citing even descriptive counts.
 
 ---
 
@@ -75,7 +109,11 @@ These files are retained as raw data for the pipeline record. The calibration nu
 | `node_summary.json` | Per-node stats: RSSI, position, packet count, distance |
 | `catalog_summary.json` | 764 total RF observations, 41 unique source nodes, 24 with GPS |
 
-The catalog was built before the Garmin GPS integration — HEAD position uses the static reference point method. The `live_trial` parquet files above supersede this for calibration purposes, but the catalog is still the authoritative source for multi-node topology.
+The catalog was built before the Garmin GPS integration — HEAD position uses the static
+reference point method. The current `live_trial` artifacts do not supersede it with a
+valid calibration dataset, and the catalog's forwarded/far-field observations do not
+establish physical multi-node link topology. Treat it as a decoded-source inventory
+under its own filters.
 
 ---
 
@@ -105,7 +143,11 @@ Topography classes used throughout the pipeline: alpine_ridge (≥1500m), sub_al
 ### Schema Validation
 **`artifacts/reports/schema_validation_meshradiohead2.json`**
 
-64,462 total rows, 0 data-invalid, 3 parse errors (0.005%). All required fields present. Confirms the telemetry stream from meshradiohead2 is clean.
+The historical report counted 64,462 parsed rows and 3 parse errors (0.005%). This
+establishes parseability under the validator version used for that run, not that all
+records are scientifically usable: direct-hop identity, remote-transmitter geometry,
+and calibration-grade completeness were not available. Regenerate this result with
+the current strict validator before citing exact schema-pass counts.
 
 ---
 
@@ -119,16 +161,19 @@ Three fixed nodes at terrain breakpoints on the Ammo/Jewell trail system:
 | Jewell Trail Relay | 44.28376°N, 71.33583°W | 1199 m | ~~−77.9 dBm~~ | **−119 dBm (marginal)** | ~$120 |
 | Trailhead Gateway | 44.26700°N, 71.36083°W | 764 m | — (Starlink uplink) | relay→gateway links **strong** (−74 to −77 dBm, clear LOS) | ~$450 |
 
-Hardware: Heltec LoRa32 V3 + 5W solar + IP67 enclosure per relay. Gateway: Pi 4 + Heltec V3 + Starlink Mini. **Total hardware: ~$690 one-time.**
+Historical concept: Heltec LoRa32 V3 + 5W solar + IP67 enclosure per relay; Pi 4 +
+radio + Starlink Mini at the gateway. The **~$690** figure is an unquoted rough hardware
+subtotal that excludes mounting, power-system validation, weatherization details,
+service, permits, installation, and maintenance; it is not a deployment cost.
 
 ### ⚠ ITM terrain-profile verification (2026-06-12) reversed the screening model
 
-Longley-Rice ITM over real USGS 3DEP terrain (`scripts/itm_relay_links.py`,
-`artifacts/itm/`) shows the **summit cone is convex** — terrain rises up to 53 m above
-the direct ray from the Ammo relay — so the treeline-to-summit links the FSPL screen
-called "strong" are actually blocked, while the forested valley links it called weakest
-are clear-LOS and strong. Tested mitigations (10 m masts, Lakes of the Clouds siting,
-summit tower node) do not produce a robust single-hop summit link at 915 MHz.
+Longley-Rice ITM over a USGS 3DEP terrain artifact (`scripts/itm_relay_links.py`,
+`artifacts/itm/`) finds terrain up to 53 m above the modeled direct ray from the Ammo
+relay. Under the stated model inputs, the treeline-to-summit links the FSPL screen called
+"strong" are predicted blocked, while the valley links are predicted clear-LOS and
+strong. Modeled 10 m masts, Lakes of the Clouds siting, and a summit node do not produce
+a robust single-hop summit link. These are model comparisons, not observed link states.
 
 Collector-gap (Ammo Ravine) coverage, best-of-relays at ITM q90: **100% of sampled
 points above raw sensitivity, but only 45% above the −100 dBm planning threshold.**
@@ -136,20 +181,30 @@ points above raw sensitivity, but only 45% above the −100 dBm planning thresho
 place a beacon at the Ammo relay site and measure PDR from the ravine — the ~60 dB
 FSPL-vs-ITM disagreement is a directly measurable hypothesis.
 
-Full numbers: `artifacts/itm/relay_links_itm.csv`, `artifacts/itm/itm_summary.json`,
-airtime/capacity in `artifacts/itm/lora_airtime.json` (3-hop SOS ≈ 2.2 s serial
-airtime; ~22 summit nodes ≈ 20% channel load at default beacon rates).
+Full model outputs: `artifacts/itm/relay_links_itm.csv`,
+`artifacts/itm/itm_summary.json`; airtime/load estimates in
+`artifacts/itm/lora_airtime.json` (3-hop SOS ≈2.2 s serial airtime; ~22 nodes ≈20%
+raw channel demand at the assumed beacon rates, before validating actual protocol load).
 
 ---
 
 ## Known Limitations
 
-1. **Relay link predictions are screening estimates only** — the FSPL + elevation-class model has no line-of-sight test, Fresnel clearance, or diffraction. Each proposed link must be re-evaluated with ITM/Longley-Rice over real USGS 3DEP terrain (plus a viewshed analysis) before any deployment decision.
+1. **Relay link predictions are screening estimates only** — the original FSPL model
+   lacks terrain geometry; ITM adds modeled terrain diffraction but is still uncalibrated
+   here and omits/approximates important clutter and hardware effects. Require site
+   surveys and controlled PDR measurements before any deployment decision.
 2. **rsrp_dbm always null** — pipeline ran on rssi_dbm fallback throughout. rsrp_dbm is a cellular metric irrelevant to LoRa; this is expected.
-2. **Distant-node contamination** — 68% of records were matched at implausible distances (>50 km), driving up RMSE. These are Meshtastic packets from NH/VT/ME mesh users picked up over the air, not the local test network.
-3. **meshnode1 offline** — SD card hardware fault; single-node data only. Multi-hop analysis pending deployment.
-4. **Low GNSS fix rate** — 1.8% of records have GPS; most calibration points use HEAD position only, not source-to-head geometry.
-5. **No live weather feed** — weather stratification uses synthetic defaults.
+3. **Distant-node contamination** — 68% of historical matches were at implausible
+   apparent distances (>50 km), driving up an ineligible-row RMSE. Co-located forwarding
+   means original packet coordinates cannot be paired with the last-hop RSSI; they are
+   not direct long-distance link measurements.
+4. **meshnode1 offline** — the project records an SD-card fault; single-node data only.
+   Multi-hop analysis remains pending a controlled deployment.
+5. **Low GNSS fix rate** — the historical report gives 1.8% GPS completeness. Receiver-
+   only position does not create source-to-receiver link geometry.
+6. **No contemporaneous validated weather measurement** — any gridded/default weather
+   labels are covariates with their own provenance, not on-route station observations.
 
 ---
 

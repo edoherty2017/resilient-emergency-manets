@@ -6,65 +6,97 @@ June snow possible at altitude.
 
 ## 1. Why the Brenta is scientifically valuable (the pitch)
 
-1. **It removes the NH confound.** The Presidentials' propagation results mix terrain
-   diffraction with forest canopy loss. The Brenta route is almost entirely above
-   treeline on bare limestone — terrain-only propagation, the clean test of the
-   FSPL-vs-ITM disagreement found at Mt. Washington.
-2. **Direct literature comparability.** Bianco et al. (the path-loss exponents cited
-   throughout the project: n ≈ 2.0–3.5, σ ≈ 6–8 dB) measured LoRa SAR performance in
-   the Alps. Fitting the same floating-intercept model on Brenta data makes the study
-   directly comparable to its own reference literature.
-3. **Cross-site generalization.** Two sites (granite/schist + mixed forest vs. bare
-   limestone karst) turn "calibration of one mountain" into "does the calibrated
-   error model transfer across terrain types" — a much stronger thesis claim.
-4. **Nobody has nodes there.** Trento/Bolzano faculty confirmed no active relay
-   infrastructure in the Brenta. Every node left behind is the seed of the first
-   Meshtastic presence in the massif — a concrete collaboration hook (see §7).
+1. **It reduces one NH confound.** Much of the route is above treeline, so selected
+   segments can reduce canopy loss relative to the Presidentials. It is not a
+   “terrain-only” experiment: geology, surface moisture/snow, weather, antenna
+   orientation, human-body shadowing, siting, and hardware can still differ.
+2. **Structured literature comparison.** Bianco et al. measured LoRa SAR performance
+   in the Alps. Using the same model family permits comparison if frequency, link
+   geometry, censoring, and sampling differences are reported; it does not make the
+   datasets directly interchangeable.
+3. **A cross-site transfer check.** Two mountain areas can test whether a model fitted
+   at one site transfers to the other under the observed conditions. Two sites are
+   not enough to establish generalization across terrain types.
+4. **A concrete outreach opportunity.** The repository contains no citable evidence
+   that there is no active relay infrastructure in the Brenta, or that any proposed
+   node would be the first. Ask local contacts and hut/park authorities; describe the
+   infrastructure status as unknown until independently verified.
 
 ## 2. ⚠ REGULATORY — must be done before transmitting in Italy
 
-- **US 915 MHz (902–928) is illegal in Italy.** All nodes MUST be reconfigured to
-  Meshtastic region **EU_868** (869.525 MHz; ERC 70-03 sub-band 869.4–869.65 MHz,
-  up to 500 mW ERP, **10% duty cycle**). The Heltec V3's SX1262 covers this in
-  hardware; it is a settings change, not new radios.
+- Do not transmit using the US_915 plan in Italy. For the proposed license-exempt
+  operation, evaluate Meshtastic **EU_868** at 869.525 MHz against the current Italian
+  national implementation. CEPT ERC/REC 70-03 Annex 1 lists 869.4–869.65 MHz at up
+  to 500 mW ERP with a ≤10% duty-cycle or LBT+AFA condition, but the CEPT
+  recommendation is not itself proof of Italian authorization for this exact device.
+- The SX1262's tuning range only establishes that the silicon can generate the
+  frequency. Before use, obtain the exact Heltec model's EU declaration of conformity,
+  confirm its RED/EN 300 220 assessment covers the selected firmware, output power,
+  antenna, and operating mode, and confirm current Italian spectrum rules. A settings
+  change alone does not establish conformity.
 - Verify region on EVERY node before departure and pin `frequency_mhz: 869.525` in a
   `model-baseline-eu868.yaml` profile so artifacts carry the correct frequency.
-- Duty cycle check: a 40 B position beacon at SF11/BW250 is 559 ms airtime; at a
-  30 s cadence that is 1.9% — comfortably inside the 10% limit. Do not shorten the
-  cadence below ~10 s (5.6%).
-- Stock antennas are 915-tuned. Order 868 MHz antennas (SMA, ~$5 each) — a mistuned
-  antenna costs several dB on both ends and corrupts comparability with NH data.
-- Flying with lithium: 18650s and power banks in **carry-on** (≤100 Wh each, fine);
-  bare spares in individual pouches. No lithium in checked bags.
+- Airtime screen: the model estimates 559 ms for one 40 B position packet at
+  SF11/BW250, or 1.9% at a 30 s cadence. Compliance accounting must include **every
+  transmission by each device**—originated beacons, mesh rebroadcasts, acknowledgments,
+  telemetry, retries, and administrative traffic—and use measured/firmware-recorded
+  airtime. Disable uncontrolled ambient forwarding for the experiment and set a
+  conservative aggregate budget; do not infer compliance from beacon airtime alone.
+- Use an 868 MHz antenna that is both electrically suitable and permitted by the
+  device's conformity documentation; verify the resulting ERP. A different antenna
+  can affect both measurement comparability and the authorization basis.
+- Flying with lithium: verify each battery's marked Wh rating and the operating
+  airline's current rules immediately before travel. Spare cells and power banks must
+  remain in carry-on baggage, protected individually against damage and short circuit;
+  do not leave them in a gate-checked bag. Up to 100 Wh is the general passenger limit,
+  not an unconditional airline acceptance. Installed-device and quantity rules differ,
+  and 101–160 Wh normally requires operator approval. Do not carry damaged, swollen,
+  recalled, or unmarked packs.
 
-## 3. Pre-registered predictions (FROZEN — commit before travel)
+## 3. Prospective predictions (freeze before collecting data)
+
+These numbers are a model-generated prediction record, not observations. They become
+a defensible preregistration only after the exact artifact/config/code commit hashes,
+analysis rules, and amendment history are made immutable and recorded before the first
+measurement. A mutable heading or Git tag is not enough.
 
 ITM/Longley-Rice over Copernicus GLO-30 at 869.525 MHz
 (`scripts/brenta_itm_plan.py`, artifacts in `artifacts/itm/brenta_*`):
 
-| Link | Dist | ITM q90 | Verdict |
+| Link | Dist | ITM q90 | Model screen |
 |---|---|---|---|
-| Campiglio → Grostè | 5.96 km | −141 dBm | dead |
-| Grostè → Tuckett | 3.05 km | −146 dBm | dead |
-| Tuckett → Alimonta | 2.15 km | −175 dBm | dead |
-| Alimonta → Agostini | 3.91 km | −172 dBm | dead |
-| Agostini → Molveno | 7.27 km | −180 dBm | dead |
-| Grostè → Molveno | 9.42 km | −160 dBm | dead |
+| Campiglio → Grostè | 5.96 km | −141 dBm | below assumed −131 dBm sensitivity |
+| Grostè → Tuckett | 3.05 km | −146 dBm | below assumed −131 dBm sensitivity |
+| Tuckett → Alimonta | 2.15 km | −175 dBm | below assumed −131 dBm sensitivity |
+| Alimonta → Agostini | 3.91 km | −172 dBm | below assumed −131 dBm sensitivity |
+| Agostini → Molveno | 7.27 km | −180 dBm | below assumed −131 dBm sensitivity |
+| Grostè → Molveno | 9.42 km | −160 dBm | below assumed −131 dBm sensitivity |
 
-**ITM predicts ZERO hut-to-hut connectivity** — every rifugio sits in its own cirque
-behind 2,900–3,100 m towers (worst Fresnel obstructions −15 to −40, far deeper than
-anything at Mt. Washington). This is itself the pre-registered hypothesis:
+For these selected endpoints and stated assumptions, the ITM artifact places all six
+q90 received-power estimates below the project's assumed −131 dBm sensitivity. That
+is a conditional model screen, not proof of zero connectivity. The terrain description
+and Fresnel calculations are inputs/checks, not causal proof.
 
-- **H1 (falsification test):** any direct (hops_away = 0) packet received hut-to-hut
-  falsifies the ITM prediction by tens of dB — multipath/scatter off limestone walls
-  that the model cannot represent. Even a handful of such packets is a publishable
-  observation. Zero such packets = ITM validated in deep-NLOS karst.
-- **H2 (calibration sweep):** within each day's open cirque/valley, PDR and ESP vs.
-  distance from the morning's hut beacon follow log-distance decay with n and σ in
-  the Bianco et al. Alpine range. Each day is one complete, censoring-aware
-  link-death profile over bare rock.
-- The trek being radio-disconnected hut-to-hut does NOT hurt the experiment: the
-  deliverable is calibration data + model validation, not a working mesh.
+- **H1 (model-challenge test):** a sequence-authenticated, direct-link packet received
+  across a preregistered hut pair while both endpoints pass health/time/position gates
+  shows that the binary “below sensitivity” screen missed at least one reception under
+  those conditions. It does not falsify ITM generally or establish limestone scatter
+  as the cause. Report the observed ESP/RSSI, hardware calibration uncertainty, and
+  exact model residual.
+- **Non-detection interpretation:** zero received packets does not validate ITM. Given
+  N verified transmission opportunities, a healthy receiver, and a defensible
+  independent-Bernoulli model, the one-sided 95% Clopper–Pearson upper bound is
+  `1 - 0.05^(1/N)` (with `3/N` only as a clearly labelled approximation). When packets
+  are clustered within passes, use pass/block-aware uncertainty instead. If the
+  opportunity or receiver-health denominator is unknown, make no quantitative link
+  claim.
+- **H2 (calibration sweep):** within each day's open cirque/valley, estimate PDR and
+  ESP versus distance with censoring and within-walk dependence accounted for. Compare
+  with Bianco et al. descriptively unless protocols and parameter definitions are
+  demonstrably compatible. Do not call a sweep complete unless scheduled-opportunity,
+  receiver-health, GPS, and direct-link gates pass.
+- The intended deliverable is a model-comparison dataset, not a working mesh. It
+  becomes calibration-grade only if the preregistered data-quality gates pass.
 
 ## 4. Hardware kit (~2.5 kg total experiment weight)
 
@@ -89,17 +121,19 @@ Garmin at placement instead; saves ~30 mA).
 cadence 30 s recorded, hop fields confirmed in JSONL, clocks synced, head readiness
 script green. Freeze a final git commit.
 
-**Day 1 (Campiglio → Grostè → Tuckett):** at Passo Grostè (cable-car top), mount
-beacon #1 on a cairn/structure (~2 m), record Garmin waypoint + photo + antenna
-orientation. Hike path 316 to Tuckett with HEAD logging — this is sweep #1 (Grostè
-beacon receding 0→3 km over open karst). At Tuckett: warden conversation (§7),
-mount hut node #2 at a window/railing, on charger, waypoint + photo.
+**Day 1 (Campiglio → Grostè → Tuckett):** at Passo Grostè (cable-car top), place
+beacon #1 only at a pre-authorized location (~2 m), record Garmin waypoint + photo +
+antenna orientation, and retrieve it as agreed. Hike path 316 to Tuckett with HEAD
+logging — this is sweep #1 (Grostè beacon receding 0→3 km over open karst). At
+Tuckett, mount a hut node only if the responsible party has already authorized the
+specific window/railing, charging, duration, and retrieval plan.
 
 **Days 2–4 (Tuckett → Alimonta → Agostini → Molveno):** each morning, the previous
 night's hut node becomes the transmitter for that day's receding sweep; each evening,
-mount + charge the next hut node. Every day yields: one controlled distance sweep
-(known cadence → PDR), ambient mesh logging (expected: silence — that's H1 data),
-and a Garmin track. Nightly: sync JSONL to phone AND laptop (two copies), paper log:
+mount + charge the next hut node only under the written permission plan. A successful
+day can yield one controlled distance sweep (known cadence plus verified health gives
+a PDR denominator), preregistered direct-link observations/non-detections, and a Garmin
+track. Nightly: sync JSONL to phone AND laptop (two copies), paper log:
 weather tag per segment, placement details, any anomalies.
 
 **Field log discipline:** the NH lesson — record weather_tag manually per segment,
@@ -109,48 +143,53 @@ best terrain).
 
 ## 6. Leave-behind & retrieval (ranked)
 
-1. **Best: huts keep the nodes running.** Ask each warden to keep the node mounted
-   and powered (it draws less than a phone charger). Each rifugio becomes a
-   persistent node — the first Meshtastic infrastructure in the Brenta, and a
-   long-duration ambient dataset if any future hiker carries a node through. Leave
-   the laminated card + a contact sheet. Cost if never recovered: ~$40/node — budget
-   them as consumables from the start.
+1. **Only with explicit authorization: huts host nodes temporarily.** Obtain written
+   hut/land-manager permission, an agreed end date, placement constraints, a responsible
+   local contact, and a retrieval/data plan before leaving any powered transmitter.
+   Do not call it persistent or first-of-kind infrastructure. Budget loss only after
+   the owner and land manager have accepted the arrangement.
 2. **Collection during the July Bolzano visit.** The planned EURAC outreach trip
    (Bianco / Mejia-Aguilar) is ~2 h from the Brenta valley towns. A meeting that
    includes "collect the nodes, share the dataset" is a much stronger first
    collaboration than a cold intro — you arrive with Alpine LoRa data measured in
    their backyard against their published models.
-3. **Mail-back WITHOUT batteries.** International post refuses/restricts loose
-   lithium. If a hut mails a node back: batteries stay (gift them), bare Heltec ships
-   fine in a padded envelope. Pre-pay/arrange this at check-in, leave a labeled
-   envelope.
-4. Do NOT cache nodes in the wild: the route crosses Parco Naturale Adamello Brenta;
-   unattended equipment off-structure needs park permission you don't have. Hut
-   placements with warden consent avoid the issue entirely.
+3. **Return shipping only under a checked carrier plan.** Postal/courier rules for
+   lithium batteries and electronic equipment vary by service, country, packaging,
+   and battery state. Do not improvise an international shipment or assume a bare
+   board is automatically accepted. Arrange compliant local disposition or a carrier-
+   approved return plan in advance.
+4. Do NOT cache nodes in the wild: the route crosses Parco Naturale Adamello Brenta.
+   A hut warden's consent may not substitute for the property owner's, park's, or radio
+   authority's permission; verify the required approvals for both on- and off-structure
+   placements.
 
-Email the huts ahead (via the booking provider or hut sites) asking permission for a
-"small, silent, battery-powered scientific radio logger (~80 g)" — wardens say yes
-far more often when asked in advance, and a reply email is your written permission.
+Email the huts ahead (via the booking provider or hut sites) with the device's radio
+operation, power source, mounting, dates, contact, retrieval, and data-handling details.
+A reply is useful evidence only if it clearly authorizes those specific activities;
+confirm whether park or property-owner permission is also required.
 
 ## 7. Collaboration angle (do this before the trek)
 
-Write the Trento/Bolzano contacts a short note: "I'm hiking the Brenta on [dates],
-running a calibrated LoRa propagation experiment (pre-registered ITM predictions
-attached); there is currently no Meshtastic infrastructure in the massif — I'll be
-leaving powered nodes at Tuckett/Alimonta/Agostini with warden consent. Interested
-in the dataset, or in adopting the nodes afterward?" Attach the pre-registered link
-table. Even professors with no active nodes will engage with a concrete dataset
-offer — and someone may volunteer to collect the hardware.
+Write the Trento/Bolzano contacts a short note: "I'm hiking the Brenta on [dates] and
+planning a controlled LoRa propagation experiment (prospective ITM predictions
+attached). I have not verified the current Meshtastic infrastructure status and will
+leave no equipment without the relevant written approvals. Would the resulting
+dataset be useful, and would you be willing to advise on local radio/placement
+requirements?" Attach the prospective link table. Do not imply prior confirmation,
+interest, or hardware support until a contact replies.
 
-## 8. Analysis plan (pre-committed)
+## 8. Prospective analysis plan (freeze required before collection)
 
-Identical pipeline, no new methodology: `airmap_live_trial.py
+Planned pipeline: `airmap_live_trial.py
 --require-calibration-grade` with the EU868 config profile; PDR via
 `pdr_analysis.py` (beacon cadence known by design); ESP floating-intercept fit per
 day-segment with blocked CV + bootstrap CIs; compare n̂/σ̂ against NH Trial 2 and
-Bianco et al.; H1 falsification check = count of hops_away=0 packets across any
-hut-to-hut pair. Copernicus DSM caveat: it includes canopy below treeline (only the
-Molveno descent), which biases ITM conservative there — note it, don't correct it.
+Bianco et al. only after checking parameter compatibility; H1 model-challenge count =
+sequence-authenticated direct-link packets across preregistered hut pairs, with exact
+opportunity denominators and receiver-health windows. Treat packets within a walk as
+dependent and define the block/bootstrap unit before collection. Copernicus DSM caveat:
+it includes canopy below treeline (only the Molveno descent), which may alter the ITM
+estimate there; report the limitation rather than assuming the direction or correcting it.
 
 ## 9. Pre-departure checklist
 
@@ -160,9 +199,21 @@ Molveno descent), which biases ITM conservative there — note it, don't correct
 - [ ] Beacon cadence set + recorded (30 s); GPS off on static beacons
 - [ ] Bench battery test: ≥4 days on 10 Ah bank confirmed
 - [ ] Hop fields (`hop_limit`/`hop_start`) present in collector JSONL
-- [ ] Pre-registered predictions committed (`artifacts/itm/brenta_*`) — git tag `brenta-prereg`
-- [ ] Hut permission emails sent (Tuckett, Alimonta, Agostini)
-- [ ] Trento/Bolzano contacts emailed with prereg table (§7)
+- [ ] Prediction/config/code artifact hashes and amendment record frozen before data;
+      immutable commit identifier recorded in the field log (a movable tag alone is insufficient)
+- [ ] Exact-device EU declaration of conformity and Italian SRD rules checked; antenna,
+      firmware, output power, and aggregate-airtime basis recorded
+- [ ] Hut/land-manager permission replies saved (Tuckett, Alimonta, Agostini)
+- [ ] Trento/Bolzano contacts emailed with prospective prediction table (§7)
 - [ ] Laminated node cards printed (IT/EN, contact info, QR)
 - [ ] Lithium in carry-on; EU plug adapter; readiness script on phone/laptop
 - [ ] Travel insurance covers via ferrata; crampons decision per June snow report
+
+## 10. Regulatory sources to verify immediately before departure
+
+- [CEPT ERC/REC 70-03 record and current annexes](https://docdb.cept.org/document/845)
+- [EFIS Annex 1 non-specific SRD parameters](https://efis.cept.org/adhoc_grabber.jsp?annex=4)
+- [EU Radio Equipment Directive 2014/53/EU](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32014L0053)
+- [Italian Ministry — radio equipment / RED](https://www.mimit.gov.it/it/comunicazioni/radio/apparati-radio)
+- [FAA PackSafe — airline passengers and batteries](https://www.faa.gov/hazmat/packsafe/resources/airline-passengers-batteries)
+- [IATA — passenger baggage rules](https://www.iata.org/en/programs/ops-infra/baggage/passenger-baggage-rules/)

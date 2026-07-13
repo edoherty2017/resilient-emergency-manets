@@ -4,10 +4,11 @@ Target: 10–15 page technical report (directed-study deliverable #4). Each sect
 lists its evidence source so the report is assembled from artifacts, not memory.
 
 ## 1. Executive Summary
-- One-paragraph thesis: in terrain where cellular/satellite fail, a terrestrial
-  LoRa mesh holds service-layer availability — quantified, with the limits stated.
-- Headline numbers: per-class path-loss exponent n̂ (±CI), held-out RMSE of ITM vs
-  FSPL, the Infrastructure Failure Matrix bottom line.
+- One-paragraph research question: under the sampled terrain and protocol, does a
+  terrestrial LoRa mesh add service-layer availability when cellular or satellite
+  service is unavailable? State the answer only if eligible observations support it.
+- Headline numbers only after gates pass: per-class path-loss exponent n̂ (±CI),
+  held-out RMSE of ITM vs FSPL, and the Infrastructure Failure Matrix denominator.
 
 ## 2. Background & Motivation
 - The "infrastructure gap" in topographically extreme terrain.
@@ -20,14 +21,16 @@ lists its evidence source so the report is assembled from artifacts, not memory.
 - Propagation models compared: FSPL baseline vs Longley-Rice ITM over real DEM.
   Source: `config/airmap/model-baseline.yaml`, `scripts/itm_relay_links.py`.
 - Statistics: ESP observable, floating-intercept fit, blocked CV, moving-block
-  bootstrap, Wilson intervals. Source: `scripts/airmap_live_trial.py`, `tests/`.
+  bootstrap, and pass/block-aware PDR uncertainty. Packet-level Wilson intervals
+  are descriptive only when independence is defensible. Source:
+  `scripts/airmap_live_trial.py`, `tests/`.
 
 ## 4. Trial Design
 - Trial 1 (Mt. Washington): systems shakedown — what it established and the three
   structural gaps it exposed. Source: `artifacts/coverage_prediction/trial1_report.*`.
-- Trial 2 (pre-registered): controlled beacon, PDR, hop filtering. Source: report §
+- Trial 2 (prospective pack; freeze required): controlled beacon, PDR, hop filtering. Source: report §
   "Plans Going Forward".
-- Brenta extension (bare-rock, canopy-free cross-site test). Source:
+- Brenta extension (reduced-canopy, cross-site transfer test; residual confounds). Source:
   `docs/brenta-trial-plan.md`, `artifacts/itm/brenta_*`.
 
 ## 5. Predictive Model Setup
@@ -68,10 +71,11 @@ lists its evidence source so the report is assembled from artifacts, not memory.
   machine-readable record never diverge. Source: `artifacts/release/evidence_index.json`.
 
 ## 12. Conclusions & Next Steps
-- What is proven, what is pre-registered, what needs Trial 2.
-- Regulatory and deployment open items (FCC Part 15, winter survivability).
+- What the eligible evidence supports, what was frozen before collection, and what
+  remains unresolved.
+- Exact-device regulatory/authorization and deployment open items, plus winter survivability.
 
 ---
-**Assembly note:** every figure/number cites an artifact path. Regenerate the
-evidence bundle (`p6_integrated_run.py` + `build_evidence_index.py`) before writing
-so all cited values are current and provenance-stamped.
+**Assembly note:** an artifact path is not proof. Regenerate the evidence bundle
+(`p6_integrated_run.py` + `build_evidence_index.py`) from immutable inputs, require
+all eligibility/provenance gates, and independently check each figure and denominator.

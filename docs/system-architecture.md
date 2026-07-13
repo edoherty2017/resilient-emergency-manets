@@ -6,6 +6,11 @@ the MANET RF acquisition platform. Software pipeline internals live in the
 top-level `CLAUDE.md`; this document covers the physical and systems-engineering
 layer the proposal requires.
 
+> **Evidence status (2026-07-13):** this is an intended architecture plus historical
+> observations, not a certification that every runtime behavior, power value, EMI
+> mitigation, or regulatory condition has been verified. Bench and field claims below
+> must be tied to measurements before deployment.
+
 ## 1. Overview
 
 The platform measures LoRa mesh propagation and cross-technology connectivity in
@@ -67,8 +72,9 @@ real risks for a Pi + LoRa + Starlink stack carried in a pack.
   radiate in very different bands (915 MHz vs ~10–12 GHz Ku) so co-channel
   interference is not the concern; the concern is **broadband switching noise**
   from the Pi and the Starlink PoE injector desensitizing the LoRa front end.
-  Mitigation: keep the LoRa antenna ≥0.5 m from the Pi and the Starlink router,
-  and orient the whip vertically clear of the pack frame.
+  Candidate mitigation: start with the LoRa antenna ≥0.5 m from the Pi and Starlink
+  router and orient it vertically clear of the pack frame, then verify by an A/B
+  receiver-desense/noise-floor test; 0.5 m is not a measured project limit.
 - **Conducted noise.** Shared USB power rails couple switching noise into the
   radio. Mitigation: power the Heltec from a separate battery bank or a filtered
   rail (ferrite bead on the USB lead); never power the radio off the same buck
@@ -81,7 +87,7 @@ real risks for a Pi + LoRa + Starlink stack carried in a pack.
 
 ### 5.2 Power management
 
-- **Budget (HEAD).** Pi 4 idle ~2.7 W, under collection load ~4–5 W; Heltec RX-on
+- **Planning budget (HEAD; bench verification required).** Pi 4 idle ~2.7 W, under collection load ~4–5 W; Heltec RX-on
   ~0.4 W; Starlink Mini ~20–40 W (dominant). The LoRa collection chain alone runs
   many hours off a 10 Ah USB bank; Starlink is the power sink and is duty-cycled
   to scheduled uplink windows rather than left on.
@@ -89,18 +95,18 @@ real risks for a Pi + LoRa + Starlink stack carried in a pack.
   Mitigations: a battery bank that passes through while charging (no switchover
   gap), and append-only writes with per-line flush so an abrupt loss truncates at
   most one line.
-- **Beacon node.** Static beacons run RX/TX only with GPS disabled (position is
-  surveyed once), cutting ~30 mA; a 10 Ah bank + small solar sustains a multi-day
-  leave-behind (see `docs/brenta-trial-plan.md`).
-- **Thermal.** Cold (−10 to −30 °C alpine) derates lithium capacity sharply;
-  the power budget assumes ~70% of rated Wh and keeps banks against the body in
-  winter conditions.
+- **Beacon node hypothesis.** Static beacons can disable GPS after survey, but the
+  board-level current reduction, 10 Ah runtime, and small-solar multi-day endurance
+  have not been bench established (see `docs/brenta-trial-plan.md`).
+- **Thermal.** Cold conditions derate lithium capacity. The current 70%-of-rated-Wh
+  factor is a planning assumption, not a tested cell/pack curve; verify the exact
+  bank's discharge and charging limits at the intended temperatures.
 
 ## 6. Failure modes and mitigations
 
 | Failure | Observed / risk | Mitigation |
 |---|---|---|
-| Silent collector death | Trial 1: Meshtastic serial reconnect loop, 2h48m gap, no exception | `head_readiness_report.py` pre-departure gate; watchdog on JSONL write timestamp; periodic heartbeat line |
+| Silent collector death | Trial 1: 2h48m gap in the software/serial capture path; hardware/USB causes were not ruled out | `head_readiness_report.py` pre-departure gate; watchdog on JSONL write timestamp; periodic heartbeat line |
 | GPS not paired before departure | Trial 1 Issue 2: no HEAD position in mesh | Pre-departure checklist verifies `lat`/`lon` updating in JSONL before leaving |
 | No hop ground truth | Trial 1: could not separate direct vs relayed packets | Collector now logs `hop_limit`/`hop_start`; calibration gates on `hops_away == 0` |
 | Adjacent-device contamination | Trial 1: co-located forwarder injected far-field packets with hot RSSI | Eligibility gate drops RSSI > −20 dBm and non-direct links; blacklist co-located IDs |
@@ -110,10 +116,12 @@ real risks for a Pi + LoRa + Starlink stack carried in a pack.
 
 ## 7. Regulatory
 
-- **US trials:** 915 MHz ISM, FCC Part 15. The compliance basis for Meshtastic's
-  single-channel LoRa (vs §15.247 FHSS assumptions) is an open documentation item
-  (review P4 item 19) and must be resolved before any fixed-infrastructure
-  proposal to a state agency.
-- **EU / Italy trials (Brenta):** US 915 MHz is illegal; nodes must run Meshtastic
-  region EU_868 (869.525 MHz, ERC 70-03, 10% duty cycle) with 868-tuned antennas.
+- **US trials:** operation near 915 MHz is not automatically lawful under Part 15.
+  Before transmitting, tie the exact device/FCC grant, firmware, bandwidth, power,
+  antenna/integration and emissions evidence to a documented Part 15, Part 97, or
+  Part 5 basis. See `docs/fcc-part15-compliance-memo.md`.
+- **EU / Italy trials (Brenta):** do not use the US_915 profile. Selecting EU_868
+  and an 868 MHz antenna still does not establish authorization: verify the exact
+  device's EU declaration of conformity/RED scope, Italian implementation,
+  frequency, ERP, aggregate airtime (including retries/relays), and permissions.
   See `docs/brenta-trial-plan.md`.

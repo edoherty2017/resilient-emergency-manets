@@ -7,19 +7,29 @@ This anchor was pruned to active, execution-critical items only.
 ## [P1] Data contract + validation gates (must stay green)
 - [x] Canonical telemetry schema and validator CLI exist.
 - [x] Validation pack and gate report template exist.
-- [x] Run fresh cross-repo validation evidence pack against current head/node outputs. → `python3 ops/run_validation_pack.py` (SSHes to both nodes; or `--ingest-root` for local rsync'd copy) — meshradiohead2 PASS (64001 rows, 0 invalid) 2026-05-20; meshnode1 offline (being reflashed). Two validator fixes applied: int-valued floats now accepted for INT_FIELDS; battery_pct range widened to 101 (Meshtastic external-power sentinel).
+- [x] Run cross-repo *schema* validation against the May 20 head/node outputs.
+      Historical result: meshradiohead2 parsed 64,001 rows with 0 schema
+      violations; meshnode1 was offline. This establishes parseability only,
+      not measurement validity, calibration eligibility, or end-to-end service.
+      The current strict validator must be rerun on any release candidate.
 - [x] Fail builds/reports on schema or provenance violations. p6_integrated_run.py now gates on schema validation before running pipeline; exits 1 on any invalid records.
 
 ## [P2] Inference/evaluation pipeline hardening
 - [x] AIRMap dry/live scripts exist.
 - [x] Sentinel/quantifier/weather-guard scripts exist.
 - [x] Confirm these scripts are wired to current runtime field names and null semantics — verified 2026-05-20; fixed hardcoded head_path, satellite_link_status alias, portnum parquet coercion.
-- [x] Produce reproducible integrated dry-run artifact bundle from current data. — p6_integrated_run.py PASS 2026-05-20; overall_ok=true, all 9 gates green, 45 artifacts in artifacts/release/p6_artifact_index.json.
+- [x] Produce the historical integrated dry-run artifact bundle. The May 20
+      `overall_ok=true` result showed that the pipeline executed, but predates
+      the Trial 1 eligibility findings below and is not a scientific-validation
+      pass. Rebuild the release index before citing any artifact count.
 
 ## [P3] Coverage overlay + comparative outputs
 - [x] Overlay MVP artifacts exist.
 - [x] Extend pipeline to include cellular + satellite + mesh overlap timelines from real runtime exports. — satellite_link_status_starlink aliased in overlay; SATELLITE coverage_mode live 2026-05-20.
-- [x] Emit operator-facing pass/fail summary for coverage-transition windows (`IP_FULL`, `IP_DEGRADED`, `MESH_ONLY`). — transition_window_summary.json emitted; connectivity_events.jsonl merged via merge_asof; MESH_ONLY window: 87.1% covered (106 SATELLITE + 16 MESH / 140 rows).
+- [x] Emit a diagnostic summary for coverage-transition windows (`IP_FULL`,
+      `IP_DEGRADED`, `MESH_ONLY`). The historical 87.1% MESH_ONLY number is a
+      pipeline-output diagnostic, not independently validated service
+      availability; regenerate it with explicit observed/imputed modes before use.
 
 ## [P4] Cellular telemetry program integration
 **Methodology note (2026-05-24):** The comparison metric between LoRa mesh and cellular is
@@ -58,11 +68,16 @@ No M.2 modem or additional HAT required.
 - [x] P2 item 12: ITM/Longley-Rice link verification (`scripts/itm_relay_links.py`) — reversed the
       FSPL screen; summit links blocked by convex cone, gateway links strong, gap coverage marginal.
 - [x] Airtime/SOS capacity analysis (`scripts/lora_airtime.py`).
-- [x] ITM wired as per-row predictor in airmap_live_trial.py (--predictor itm); blocked CV now
-      ranks FSPL vs floating-intercept vs ITM. Verified on terrain fixture (ITM 9.8 dB vs FSPL 51 dB held-out RMSE).
+- [x] ITM wired as per-row predictor in airmap_live_trial.py (`--predictor itm`);
+      blocked CV ranks FSPL vs floating-intercept vs ITM. The 9.8 dB vs 51 dB
+      comparison is from a synthetic terrain fixture and tests implementation
+      behavior; it is not field-model validation.
 - [x] Dataset release builder (`build_dataset_release.py`): versioned CSV/JSONL + data dictionary + hashes (deliverable #2 packaging).
 - [x] Digital-twin calibration file emitter (`build_calibration_file.py`): n per terrain class + bootstrap CIs (deliverable #3).
-- [x] Real weather feed (`weather_enrich.py`, Open-Meteo archive) replaces synthetic weather_tag; weather_guard no longer clobbers per-row tags.
+- [x] Pinned reanalysis enrichment (`weather_enrich.py`, explicit Open-Meteo
+      model + response provenance) replaces synthetic weather tags when no
+      field weather log is available. Reanalysis must not be labelled measured
+      or site-observed weather.
 - [x] Cellular service-layer leg (`cellular_ping_collector.py` + `merge_cellular_into_telemetry.py`) — Mesh-vs-World 3rd leg (collectors built; field data pending).
 - [x] Deliverable #4 figures: `build_coverage_heatmap.py` (ITM predicted-vs-actual) + `build_failure_matrix.py` (technology×terrain availability).
 - [x] Unit tests for new statistics (`tests/test_statistics.py`, 12 tests); system-architecture.md + mesh-vs-world outline filled.

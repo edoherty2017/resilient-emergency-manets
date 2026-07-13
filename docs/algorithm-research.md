@@ -1,14 +1,17 @@
 # Algorithm Research Survey — battery, SOS, and capacity levers
 
-**Motivating result (year runs, G3):** with always-listening routers, transmit
-energy is 0.06% of the fleet budget; every routing algorithm produced identical
-survival (28,632 deaths/yr). Therefore: *anything that claims to optimize
-battery must attack idle listening or it is theater.* This survey is organized
-around that fact. A second, subtler fact from the datasheets: the SX1262 radio
-itself receives at only ~4.6 mA — our 68 mA listen figure is dominated by the
-**ESP32 host staying awake**. The real deployment lever is host sleep with
-radio-autonomous wake (nRF52-class Meshtastic hardware sleeps at ~2 mA;
-[SITE-SURVEY/BENCH]).
+> **Evidence status (2026-07-13):** This is a design survey, not a validated result.
+> The motivating simulator values (0.06%, 28,632 deaths/year, 37 lost SOS, and all
+> downstream effect sizes) came from superseded runs. The source shorthand at the end
+> is not a publication-quality bibliography; resolve every numeric literature claim
+> to a primary source before using it in a report.
+
+**Motivating hypothesis:** the historical runs suggested that idle listening may
+dominate transmitter energy, but the magnitude requires corrected runs and board-level
+bench measurement. Semtech specifies about 4.6 mA active RX for the SX1262 IC under
+specified conditions; that is not the consumption of a Heltec board or proof that its
+ESP32 accounts for the full difference. Host/radio sleep remains a design candidate,
+with all board-level currents marked [BENCH-CALIBRATE].
 
 ## Family 1 — Duty-cycled MAC (the battery lever)
 
@@ -18,12 +21,12 @@ radio-autonomous wake (nRF52-class Meshtastic hardware sleeps at ~2 mA;
 | **B-MAC / preamble sampling** | receivers sniff periodically; senders send long preamble | asynchronous, no sync needed | long preamble burns sender + channel |
 | **X-MAC / ContikiMAC** | *strobed* preamble + early-ACK cuts preamble in half on average | best-of-class async LPL; ContikiMAC hits <1% duty | per-hop wake latency (~T_sniff/2·hops) |
 | **WiseMAC** | learns neighbors' sniff phase, starts preamble just-in-time | near-optimal preamble cost | state per neighbor; drift |
-| **LoRa CAD sniffing** (AN1200.85; LoRa-DuCy; MDPI preamble-sampling multi-hop 2023; JMAC) | SX126x Channel Activity Detection = a few ms sniff, radio wakes host on hit | LoRa-native X-MAC; CAD costs ~ms of RX per second → % duty | SF11 CAD windows are long; strobes lengthen airtime → more collisions |
-| **TDMA / On-demand TDMA** | scheduled slots (GPS gives us free time-sync!) | zero idle listening in theory | schedule maintenance; hikers are unscheduled |
+| **LoRa CAD sniffing** (Semtech AN1200.48; LoRa-DuCy; MDPI preamble-sampling multi-hop 2023; JMAC) | SX126x Channel Activity Detection = a few ms sniff, radio wakes host on hit | LoRa-native X-MAC; CAD costs ~ms of RX per second → % duty | SF11 CAD windows are long; strobes lengthen airtime → more collisions |
+| **TDMA / On-demand TDMA** | scheduled slots (GPS can provide time to equipped nodes) | near-zero idle listening in an ideal schedule | GPS/clock energy and sky view; schedule maintenance; hikers are unscheduled |
 | **Wake-up radio (WuR)** | separate ~3 µW receiver (−83 dBm @ 868 MHz demonstrated) triggers main radio | 99.9%+ idle reduction, ms latency | extra hardware; −83 dBm sensitivity ≪ −131 (range gap) |
 | **LEACH / HEED role rotation** | rotate which nodes serve as always-on relays; rest sleep | marries fairness (our lb_energy) to the actual lever | cluster churn; coverage holes if rotation too aggressive |
 
-**Chosen implementations** (sim modes, all year-runnable):
+**Implemented simulation designs** (correctness/results require the post-audit suite):
 - `duty_sync` — X-MAC-style preamble sampling network-wide: every fixed
   non-gateway node at duty *d*=5% (CAD sniff each second); every transmission
   pays a strobe of mean T_sniff/2 (longer airtime → honest collision/latency
@@ -37,7 +40,8 @@ radio-autonomous wake (nRF52-class Meshtastic hardware sleeps at ~2 mA;
   penalty rotates the tree hourly, so relay *roles* rotate — drain equalizes
   via who-sleeps, not who-forwards.
 
-**Pre-registered expectations:** duty modes cut fleet listen energy 4–15×
+**Historical design expectations (not a preregistration):** duty modes were expected
+to cut fleet listen energy 4–15×
 (bounded below by the 12 mA sleep floor of ESP32 [BENCH-CALIBRATE; nRF52
 ~2 mA would triple the gain]); winter deaths drop dramatically; November–
 February SOS availability becomes the discriminating metric; PDR dips a few
@@ -53,9 +57,10 @@ points from strobe collisions; per-hop latency +~0.5 s.
 | store-carry-forward (DTN: epidemic / spray-and-wait / PRoPHET) | any met node carries the SOS | future: hiker↔hiker custody in partitions |
 | gateway anycast (implemented) | any of 55 gateways completes delivery | — |
 
-**Chosen:** `--sos-retry` (ACK + retry, layered on every mode). The pilot year
-lost 37/365 SOS — all during winter outages; retry-until-ACK should recover
-most, because outages are intermittent and hikers move.
+**Implemented candidate:** `--sos-retry` (ACK + retry, layered on every mode). A
+superseded pilot run reported 37/365 lost SOS; it cannot establish the rate, seasonality,
+or recovery benefit. Evaluate retry delivery, delay, duplicate handling, custody, and
+energy on the corrected simulator and controlled hardware.
 
 ## Family 3 — Capacity (the flood/scale lever)
 
@@ -68,10 +73,12 @@ most, because outages are intermittent and hikers move.
 - Wake-up radio: hardware, not algorithm — goes in the Phase-3 BOM discussion.
 - PRoPHET/full DTN: needs multi-day hiker encounter patterns our rental model
   doesn't yet generate honestly.
-- Reinforcement-learning routing: the G3 result says the reward surface for
-  routing-energy is flat; RL belongs on the duty-cycle scheduler later.
+- Reinforcement-learning routing was not implemented at the time of this survey; it was
+  added later for exploratory runs. The old G3 result cannot establish a flat reward
+  surface, and the new RL outputs are not yet validated.
 
-Sources: Semtech AN1200.85 (CAD), RAKwireless CAD note, SX1262 datasheet
+Source leads (incomplete; verify editions and replace shorthand with full citations):
+Semtech AN1200.48 (SX126x CAD), RAKwireless CAD note, SX1262 datasheet
 (4.6 mA RX), Buettner et al. X-MAC, Dunkels ContikiMAC, El-Hoiydi WiseMAC,
 Ye et al. S-MAC, Heinzelman et al. LEACH, JMAC (arXiv 2312.08387), LoRa-DuCy,
 MDPI Sensors 23(11):4994 preamble-sampling LoRa multi-hop, Oller et al.

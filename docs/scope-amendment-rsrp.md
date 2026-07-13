@@ -16,8 +16,9 @@ meaningful (different bandwidths, reference definitions, and link margins).
 ## Proposed substitution (preserves the deliverable's intent)
 1. **ESP (Effective Signal Power)** per packet on the LoRa side:
    `ESP = RSSI + SNR − 10·log₁₀(1 + 10^(SNR/10))` — the standard LoRa
-   metric that removes the noise-floor contribution from RSSI, giving the
-   correct analogue of a reference-signal power for path-loss fitting.
+   signal-power estimate used when SNR is negative. It is useful for path-loss
+   fitting but is not an LTE/5G RSRP measurement or a standardized cross-radio
+   analogue; retain RSSI, SNR, bandwidth/configuration, and censoring metadata.
 2. **Service-layer availability** for the cellular comparison: timestamped
    reachability probes (ICMP/HTTP over the cellular modem) recorded by the
    existing `cellular_ping_collector.py`, merged per-position — i.e., "was
@@ -30,8 +31,10 @@ meaningful (different bandwidths, reference definitions, and link margins).
 - Dataset schema: `rsrp` column replaced by `esp_dbm` (mesh) +
   `cell_available` / `cell_rtt_ms` (service layer), `modem_rsrp_dbm`
   (optional, modem-sourced).
-- The "Mesh vs. the World" comparison becomes availability-vs-availability
-  — like-for-like — rather than power-vs-power across incompatible metrics.
+- The "Mesh vs. the World" comparison becomes service-availability versus
+  service-availability rather than power versus power across incompatible metrics.
+  It is still not automatically like-for-like: probe cadence, traffic, endpoint,
+  timeout, device state, obstruction, and missingness must be controlled/reported.
 - No change to point-count target (≥2,500), topographies (3), or KPIs.
 
 ## Sign-off
