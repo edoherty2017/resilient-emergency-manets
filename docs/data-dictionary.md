@@ -43,7 +43,7 @@ own Meshtastic identity.
 | `satellite_up_mbps` | float | 0..10000 Mbps | Mean reported uplink throughput |
 | `satellite_packet_loss_pct` | float | 0..100 | Mean per-sample Starlink drop fraction × 100 |
 | `satellite_obstruction_pct` | float | 0..100 | Mean reported obstruction fraction × 100 |
-| `satellite_outage_seconds` | float | 0..86400 s | Observed outage seconds in the aggregation window |
+| `satellite_outage_seconds` | float | 0..86400 s | Bounded estimate from full-drop history samples or explicit disconnected poll states; history batches can overlap, so this is not an independently timed outage duration |
 | `weather_tag` | string | enum-ish | Weather state tag for risk stratification |
 
 ## Parser integrity fields (Priority 1)

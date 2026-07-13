@@ -3,6 +3,7 @@ import argparse
 import html
 import json
 import math
+import numbers
 import os
 import re
 import tempfile
@@ -82,15 +83,33 @@ def load_residuals(live_trial_dir: Path) -> pd.DataFrame:
     missing = required - set(pred.columns)
     if missing:
         raise ValueError(f"residual artifact missing columns: {sorted(missing)}")
-    parsed_ts = pd.to_datetime(pred["timestamp_utc"], utc=True, errors="coerce")
-    if parsed_ts.isna().any():
-        raise ValueError("residual artifact contains invalid timestamps")
+    def canonical_utc(value) -> bool:
+        if isinstance(value, str):
+            if not (value.endswith("Z") or value.endswith("+00:00")):
+                return False
+        try:
+            timestamp = pd.Timestamp(value)
+            return (
+                not pd.isna(timestamp)
+                and timestamp.tzinfo is not None
+                and timestamp.utcoffset().total_seconds() == 0
+            )
+        except Exception:
+            return False
+
+    if not pred["timestamp_utc"].map(canonical_utc).all():
+        raise ValueError("residual artifact contains invalid/non-UTC timestamps")
+    parsed_ts = pd.to_datetime(pred["timestamp_utc"], utc=True, errors="raise")
     pred["timestamp_utc"] = parsed_ts
     if "obs_metric_dbm" in pred.columns and "pred_rssi_dbm" in pred.columns:
         observed = pd.to_numeric(pred["obs_metric_dbm"], errors="coerce")
         predicted = pd.to_numeric(pred["pred_rssi_dbm"], errors="coerce")
-        invalid_observed = pred["obs_metric_dbm"].notna() & observed.isna()
-        invalid_predicted = pred["pred_rssi_dbm"].notna() & predicted.isna()
+        invalid_observed = pred["obs_metric_dbm"].notna() & ~pred["obs_metric_dbm"].map(
+            lambda value: isinstance(value, numbers.Real) and not isinstance(value, bool)
+        )
+        invalid_predicted = pred["pred_rssi_dbm"].notna() & ~pred["pred_rssi_dbm"].map(
+            lambda value: isinstance(value, numbers.Real) and not isinstance(value, bool)
+        )
         if (
             invalid_observed.any()
             or invalid_predicted.any()
@@ -129,7 +148,9 @@ def strict_numeric_column(
         return pd.Series(float("nan"), index=df.index, dtype=float)
     original = df[field]
     converted = pd.to_numeric(original, errors="coerce")
-    invalid = original.notna() & converted.isna()
+    invalid = original.notna() & ~original.map(
+        lambda value: isinstance(value, numbers.Real) and not isinstance(value, bool)
+    )
     finite = converted.dropna().map(math.isfinite)
     out_of_range = converted.notna() & ~converted.between(minimum, maximum)
     if invalid.any() or not finite.all() or out_of_range.any():
@@ -143,20 +164,24 @@ def build_coverage(df: pd.DataFrame) -> pd.DataFrame:
     out["mesh_snr_db"] = strict_numeric_column(out, "snr_db", -40, 40)
     out["cell_rsrp_dbm"] = strict_numeric_column(out, "rsrp_dbm", -200, 50)
 
-    # merge_starlink_into_telemetry uses satellite_link_status_starlink to avoid
-    # collision with the MANET connectivity_mode field; alias it here.
+    # Current merges write the canonical field. Retain the suffixed alias only
+    # for explicit compatibility with previously generated ingest copies.
     if "satellite_link_status_starlink" in out.columns:
         sat = out["satellite_link_status_starlink"].combine_first(out.get("satellite_link_status", pd.Series(dtype=str)))
     else:
         sat = out.get("satellite_link_status")
-    out["satellite_link_status"] = (sat.fillna("unknown").astype(str) if sat is not None else pd.Series("unknown", index=out.index))
-    invalid_satellite_states = set(out["satellite_link_status"].str.lower()) - SATELLITE_STATES
+    out["satellite_link_status"] = (
+        sat.fillna("unknown").astype(str).str.lower()
+        if sat is not None
+        else pd.Series("unknown", index=out.index)
+    )
+    invalid_satellite_states = set(out["satellite_link_status"]) - SATELLITE_STATES
     if invalid_satellite_states:
         raise ValueError(f"invalid satellite_link_status values: {sorted(invalid_satellite_states)}")
 
     out["has_mesh_metric"] = out["mesh_metric_dbm"].notna() | out["mesh_snr_db"].notna()
     out["has_cell_metric"] = out["cell_rsrp_dbm"].notna()
-    out["has_satellite"] = out["satellite_link_status"].str.lower().isin(SAT_POSITIVE)
+    out["has_satellite"] = out["satellite_link_status"].isin(SAT_POSITIVE)
 
     def mode(row):
         if row["has_satellite"]:
@@ -671,6 +696,9 @@ def main():
         )
     df = pd.concat(mode_frames, ignore_index=True, sort=False).sort_values("timestamp_utc")
 
+    # Error is owned by the exact-key residual artifact, never by an arbitrary
+    # stale value carried in telemetry.
+    df = df.drop(columns=["abs_error_db"], errors="ignore")
     # Merge residual/error bands from live trial outputs where available.
     residuals = load_residuals(Path(args.live_trial_dir))
     if not residuals.empty:
@@ -707,12 +735,12 @@ def main():
     gps_complete = timeline["lat"].notna() & timeline["lon"].notna()
     if (gps_any & ~gps_complete).any():
         raise SystemExit(f"incomplete GPS pairs in overlay input: {int((gps_any & ~gps_complete).sum())}")
+    timeline["lat"] = strict_numeric_column(timeline, "lat", -90, 90)
+    timeline["lon"] = strict_numeric_column(timeline, "lon", -180, 180)
     timeline["elev_m"] = strict_numeric_column(timeline, "elev_m", -1000, 12000)
     timeline["abs_error_db"] = strict_numeric_column(timeline, "abs_error_db", 0, 10000)
     map_df = timeline[gps_complete & timeline["timestamp_utc"].notna()].copy()
     if not map_df.empty:
-        map_df["lat"] = pd.to_numeric(map_df["lat"], errors="coerce")
-        map_df["lon"] = pd.to_numeric(map_df["lon"], errors="coerce")
         invalid_gps = (
             map_df["lat"].isna()
             | map_df["lon"].isna()

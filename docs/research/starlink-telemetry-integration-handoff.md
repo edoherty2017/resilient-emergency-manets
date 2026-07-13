@@ -51,9 +51,9 @@ Primary purpose is **engineering validation + data quality calibration evidence*
   - `schemas/telemetry.schema.json`
 - Existing context:
   - LoRa-first field trials
-  - no dependable cellular modem RSRP path currently
+  - at handoff time, no dependable cellular modem RSRP path
   - workflow includes `local_hour` and `time_bin` (`dawn|day|dusk|evening_peak|night`)
-  - current framing is engineering validation while data quality is improved
+  - handoff framing was engineering validation while data quality was improved
 
 ---
 
@@ -69,7 +69,7 @@ Use `null` when unknown/unavailable; never emit sentinel strings for numeric fie
 | `satellite_up_mbps` | number/null | 0..10000 | window mean up throughput (bps→Mbps) |
 | `satellite_packet_loss_pct` | number/null | 0..100 | from `total_ping_drop/samples * 100` over window |
 | `satellite_obstruction_pct` | number/null | 0..100 | `fraction_obstructed * 100` when available |
-| `satellite_outage_seconds` | number/null | 0..86400 | count of seconds in window with full drop or disconnected state |
+| `satellite_outage_seconds` | number/null | 0..86400 | bounded estimate from full-drop history samples or explicit disconnected state; not an independently timed outage duration |
 
 ### Windowing contract
 - Recommended base poll: **15 s** for status + history stats.
@@ -138,7 +138,10 @@ Use `null` when unknown/unavailable; never emit sentinel strings for numeric fie
   - otherwise null (do not fake from mean).
 - `satellite_obstruction_pct` = `fraction_obstructed * 100` when available.
 - `satellite_outage_seconds`:
-  - count of seconds with full ping drop (`drop==1`) + disconnected-state seconds in window.
+  - bounded estimate from full-drop samples (`drop==1`) and explicit
+    disconnected-state poll intervals. Because history batches lack per-sample
+    timestamps and can overlap, do not present this as an independently timed
+    outage duration.
 
 ### CSV/log outputs (pipeline compatible)
 - Keep existing AIRMap outputs untouched.
@@ -285,7 +288,7 @@ PASS outputs are prerequisites, not generated evidence by themselves.
 ---
 
 ## Appendix: source grounding used for this handoff
-- Local project files verified:
+- Local project files reported as inspected for the historical handoff (not a current revalidation):
   - `schemas/telemetry.schema.json`
   - `scripts/airmap_live_trial.py`
   - `docs/calibration-workflow.md`

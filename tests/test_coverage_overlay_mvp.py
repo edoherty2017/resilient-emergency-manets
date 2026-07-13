@@ -34,6 +34,21 @@ def test_load_residuals_preserves_timebin_and_topography(tmp_path):
         assert col in out.columns
 
 
+def test_load_residuals_rejects_naive_timestamps(tmp_path):
+    pd.DataFrame(
+        {
+            "timestamp_utc": ["2026-05-16T14:44:15"],
+            "node_id": ["meshhikernode1"],
+            "trial_id": ["trial-live"],
+            "obs_metric_dbm": [-101.0],
+            "pred_rssi_dbm": [-95.0],
+        }
+    ).to_parquet(tmp_path / "predictions_postcalibration.parquet", index=False)
+
+    with pytest.raises(ValueError, match="non-UTC"):
+        coverage_overlay_mvp.load_residuals(tmp_path)
+
+
 def test_render_leaflet_html_has_time_bin_and_ravine_notch_controls(tmp_path):
     df = pd.DataFrame(
         {
@@ -74,6 +89,19 @@ def test_missing_events_are_unknown_not_ip_full():
     out = coverage_overlay_mvp.assign_control_plane_mode(telemetry, pd.DataFrame())
 
     assert out["control_plane_mode"].tolist() == ["UNKNOWN"]
+
+
+def test_numeric_strings_and_boole_do_not_count_as_radio_evidence():
+    telemetry = pd.DataFrame(
+        {
+            "rssi_dbm": ["-100", True],
+            "snr_db": [None, None],
+            "rsrp_dbm": [None, None],
+        }
+    )
+
+    with pytest.raises(ValueError, match="rssi_dbm"):
+        coverage_overlay_mvp.build_coverage(telemetry)
 
 
 def test_rows_before_first_transition_remain_unknown():

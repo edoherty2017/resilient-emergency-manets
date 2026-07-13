@@ -1823,7 +1823,10 @@ def main() -> int:
               f" dup- {st['dup_suppressed']:4d}  E_tx {st['energy_tx_wh']:7.3f} Wh "
               f" solar {st['solar_wh']:7.2f} Wh  SOC {st['final_soc']:5.1%} "
               f" deaths {st['deaths']}  [{st['power']}]")
-    print(f"wrote {args.trace}, {args.out}")
+    written_outputs = [args.out]
+    if args.trace:
+        written_outputs.insert(0, args.trace)
+    print("wrote " + ", ".join(written_outputs))
     return 0
 
 

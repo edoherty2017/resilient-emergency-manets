@@ -57,9 +57,9 @@ What it shows:
 The PDF was reproducibly rebuilt from the corrected TeX on 2026-07-13 using
 Tectonic 0.16.9. `trial1_report_manifest.json` binds SHA-256 hashes for the build
 script, TeX source, and PDF (PDF `1c491082…`; source `a6ea9480…`). The PDF,
-manifest, and build script remain untracked pending review/commit, so the tracked
-TeX source is authoritative in the current repository state. A reproducible build
-does not turn the historical inputs into field-validation evidence.
+manifest, and build script are tracked in the current checkpoint. This establishes a
+reproducible rendering of the corrected source; it does not turn the historical inputs
+into field-validation evidence.
 
 A technical LaTeX report covering (with the historical FSPL proposal explicitly
 superseded by its later ITM section):
