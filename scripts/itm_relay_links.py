@@ -11,11 +11,12 @@ the Trial 1 collector gap (09:36-12:24 EDT), this computes:
 - Geometric line-of-sight and worst first-Fresnel-zone clearance fraction with
   4/3 effective Earth radius.
 
-Radio assumptions follow config/airmap/model-baseline.yaml: 915 MHz, EIRP
-26.3 dBm (22 dBm + 2x2.15 dBi), LongFast sensitivity -131 dBm, planning
-threshold -100 dBm. ITM models terrain diffraction but NOT vegetation; each
-result reports the fraction of the path below treeline (~1200 m) so canopy
-excess loss can be budgeted separately.
+Radio assumptions follow config/airmap/model-baseline.yaml: 915 MHz, 22 dBm
+conducted power, 2.15 dBi antennas at each end (24.15 dBm transmitter EIRP;
+26.3 dBm receiver-power reference after receive antenna gain), LongFast
+sensitivity -131 dBm, and planning threshold -100 dBm. ITM models terrain
+diffraction but NOT vegetation; each result reports the fraction of the path
+below treeline (~1200 m) so canopy excess loss can be budgeted separately.
 
 Run inside .venv (requires artifacts/dem/cache/usgs_3dep_mtwashington.npz from
 scripts/dem_3dep.py):
@@ -36,12 +37,18 @@ from itmlogic.misc.qerfi import qerfi
 from itmlogic.preparatory_subroutines.qlrpfl import qlrpfl
 from itmlogic.statistics.avar import avar
 
+from radio_link_budget import (
+    PLANNING_THRESHOLD_DBM,
+    RX_POWER_REFERENCE_DBM,
+    RX_SENSITIVITY_DBM,
+    metadata as radio_metadata,
+    received_power_dbm,
+)
+
 FREQ_MHZ = 915.0
-TX_DBM = 22.0
-ANT_GAIN_DBI = 2.15
-EIRP_DBM = TX_DBM + 2 * ANT_GAIN_DBI
-RX_SENS_DBM = -131.0       # LongFast SF11/BW250
-PLANNING_DBM = -100.0      # sensitivity + ~31 dB fade margin
+RX_POWER_REF_DBM = RX_POWER_REFERENCE_DBM
+RX_SENS_DBM = RX_SENSITIVITY_DBM       # LongFast SF11/BW250
+PLANNING_DBM = PLANNING_THRESHOLD_DBM  # sensitivity + ~31 dB fade margin
 TREELINE_M = 1200.0
 EFFECTIVE_EARTH_R_M = 6371000.0 * 4.0 / 3.0
 
@@ -238,7 +245,7 @@ def main() -> int:
             **{k: (round(v, 3) if isinstance(v, float) else v) for k, v in fres.items()},
         }
         for level in (50, 90, 99):
-            pr = EIRP_DBM - itm[f"loss_db_q{level}"]
+            pr = received_power_dbm(itm[f"loss_db_q{level}"])
             row[f"pred_rssi_dbm_q{level}"] = round(pr, 1)
         row["meets_planning_threshold_q90"] = bool(row["pred_rssi_dbm_q90"] >= PLANNING_DBM)
         row["meets_sensitivity_q99"] = bool(row["pred_rssi_dbm_q99"] >= RX_SENS_DBM)
@@ -272,14 +279,14 @@ def main() -> int:
                     d_m, prof = dem.profile(relay["lat"], relay["lon"], r["lat"], r["lon"])
                     if d_m < 30.0:
                         entry = {"relay": relay_key, "distance_km": d_m / 1000.0,
-                                 "pred_rssi_dbm_q90": EIRP_DBM,  # co-located
+                                 "pred_rssi_dbm_q90": RX_POWER_REF_DBM,  # zero-loss reference
                                  "path_type": "co_located", "geometric_los": True,
                                  "worst_fresnel_fraction": np.inf}
                     else:
                         itm = itm_p2p_loss(d_m / 1000.0, prof, (relay["hg_m"], args.hiker_hg_m))
                         fres = fresnel_analysis(d_m, prof, (relay["hg_m"], args.hiker_hg_m))
                         entry = {"relay": relay_key, "distance_km": d_m / 1000.0,
-                                 "pred_rssi_dbm_q90": EIRP_DBM - itm["loss_db_q90"],
+                                 "pred_rssi_dbm_q90": received_power_dbm(itm["loss_db_q90"]),
                                  "path_type": itm["path_type"],
                                  "geometric_los": fres["geometric_los"],
                                  "worst_fresnel_fraction": fres["worst_fresnel_fraction"]}
@@ -318,8 +325,7 @@ def main() -> int:
             "surface_refractivity_n": 301, "eps": 15, "sgm_s_per_m": 0.005,
             "confidence_pct": 50, "reliability_pct": [50, 90, 99],
         },
-        "radio": {"eirp_dbm": EIRP_DBM, "rx_sensitivity_dbm": RX_SENS_DBM,
-                  "planning_threshold_dbm": PLANNING_DBM},
+        "radio": radio_metadata(),
         "dem": str(dem_path),
         "limitations": [
             "ITM models terrain diffraction only — vegetation/canopy excess loss is NOT included; "

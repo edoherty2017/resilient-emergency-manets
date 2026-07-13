@@ -62,7 +62,9 @@ pub struct WeatherDay {
     pub snow_factor: f64,
 }
 
-fn one() -> f64 { 1.0 }
+fn one() -> f64 {
+    1.0
+}
 
 #[derive(Deserialize)]
 pub struct Config {
@@ -89,9 +91,15 @@ pub struct KioskCfg {
 
 impl Default for KioskCfg {
     fn default() -> Self {
-        KioskCfg { capacity: 20, panel_w: 200.0, battery_wh: 1000.0,
-                   charge_w_per_bay: 10.0, demand_tier_a: 20,
-                   demand_tier_b: 10, demand_tier_c: 4 }
+        KioskCfg {
+            capacity: 20,
+            panel_w: 200.0,
+            battery_wh: 1000.0,
+            charge_w_per_bay: 10.0,
+            demand_tier_a: 20,
+            demand_tier_b: 10,
+            demand_tier_c: 4,
+        }
     }
 }
 
@@ -101,12 +109,34 @@ pub struct RadioCfg {
     pub bw_hz: f64,
     pub cr: u32,
     pub preamble_syms: f64,
-    pub eirp_dbm: f64,
+    /// Canonical link-budget inputs.  `eirp_dbm` is accepted only as a legacy
+    /// combined TX-plus-RX reference so old external configs retain their
+    /// numerical behavior without double-counting receiver gain.
+    #[serde(default)]
+    pub tx_eirp_dbm: Option<f64>,
+    #[serde(default)]
+    pub rx_antenna_gain_dbi: f64,
+    #[serde(default)]
+    pub rx_feed_loss_db: f64,
+    #[serde(default, rename = "eirp_dbm")]
+    pub legacy_link_budget_dbm: Option<f64>,
     pub rx_sensitivity_dbm: f64,
     pub noise_figure_db: f64,
     pub snr_demod_threshold_db: f64,
     pub capture_threshold_db: f64,
     pub hop_limit: i32,
+}
+
+impl RadioCfg {
+    pub fn received_power_reference_dbm(&self) -> f64 {
+        if let Some(tx_eirp) = self.tx_eirp_dbm {
+            tx_eirp + self.rx_antenna_gain_dbi - self.rx_feed_loss_db
+        } else {
+            self.legacy_link_budget_dbm.expect(
+                "radio requires tx_eirp_dbm (canonical) or eirp_dbm (legacy combined reference)",
+            )
+        }
+    }
 }
 
 #[derive(Deserialize)]
@@ -138,6 +168,16 @@ pub struct SolarCfg {
     pub system_efficiency: f64,
     pub canopy_tau_16ft: f64,
     pub pyramid_tilt_deg: f64,
+    /// Operational routing forecast: monthly climatology, never the realized
+    /// current/future weather used by the physical energy model.
+    #[serde(default = "default_monthly_kt")]
+    pub monthly_kt_mean: Vec<f64>,
+}
+
+fn default_monthly_kt() -> Vec<f64> {
+    vec![
+        0.38, 0.41, 0.44, 0.44, 0.45, 0.44, 0.45, 0.45, 0.44, 0.41, 0.36, 0.35,
+    ]
 }
 
 #[derive(Deserialize)]
@@ -148,12 +188,43 @@ pub struct TrafficCfg {
 }
 
 /// Semtech airtime (port of scripts/lora_airtime.py), milliseconds.
-pub fn airtime_ms(payload_bytes: u32, sf: u32, bw_hz: f64, cr: u32,
-                  preamble_syms: f64) -> f64 {
+pub fn airtime_ms(payload_bytes: u32, sf: u32, bw_hz: f64, cr: u32, preamble_syms: f64) -> f64 {
     let t_sym = (1u64 << sf) as f64 / bw_hz * 1000.0;
     let de = if t_sym >= 16.38 { 1.0 } else { 0.0 };
     let num = 8.0 * payload_bytes as f64 - 4.0 * sf as f64 + 28.0 + 16.0;
-    let n_payload = 8.0
-        + ((num / (4.0 * (sf as f64 - 2.0 * de))).ceil() * (cr as f64 + 4.0)).max(0.0);
+    let n_payload =
+        8.0 + ((num / (4.0 * (sf as f64 - 2.0 * de))).ceil() * (cr as f64 + 4.0)).max(0.0);
     (preamble_syms + 4.25 + n_payload) * t_sym
+}
+
+#[cfg(test)]
+mod tests {
+    use super::RadioCfg;
+
+    const COMMON: &str = r#"
+sf: 11
+bw_hz: 250000
+cr: 1
+preamble_syms: 16
+rx_sensitivity_dbm: -131
+noise_figure_db: 6
+snr_demod_threshold_db: -17.5
+capture_threshold_db: 6
+hop_limit: 3
+"#;
+
+    #[test]
+    fn canonical_and_legacy_link_budget_inputs_are_equivalent() {
+        let canonical: RadioCfg = serde_yaml::from_str(&format!(
+            "{COMMON}tx_eirp_dbm: 24.15\nrx_antenna_gain_dbi: 2.15\nrx_feed_loss_db: 0\n",
+        ))
+        .unwrap();
+        let legacy: RadioCfg = serde_yaml::from_str(&format!("{COMMON}eirp_dbm: 26.3\n",)).unwrap();
+        assert!((canonical.received_power_reference_dbm() - 26.3).abs() < 1e-12);
+        assert!(
+            (canonical.received_power_reference_dbm() - legacy.received_power_reference_dbm())
+                .abs()
+                < 1e-12
+        );
+    }
 }

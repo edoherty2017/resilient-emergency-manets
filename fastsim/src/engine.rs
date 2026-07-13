@@ -1,20 +1,21 @@
 //! Sim construction + event handlers + run loop + summary.
 
 use crate::inputs::*;
-use crate::rng::Rng;
 use crate::sim::*;
 use crate::solar::{solar_power_w, SiteSolar};
 use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashMap, HashSet};
-use std::sync::Arc;
 
 const DEAD_DB: f64 = 300.0;
-const RX_GATE_DB: f64 = 220.0;
 
 impl Sim {
-    pub fn new(cfg: Config, topo: Topology, routes_file: RoutesFile,
-               weather: WeatherFile, p: Params) -> Sim {
-        let mut rng = Rng::new(p.seed);
+    pub fn new(
+        cfg: Config,
+        topo: Topology,
+        routes_file: RoutesFile,
+        weather: WeatherFile,
+        p: Params,
+    ) -> Sim {
         let mut nodes: Vec<Node> = Vec::new();
         let mut name_to_idx = HashMap::new();
 
@@ -28,7 +29,8 @@ impl Sim {
             let solar = s.power == "solar";
             nodes.push(Node {
                 name: (*name).clone(),
-                lat: s.lat, lon: s.lon,
+                lat: s.lat,
+                lon: s.lon,
                 grid: s.power == "grid",
                 solar,
                 mqtt: s.mqtt_uplink,
@@ -39,16 +41,33 @@ impl Sim {
                         tilt_deg: cfg.solar.pyramid_tilt_deg,
                         canopy_tau: if s.elev_m < TREELINE_M {
                             cfg.solar.canopy_tau_16ft
-                        } else { 1.0 },
+                        } else {
+                            1.0
+                        },
                     })
-                } else { None },
+                } else {
+                    None
+                },
                 cap_wh: cfg.battery.capacity_wh * cfg.battery.usable_fraction,
-                soc_wh: cfg.battery.capacity_wh * cfg.battery.usable_fraction
+                soc_wh: cfg.battery.capacity_wh
+                    * cfg.battery.usable_fraction
                     * cfg.battery.start_soc,
-                alive: true, docked: false, duty: 1.0,
-                is_radio: false, channel: 0, kiosk: None, route: None, start_s: 0.0,
-                tx_until: -1.0, fwd_ewma: 0.0, death_score: 0.0,
-                seen: HashSet::new(), pending: HashMap::new(),
+                energy_alive: true,
+                forced_outage: false,
+                alive: true,
+                unavailable_since: None,
+                docked: false,
+                duty: 1.0,
+                is_radio: false,
+                channel: 0,
+                kiosk: None,
+                route: None,
+                start_s: 0.0,
+                tx_until: -1.0,
+                fwd_ewma: 0.0,
+                death_score: 0.0,
+                seen: HashSet::new(),
+                pending: HashMap::new(),
                 stats: NodeStats::default(),
             });
         }
@@ -58,15 +77,18 @@ impl Sim {
         let mut fixed_loss = HashMap::new();
         let mut fixed_adj = vec![Vec::new(); n_fixed];
         let sens = cfg.radio.rx_sensitivity_dbm;
-        let eirp = cfg.radio.eirp_dbm;
+        let received_power_reference = cfg.radio.received_power_reference_dbm();
         for (key, l) in &topo.links {
             let mut it = key.split('|');
-            let (Some(a), Some(b)) = (it.next(), it.next()) else { continue };
-            let (Some(&ia), Some(&ib)) = (name_to_idx.get(a), name_to_idx.get(b))
-            else { continue };
+            let (Some(a), Some(b)) = (it.next(), it.next()) else {
+                continue;
+            };
+            let (Some(&ia), Some(&ib)) = (name_to_idx.get(a), name_to_idx.get(b)) else {
+                continue;
+            };
             fixed_loss.insert((ia, ib), l.loss_db_q50);
             fixed_loss.insert((ib, ia), l.loss_db_q50);
-            let margin = eirp - l.loss_db_q50 - sens;
+            let margin = received_power_reference - l.loss_db_q50 - sens;
             if margin >= 3.0 {
                 fixed_adj[ia as usize].push((ib, margin));
                 fixed_adj[ib as usize].push((ia, margin));
@@ -102,8 +124,10 @@ impl Sim {
         // routes (stable order) + per-route/site loss tables
         let mut route_names: Vec<&String> = routes_file.routes.keys().collect();
         route_names.sort();
-        let routes: Vec<Route> =
-            route_names.iter().map(|n| routes_file.routes[*n].clone()).collect();
+        let routes: Vec<Route> = route_names
+            .iter()
+            .map(|n| routes_file.routes[*n].clone())
+            .collect();
         let mut route_site_loss = Vec::with_capacity(routes.len());
         for r in &routes {
             let mut per_site = vec![vec![DEAD_DB; r.loss_t_s.len()]; n_fixed];
@@ -117,12 +141,22 @@ impl Sim {
 
         // walkers from route-popularity demand tiers (AMC usage data);
         // renters_per_route acts as a global scale factor (2 = 100% tiers)
-        const TIER_A: [&str; 4] = ["franconia_ridge_loop", "tuckerman_loop",
-                                   "monadnock_white_dot", "ammo_jewell_loop"];
-        const TIER_B: [&str; 8] = ["lonesome_lake_family", "carter_wildcat",
-                                   "crawford_traverse", "valley_way_madison",
-                                   "pack_monadnock_loop", "kearsarge_winslow",
-                                   "cardigan_west_ridge", "chocorua_piper"];
+        const TIER_A: [&str; 4] = [
+            "franconia_ridge_loop",
+            "tuckerman_loop",
+            "monadnock_white_dot",
+            "ammo_jewell_loop",
+        ];
+        const TIER_B: [&str; 8] = [
+            "lonesome_lake_family",
+            "carter_wildcat",
+            "crawford_traverse",
+            "valley_way_madison",
+            "pack_monadnock_loop",
+            "kearsarge_winslow",
+            "cardigan_west_ridge",
+            "chocorua_piper",
+        ];
         let mut route_names_sorted: Vec<&String> = routes_file.routes.keys().collect();
         route_names_sorted.sort();
         let scale = p.renters_per_route as f64 / 2.0;
@@ -130,11 +164,17 @@ impl Sim {
         let mut kiosk_load: HashMap<u32, u32> = HashMap::new();
         for (ri, r) in routes.iter().enumerate() {
             let rname = route_names_sorted[ri].as_str();
-            let tier = if TIER_A.contains(&rname) { cfg.kiosk.demand_tier_a }
-                       else if TIER_B.contains(&rname) { cfg.kiosk.demand_tier_b }
-                       else { cfg.kiosk.demand_tier_c };
+            let tier = if TIER_A.contains(&rname) {
+                cfg.kiosk.demand_tier_a
+            } else if TIER_B.contains(&rname) {
+                cfg.kiosk.demand_tier_b
+            } else {
+                cfg.kiosk.demand_tier_c
+            };
             let n_walk = ((tier as f64 * scale).round() as u32).max(1);
-            let Some(&kiosk) = name_to_idx.get(&r.kiosk) else { continue };
+            let Some(&kiosk) = name_to_idx.get(&r.kiosk) else {
+                continue;
+            };
             let ret = *name_to_idx.get(&r.return_kiosk).unwrap_or(&kiosk);
             for k in 0..n_walk {
                 // checkouts spread 07:00–13:00 ET (11:00–17:00 UTC)
@@ -142,7 +182,9 @@ impl Sim {
                 walkers.push(Walker {
                     route: ri as u32,
                     start_s: (11.0 + 6.0 * frac) * 3600.0,
-                    kiosk, return_kiosk: ret, radio: None,
+                    kiosk,
+                    return_kiosk: ret,
+                    radio: None,
                 });
                 *kiosk_load.entry(kiosk).or_insert(0) += 1;
             }
@@ -151,12 +193,14 @@ impl Sim {
         kiosk_ids.sort();
         let mut kiosk_banks = std::collections::HashMap::new();
         for kiosk in kiosk_ids {
-            kiosk_banks.insert(kiosk, KioskBank {
-                site: kiosk, soc_wh: cfg.kiosk.battery_wh,
-                cap_wh: cfg.kiosk.battery_wh,
-            });
-            let n_radios = (kiosk_load[&kiosk] + p.kiosk_spares)
-                .min(cfg.kiosk.capacity);
+            kiosk_banks.insert(
+                kiosk,
+                KioskBank {
+                    soc_wh: cfg.kiosk.battery_wh,
+                    cap_wh: cfg.kiosk.battery_wh,
+                },
+            );
+            let n_radios = (kiosk_load[&kiosk] + p.kiosk_spares).min(cfg.kiosk.capacity);
             for i in 0..n_radios {
                 let base = &nodes[kiosk as usize];
                 let (lat, lon) = (base.lat, base.lon);
@@ -164,16 +208,32 @@ impl Sim {
                 let idx = nodes.len() as u32;
                 name_to_idx.insert(name.clone(), idx);
                 nodes.push(Node {
-                    name, lat, lon,
-                    grid: false, solar: false, mqtt: false,
-                    horizon: Vec::new(), site_solar: None,
+                    name,
+                    lat,
+                    lon,
+                    grid: false,
+                    solar: false,
+                    mqtt: false,
+                    horizon: Vec::new(),
+                    site_solar: None,
                     cap_wh: cfg.battery.capacity_wh * cfg.battery.usable_fraction,
                     soc_wh: cfg.battery.capacity_wh * cfg.battery.usable_fraction,
-                    alive: true, docked: true, duty: 1.0,
-                    is_radio: true, channel: 0, kiosk: Some(kiosk), route: None,
+                    energy_alive: true,
+                    forced_outage: false,
+                    alive: true,
+                    unavailable_since: None,
+                    docked: true,
+                    duty: 1.0,
+                    is_radio: true,
+                    channel: 0,
+                    kiosk: Some(kiosk),
+                    route: None,
                     start_s: 0.0,
-                    tx_until: -1.0, fwd_ewma: 0.0, death_score: 0.0,
-                    seen: HashSet::new(), pending: HashMap::new(),
+                    tx_until: -1.0,
+                    fwd_ewma: 0.0,
+                    death_score: 0.0,
+                    seen: HashSet::new(),
+                    pending: HashMap::new(),
                     stats: NodeStats::default(),
                 });
             }
@@ -185,22 +245,52 @@ impl Sim {
 
         let n_nodes = nodes.len();
         let mut sim = Sim {
-            cfg, p, rng, now: 0.0, seq: 0,
+            cfg,
+            p,
+            draw_counters: HashMap::new(),
+            link_rng: HashMap::new(),
+            now: 0.0,
+            seq: 0,
             heap: BinaryHeap::new(),
-            nodes, n_fixed, name_to_idx, fixed_loss, fixed_adj,
-            routes, route_site_loss, walkers,
-            weather: weather_v, start_doy,
-            active: HashMap::new(), next_tx_idx: 0,
-            pkt_seq: 0, pkt_meta: HashMap::new(), agg: HashMap::new(),
-            sos_incidents: HashMap::new(), sos_acked: HashSet::new(),
-            route_next: vec![None; n_nodes], route_cost: vec![f64::INFINITY; n_nodes],
-            route_tree_t: -1e18, fwd_median: 0.0,
-            shadow: HashMap::new(), link_health: HashMap::new(),
+            nodes,
+            n_fixed,
+            name_to_idx,
+            fixed_loss,
+            fixed_adj,
+            routes,
+            route_site_loss,
+            walkers,
+            weather: weather_v,
+            start_doy,
+            active: HashMap::new(),
+            completed_overlap: HashMap::new(),
+            next_tx_idx: 0,
+            pkt_seq: 0,
+            pkt_meta: HashMap::new(),
+            agg: HashMap::new(),
+            sos_incidents: HashMap::new(),
+            sos_acked: HashSet::new(),
+            route_next: vec![None; n_nodes],
+            route_cost: vec![f64::INFINITY; n_nodes],
+            route_tree_t: -1e18,
+            fwd_median: 0.0,
+            shadow: HashMap::new(),
+            link_health: HashMap::new(),
             kiosk_banks,
-            rental: RentalStats { walker_days: 0, served: 0, starved: 0,
-                                  checkout_soc_sum: 0.0 },
-            total_airtime_s: 0.0, soc_series: Vec::new(),
-            solar_profile: HashMap::new(), airtime_lut: HashMap::new(),
+            rental: RentalStats {
+                walker_days: 0,
+                served: 0,
+                starved: 0,
+                starved_no_stock: 0,
+                starved_unserviceable: 0,
+                unusable_at_checkout: 0,
+                checkout_soc_sum: 0.0,
+            },
+            total_offered_airtime_s: 0.0,
+            local_busy: vec![BusyUnion::default(); n_nodes],
+            soc_series: Vec::new(),
+            solar_profile: HashMap::new(),
+            airtime_lut: HashMap::new(),
         };
         sim.bootstrap();
         sim
@@ -208,7 +298,11 @@ impl Sim {
 
     fn push(&mut self, t: f64, ev: Ev) -> u64 {
         self.seq += 1;
-        self.heap.push(Reverse(Sched { t, seq: self.seq, ev }));
+        self.heap.push(Reverse(Sched {
+            t,
+            seq: self.seq,
+            ev,
+        }));
         self.seq
     }
 
@@ -216,14 +310,14 @@ impl Sim {
         let iv = self.p.telemetry_iv;
         for i in 0..self.n_fixed {
             if !self.nodes[i].mqtt {
-                let d = self.rng.uniform(0.0, iv);
+                let d = self.event_uniform(RNG_TRAFFIC_TELEMETRY, i as u64, 0.0, iv);
                 self.push(d, Ev::Telemetry { node: i as u32 });
             }
         }
         for i in self.n_fixed..self.nodes.len() {
-            let b = self.rng.uniform(0.0, self.p.beacon_iv);
+            let b = self.event_uniform(RNG_TRAFFIC_BEACON, i as u64, 0.0, self.p.beacon_iv);
             self.push(b, Ev::Beacon { node: i as u32 });
-            let f = self.rng.uniform(1200.0, 2400.0);
+            let f = self.event_uniform(RNG_TRAFFIC_FAMILY, i as u64, 1200.0, 2400.0);
             self.push(f, Ev::Family { node: i as u32 });
         }
         // msg partner pairs: consecutive walker waves on the same route
@@ -236,8 +330,17 @@ impl Sim {
         for rk in route_keys {
             let ws = &by_route[&rk];
             for pair in ws.windows(2) {
-                let d = self.rng.uniform(600.0, 1800.0);
-                self.push(d, Ev::MsgPair { route: rk, wa: pair[0], wb: pair[1], turn: 0 });
+                let entity = ((pair[0] as u64) << 32) | pair[1] as u64;
+                let d = self.event_uniform(RNG_TRAFFIC_MESSAGE, entity, 600.0, 1800.0);
+                self.push(
+                    d,
+                    Ev::MsgPair {
+                        route: rk,
+                        wa: pair[0],
+                        wb: pair[1],
+                        turn: 0,
+                    },
+                );
             }
         }
         for wi in 0..self.walkers.len() {
@@ -262,13 +365,9 @@ impl Sim {
 
     // ── PHY ──────────────────────────────────────────────────────────────────
 
-    fn day(&self) -> usize { (self.now / 86400.0) as usize }
-
-    fn kt_snow(&self, day: usize) -> (f64, f64) {
-        let i = day.min(self.weather.len().saturating_sub(1));
-        self.weather[i]
+    fn day(&self) -> usize {
+        (self.now / 86400.0) as usize
     }
-
 
     fn radio_pos(&self, i: u32) -> (f64, f64) {
         let node = &self.nodes[i as usize];
@@ -287,7 +386,7 @@ impl Sim {
             (false, false) => *self.fixed_loss.get(&(a, b)).unwrap_or(&DEAD_DB),
             (true, true) => {
                 if na.route.is_none() || nb.route.is_none() {
-                    return DEAD_DB;   // docked radios are off
+                    return DEAD_DB; // docked radios are off
                 }
                 let (la1, lo1) = self.radio_pos(a);
                 let (la2, lo2) = self.radio_pos(b);
@@ -304,19 +403,16 @@ impl Sim {
                 let Some(ri) = rn.route else { return DEAD_DB };
                 let r = &self.routes[ri as usize];
                 let tt = ((self.now % 86400.0) - rn.start_s).clamp(0.0, r.duration_s);
-                interp1(&r.loss_t_s,
-                        &self.route_site_loss[ri as usize][site as usize], tt)
+                interp1(
+                    &r.loss_t_s,
+                    &self.route_site_loss[ri as usize][site as usize],
+                    tt,
+                )
             }
         }
     }
 
-
-
-
-
     // ── packets ──────────────────────────────────────────────────────────────
-
-
 
     // ── routing ──────────────────────────────────────────────────────────────
 
@@ -327,28 +423,45 @@ impl Sim {
         }
         let mut runway = node.soc_wh;
         if node.solar {
-            runway += self.solar_remaining_wh(i);
+            runway += self.solar_forecast_remaining_wh(i);
         }
         let cap = self.nodes[i as usize].cap_wh;
         let rf = (runway / cap).min(1.0);
         1.0 + 3.0 * (1.0 - rf) / rf.max(0.05)
     }
 
-    fn solar_remaining_wh(&mut self, i: u32) -> f64 {
+    /// Remaining generation estimate available to routing.  This deliberately
+    /// uses only monthly climatology for the calendar date.  Realized daily kt
+    /// and snow remain inputs to physical charging in `handle_energy`, but are
+    /// not oracle knowledge exposed to a route decision.
+    fn solar_forecast_remaining_wh(&mut self, i: u32) -> f64 {
         let day = self.day() as u32;
         let key = (i, day);
         if !self.solar_profile.contains_key(&key) {
-            let (kt, snow) = self.kt_snow(day as usize);
             let node = &self.nodes[i as usize];
             let doy = 1 + (self.start_doy as usize + day as usize - 1) % 365;
+            let month = month_index_from_doy(doy);
+            let kt = self
+                .cfg
+                .solar
+                .monthly_kt_mean
+                .get(month)
+                .copied()
+                .unwrap_or(0.40);
             let mut prof = [0.0f64; 24];
             if let Some(ss) = &node.site_solar {
                 for (h, p) in prof.iter_mut().enumerate() {
-                    *p = snow * solar_power_w(
-                        node.lat, node.lon, doy as u32, h as f64 * 3600.0, kt,
-                        &node.horizon, ss,
+                    *p = solar_power_w(
+                        node.lat,
+                        node.lon,
+                        doy as u32,
+                        h as f64 * 3600.0,
+                        kt,
+                        &node.horizon,
+                        ss,
                         self.cfg.solar.panel_w_nominal,
-                        self.cfg.solar.system_efficiency);
+                        self.cfg.solar.system_efficiency,
+                    );
                 }
             }
             self.solar_profile.insert(key, prof);
@@ -363,8 +476,7 @@ impl Sim {
             return 1.0;
         }
         let sigma = self.cfg.shadowing.sigma_db;
-        let p_ok = 0.5 * (1.0 + erf(margin / (sigma * std::f64::consts::SQRT_2)))
-            .max(0.04);
+        let p_ok = 0.5 * (1.0 + erf(margin / (sigma * std::f64::consts::SQRT_2))).max(0.04);
         if m == Mode::Etx {
             return 1.0 / p_ok;
         }
@@ -382,23 +494,32 @@ impl Sim {
 
     fn build_route_tree(&mut self) {
         if matches!(self.p.mode.weight_mode(), Mode::LbEnergy) {
-            let mut fwds: Vec<f64> = self.nodes[..self.n_fixed].iter()
+            let mut fwds: Vec<f64> = self.nodes[..self.n_fixed]
+                .iter()
                 .filter(|n| !n.mqtt)
                 .map(|n| n.fwd_ewma)
                 .collect();
             fwds.sort_by(f64::total_cmp);
-            self.fwd_median = if fwds.is_empty() { 0.0 } else { fwds[fwds.len() / 2] };
+            self.fwd_median = if fwds.is_empty() {
+                0.0
+            } else {
+                fwds[fwds.len() / 2]
+            };
         }
         let n = self.nodes.len();
         let mut dist = vec![f64::INFINITY; n];
         let mut next: Vec<Option<u32>> = vec![None; n];
         let mut pq: BinaryHeap<Reverse<Sched>> = BinaryHeap::new();
         let mut seq = 0u64;
-        for i in 0..self.n_fixed {
+        for (i, d) in dist.iter_mut().enumerate().take(self.n_fixed) {
             if self.nodes[i].mqtt && self.nodes[i].alive {
-                dist[i] = 0.0;
+                *d = 0.0;
                 seq += 1;
-                pq.push(Reverse(Sched { t: 0.0, seq, ev: Ev::TxEnd { idx: i as u64 } }));
+                pq.push(Reverse(Sched {
+                    t: 0.0,
+                    seq,
+                    ev: Ev::TxEnd { idx: i as u64 },
+                }));
             }
         }
         while let Some(Reverse(s)) = pq.pop() {
@@ -418,8 +539,11 @@ impl Sim {
                     dist[v as usize] = s.t + w;
                     next[v as usize] = Some(u as u32);
                     seq += 1;
-                    pq.push(Reverse(Sched { t: s.t + w, seq,
-                                            ev: Ev::TxEnd { idx: v as u64 } }));
+                    pq.push(Reverse(Sched {
+                        t: s.t + w,
+                        seq,
+                        ev: Ev::TxEnd { idx: v as u64 },
+                    }));
                 }
             }
         }
@@ -429,7 +553,9 @@ impl Sim {
 
         // duty assignment
         if self.p.mode.is_duty() {
-            let on_tree: HashSet<u32> = self.route_next.iter()
+            let on_tree: HashSet<u32> = self
+                .route_next
+                .iter()
                 .filter_map(|x| *x)
                 .chain((0..self.n_fixed as u32).filter(|&i| self.nodes[i as usize].mqtt))
                 .collect();
@@ -441,13 +567,20 @@ impl Sim {
                     Mode::DutySync => 0.05,
                     Mode::DutyAdaptive => {
                         let runway = self.nodes[i].soc_wh
-                            + if self.nodes[i].solar { self.solar_remaining_wh(i as u32) }
-                              else { 0.0 };
+                            + if self.nodes[i].solar {
+                                self.solar_forecast_remaining_wh(i as u32)
+                            } else {
+                                0.0
+                            };
                         let rf = (runway / self.nodes[i].cap_wh).min(1.0);
                         (0.02 + 0.23 * rf).clamp(0.02, 0.25)
                     }
                     Mode::RotateLb => {
-                        if on_tree.contains(&(i as u32)) { 1.0 } else { 0.02 }
+                        if on_tree.contains(&(i as u32)) {
+                            1.0
+                        } else {
+                            0.02
+                        }
                     }
                     _ => 1.0,
                 };
@@ -461,7 +594,11 @@ impl Sim {
         for _ in 0..24 {
             match self.route_next[cur as usize] {
                 None => {
-                    return if self.nodes[cur as usize].mqtt { Some(path) } else { None };
+                    return if self.nodes[cur as usize].mqtt {
+                        Some(path)
+                    } else {
+                        None
+                    };
                 }
                 Some(nh) => {
                     path.push(nh);
@@ -491,12 +628,14 @@ impl Sim {
                 continue;
             }
             let loss = self.loss_db(origin, s);
-            let margin = self.cfg.radio.eirp_dbm - loss - self.cfg.radio.rx_sensitivity_dbm;
+            let margin = self.cfg.radio.received_power_reference_dbm()
+                - loss
+                - self.cfg.radio.rx_sensitivity_dbm;
             if margin < 3.0 {
                 continue;
             }
             let total = c + self.edge_weight(s, margin);
-            if best.map_or(true, |(_, bc)| total < bc) {
+            if best.is_none_or(|(_, bc)| total < bc) {
                 best = Some((s, total));
             }
         }
@@ -517,25 +656,43 @@ pub fn haversine_m(lat1: f64, lon1: f64, lat2: f64, lon2: f64) -> f64 {
     2.0 * r * a.sqrt().atan2((1.0 - a).sqrt())
 }
 
+fn month_index_from_doy(doy: usize) -> usize {
+    const MONTH_ENDS: [usize; 12] = [31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365];
+    MONTH_ENDS.iter().position(|&end| doy <= end).unwrap_or(11)
+}
+
 pub fn erf(x: f64) -> f64 {
     // Abramowitz–Stegun 7.1.26 (|err| < 1.5e-7)
     let sign = if x < 0.0 { -1.0 } else { 1.0 };
     let x = x.abs();
     let t = 1.0 / (1.0 + 0.3275911 * x);
-    let y = 1.0 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t
-        - 0.284496736) * t + 0.254829592) * t * (-x * x).exp();
+    let y = 1.0
+        - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t
+            + 0.254829592)
+            * t
+            * (-x * x).exp();
     sign * y
 }
 
 pub fn interp1(xs: &[f64], ys: &[f64], x: f64) -> f64 {
-    if xs.is_empty() { return DEAD_DB; }
-    if x <= xs[0] { return ys[0]; }
-    if x >= xs[xs.len() - 1] { return ys[ys.len() - 1]; }
+    if xs.is_empty() {
+        return DEAD_DB;
+    }
+    if x <= xs[0] {
+        return ys[0];
+    }
+    if x >= xs[xs.len() - 1] {
+        return ys[ys.len() - 1];
+    }
     let mut lo = 0usize;
     let mut hi = xs.len() - 1;
     while hi - lo > 1 {
         let mid = (lo + hi) / 2;
-        if xs[mid] <= x { lo = mid; } else { hi = mid; }
+        if xs[mid] <= x {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
     }
     let f = (x - xs[lo]) / (xs[hi] - xs[lo]).max(1e-9);
     ys[lo] + (ys[hi] - ys[lo]) * f
@@ -547,7 +704,9 @@ pub fn interp2(xs: &[f64], la: &[f64], lo_: &[f64], x: f64) -> (f64, f64) {
 
 pub fn doy_from_date(date: &str) -> u32 {
     let parts: Vec<u32> = date.split('-').filter_map(|p| p.parse().ok()).collect();
-    if parts.len() < 3 { return 182; }
+    if parts.len() < 3 {
+        return 182;
+    }
     let (y, m, d) = (parts[0], parts[1], parts[2]);
     let leap = (y % 4 == 0 && y % 100 != 0) || y % 400 == 0;
     let cum = [0u32, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];

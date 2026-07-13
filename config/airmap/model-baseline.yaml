@@ -7,23 +7,31 @@ model:
   name: fspl_baseline
   version: 1.0.0
   # sha256 of the canonical model spec string:
-  # fspl_baseline:PL_db=32.44+20*log10(d_km)+20*log10(f_mhz);f=915MHz;eirp_dbm=26.3;preset=LongFast(SF11,BW250kHz,CR4/5);rx_sens_dbm=-131
-  hash: "cfbfb162025dbe815381cb3db71f0f41883ec6da0201758c79a610d0e1936dee"
+  # fspl_baseline:PL_db=32.44+20*log10(d_km)+20*log10(f_mhz);f=915MHz;tx_conducted_dbm=22;tx_ant_gain_dbi=2.15;rx_ant_gain_dbi=2.15;rx_feed_loss_db=0;preset=LongFast(SF11,BW250kHz,CR4/5);rx_sens_dbm=-131
+  hash: "223b26248dad1dd061e424a2992a09a7632cb698a8e7b1ec2d9fe52b71177a88"
   frequency_mhz: 915
   polarization: vertical
   notes: >-
     FSPL-only baseline (n=2 lower bound). Radio assumptions: Meshtastic LongFast
     preset = SF11 / BW 250 kHz / CR 4/5, data rate 1.07 kbps, sensitivity ~ -131 dBm
     (Meshtastic radio-settings link-budget table; Semtech SX1262 datasheet).
-    TX 22 dBm, 2 x 2.15 dBi antennas (EIRP 26.3 dBm).
+    TX 22 dBm with 2.15 dBi transmit antenna (TX EIRP 24.15 dBm), plus
+    2.15 dBi receive antenna gain. The 26.3 dBm sum is the receiver-power
+    reference before path loss, not EIRP. Feed losses are assumed 0 dB and
+    must be measured.
 radio:
   preset: LongFast
   spreading_factor: 11
   bandwidth_khz: 250
   coding_rate: "4/5"
   data_rate_kbps: 1.07
-  tx_dbm: 22.0
-  ant_gain_dbi_each_end: 2.15
+  tx_conducted_dbm: 22.0
+  tx_antenna_gain_dbi: 2.15
+  tx_feed_loss_db: 0.0
+  tx_eirp_dbm: 24.15
+  rx_antenna_gain_dbi: 2.15
+  rx_feed_loss_db: 0.0
+  rx_power_reference_dbm: 26.3
   rx_sensitivity_dbm: -131.0
   noise_floor_dbm: -114.0
 features:

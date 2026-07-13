@@ -26,14 +26,23 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
-from itm_relay_links import Dem, itm_p2p_loss, EIRP_DBM, RX_SENS_DBM, PLANNING_DBM  # noqa: E402
+from itm_relay_links import (  # noqa: E402
+    Dem,
+    PLANNING_DBM,
+    RX_POWER_REF_DBM,
+    RX_SENS_DBM,
+    itm_p2p_loss,
+)
 
 
 def coverage_layer(dem: Dem, name: str, lat: float, lon: float, hg: float,
                    grid: int = 60, pad: tuple[float, float] = (0.045, 0.06)) -> dict:
     """ITM predicted-RSSI raster from one transmitter → base64 PNG + bounds.
     Cached per site in artifacts/sim/coverage_<name>.npz."""
-    cache = ROOT / f"artifacts/sim/coverage_{name}.npz"
+    # cache key includes grid+pad: same gateway at different extents (pilot
+    # 5 km vs statewide 12 km) must not share a raster or bounds drift
+    cache = ROOT / (f"artifacts/sim/coverage_{name}_{grid}"
+                    f"_{pad[0]:.3f}_{pad[1]:.3f}.npz")
     lat_lo = max(lat - pad[0], float(dem.lat.min()))
     lat_hi = min(lat + pad[0], float(dem.lat.max()))
     lon_lo = max(lon - pad[1], float(dem.lon.min()))
@@ -49,11 +58,11 @@ def coverage_layer(dem: Dem, name: str, lat: float, lon: float, hg: float,
             for j, lo in enumerate(lons):
                 d_m, prof = dem.profile(lat, lon, la, lo)
                 if d_m < 30.0:
-                    pred[i, j] = EIRP_DBM
+                    pred[i, j] = RX_POWER_REF_DBM
                     continue
                 try:
                     itm = itm_p2p_loss(d_m / 1000.0, prof, (hg, 1.5))
-                    pred[i, j] = EIRP_DBM - itm["loss_db_q50"]
+                    pred[i, j] = RX_POWER_REF_DBM - itm["loss_db_q50"]
                 except Exception:
                     pass
         np.savez_compressed(cache, pred=pred)

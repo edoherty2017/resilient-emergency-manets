@@ -2,6 +2,7 @@
 //! bit-compatible with) numpy's Generator — fastsim results match the Python
 //! sim in distribution, which is what multi-seed sweeps consume.
 
+#[derive(Clone, Debug)]
 pub struct Rng {
     state: u64,
     spare_normal: Option<f64>,
@@ -9,7 +10,32 @@ pub struct Rng {
 
 impl Rng {
     pub fn new(seed: u64) -> Self {
-        Rng { state: seed.wrapping_add(0x9E3779B97F4A7C15), spare_normal: None }
+        Rng {
+            state: seed.wrapping_add(0x9E3779B97F4A7C15),
+            spare_normal: None,
+        }
+    }
+
+    /// Build an independent, reproducible stream from a master seed and a
+    /// stable numeric domain tag.  Simulation subsystems use separate streams
+    /// so, for example, adding a MAC backoff draw cannot change SOS incidence.
+    pub fn stream(master_seed: u64, domain: u64) -> Self {
+        Self::new(Self::mix64(master_seed ^ Self::mix64(domain)))
+    }
+
+    /// Stateless SplitMix64 finalizer for deterministic keyed choices (CAD
+    /// phase and order-independent reservoir priorities).
+    pub fn mix64(mut z: u64) -> u64 {
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D049BB133111EB);
+        z ^ (z >> 31)
+    }
+
+    /// A deterministic uniform variate keyed by `(master_seed, domain, key)`;
+    /// this does not consume any stateful stream.
+    pub fn keyed_f64(master_seed: u64, domain: u64, key: u64) -> f64 {
+        let bits = Self::mix64(master_seed ^ Self::mix64(domain) ^ Self::mix64(key));
+        (bits >> 11) as f64 * (1.0 / (1u64 << 53) as f64)
     }
 
     #[inline]
@@ -25,16 +51,6 @@ impl Rng {
     #[inline]
     pub fn f64(&mut self) -> f64 {
         (self.next_u64() >> 11) as f64 * (1.0 / (1u64 << 53) as f64)
-    }
-
-    #[inline]
-    pub fn uniform(&mut self, lo: f64, hi: f64) -> f64 {
-        lo + (hi - lo) * self.f64()
-    }
-
-    #[inline]
-    pub fn below(&mut self, n: usize) -> usize {
-        (self.f64() * n as f64) as usize % n.max(1)
     }
 
     /// Standard normal (Box-Muller, cached spare)
@@ -54,34 +70,33 @@ impl Rng {
             return r * a.cos();
         }
     }
+}
 
-    /// Beta(a, b) via Jöhnk/gamma-free method for a,b < 1 fallback: use
-    /// two-gamma with Marsaglia-Tsang for shape >= 1 (shifted for < 1).
-    pub fn gamma(&mut self, shape: f64) -> f64 {
-        if shape < 1.0 {
-            let u = self.f64().max(f64::EPSILON);
-            return self.gamma(shape + 1.0) * u.powf(1.0 / shape);
+#[cfg(test)]
+mod tests {
+    use super::Rng;
+
+    #[test]
+    fn streams_are_reproducible_and_isolated() {
+        const TRAFFIC: u64 = 0x5452_4146_4649_4301;
+        const MAC: u64 = 0x4d41_4300_0000_0002;
+        let mut traffic_a = Rng::stream(42, TRAFFIC);
+        let mut traffic_b = Rng::stream(42, TRAFFIC);
+        let mut mac = Rng::stream(42, MAC);
+
+        let first = traffic_a.next_u64();
+        for _ in 0..10_000 {
+            mac.next_u64();
         }
-        let d = shape - 1.0 / 3.0;
-        let c = 1.0 / (9.0 * d).sqrt();
-        loop {
-            let x = self.normal();
-            let v = (1.0 + c * x).powi(3);
-            if v <= 0.0 {
-                continue;
-            }
-            let u = self.f64();
-            if u < 1.0 - 0.0331 * x.powi(4)
-                || u.ln() < 0.5 * x * x + d * (1.0 - v + v.ln())
-            {
-                return d * v;
-            }
-        }
+        assert_eq!(first, traffic_b.next_u64());
+        assert_eq!(traffic_a.next_u64(), traffic_b.next_u64());
     }
 
-    pub fn beta(&mut self, a: f64, b: f64) -> f64 {
-        let x = self.gamma(a);
-        let y = self.gamma(b);
-        x / (x + y)
+    #[test]
+    fn keyed_values_are_stable_and_domain_separated() {
+        let a = Rng::keyed_f64(7, 11, 13);
+        assert_eq!(a, Rng::keyed_f64(7, 11, 13));
+        assert_ne!(a, Rng::keyed_f64(7, 12, 13));
+        assert!((0.0..1.0).contains(&a));
     }
 }

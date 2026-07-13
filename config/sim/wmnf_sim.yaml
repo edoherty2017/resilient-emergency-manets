@@ -17,8 +17,13 @@ radio:
   cr: 1                      # 4/5
   preamble_syms: 16
   tx_power_dbm: 22.0
-  antenna_gain_dbi: 2.15
-  eirp_dbm: 26.3             # 22 + 2*2.15 (matches itm_relay_links.py)
+  tx_antenna_gain_dbi: 2.15
+  tx_feed_loss_db: 0.0       # [BENCH-CALIBRATE] includes pigtail/connector loss
+  tx_eirp_dbm: 24.15         # 22 + 2.15 - 0; excludes receiver antenna gain
+  rx_antenna_gain_dbi: 2.15
+  rx_feed_loss_db: 0.0       # [BENCH-CALIBRATE]
+  # Simulator RSSI reference = tx_eirp_dbm + rx_antenna_gain_dbi -
+  # rx_feed_loss_db = 26.3 dBm before subtracting basic path loss.
   rx_sensitivity_dbm: -131.0 # SF11/BW250 (SX1262 datasheet)
   noise_figure_db: 6.0
   snr_demod_threshold_db: -17.5   # SF11 (Semtech AN1200.22)
