@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from pathlib import Path
 
 import numpy as np
@@ -94,6 +95,63 @@ def digest(trace_path: Path, sites: dict, keep_movers: bool, pos_at=None):
     edges = sorted(edges + edges_h, key=lambda e: e[0])
     bat = {n: v[::4] for n, v in bat.items()}   # year-scale: ~daily
     return edges, bat, log, movers, kiosks, assigns
+
+
+def build_coverage_grid(service: dict, cell_deg: float = 0.012) -> dict | None:
+    """Rasterize the union of relay service-areas onto a lat/lon grid.
+
+    Each covered cell stores the indices of every relay whose terrain-clipped
+    footprint reaches it (range-by-azimuth test). At play time the browser
+    colors a cell green while any covering relay is alive and red when they
+    are all dead — so lost coverage is visible as red eating into green.
+    """
+    if not service:
+        return None
+    names = list(service.keys())
+    lats = np.array([service[n]["lat"] for n in names])
+    lons = np.array([service[n]["lon"] for n in names])
+    rng = [np.asarray(service[n]["r"], dtype=float) for n in names]
+    naz = len(rng[0])
+    lat0, lat1 = float(lats.min()) - 0.03, float(lats.max()) + 0.03
+    lon0, lon1 = float(lons.min()) - 0.03, float(lons.max()) + 0.03
+    nlat = int((lat1 - lat0) / cell_deg) + 1
+    nlon = int((lon1 - lon0) / cell_deg) + 1
+    glat = lat0 + (np.arange(nlat) + 0.5) * cell_deg
+    glon = lon0 + (np.arange(nlon) + 0.5) * cell_deg
+    cov: dict[int, list[int]] = {}
+    for ni, name in enumerate(names):
+        nlat_, nlon_ = lats[ni], lons[ni]
+        rmax = float(rng[ni].max())
+        # bound the search box to this node's max reach (+1 cell margin)
+        dlat_deg = rmax / 111320.0
+        dlon_deg = rmax / (111320.0 * math.cos(math.radians(nlat_)))
+        i0 = max(0, int((nlat_ - dlat_deg - lat0) / cell_deg))
+        i1 = min(nlat, int((nlat_ + dlat_deg - lat0) / cell_deg) + 2)
+        j0 = max(0, int((nlon_ - dlon_deg - lon0) / cell_deg))
+        j1 = min(nlon, int((nlon_ + dlon_deg - lon0) / cell_deg) + 2)
+        if i1 <= i0 or j1 <= j0:
+            continue
+        sub_lat = glat[i0:i1][:, None]
+        sub_lon = glon[j0:j1][None, :]
+        dN = (sub_lat - nlat_) * 111320.0
+        dE = (sub_lon - nlon_) * 111320.0 * math.cos(math.radians(nlat_))
+        dist = np.hypot(dN, dE)
+        bearing = np.mod(np.arctan2(dE, dN), 2 * math.pi)
+        kf = bearing / (2 * math.pi) * naz
+        k0 = np.floor(kf).astype(int) % naz
+        k1 = (k0 + 1) % naz
+        frac = kf - np.floor(kf)
+        r_at = rng[ni][k0] * (1 - frac) + rng[ni][k1] * frac
+        hit = dist <= r_at
+        ii, jj = np.where(hit)
+        for a, b in zip(ii + i0, jj + j0):
+            cov.setdefault(int(a) * nlon + int(b), []).append(ni)
+    cell_km2 = (cell_deg * 111.32) * (cell_deg * 111.32 *
+                                      math.cos(math.radians((lat0 + lat1) / 2)))
+    return {"lat0": round(lat0, 4), "lon0": round(lon0, 4),
+            "cell": cell_deg, "nlat": nlat, "nlon": nlon,
+            "names": names, "cell_km2": round(cell_km2, 3),
+            "cov": {str(k): v for k, v in cov.items()}}
 
 
 def main() -> int:
@@ -223,6 +281,20 @@ def main() -> int:
         sa = json.loads(sa_p.read_text())["sites"]
         service = {n: {"lat": v["lat"], "lon": v["lon"], "r": v["range_m"]}
                    for n, v in sa.items() if n in sites}
+    # per-gateway ITM coverage heatmaps (build_gateway_coverage.py)
+    cov = []
+    cov_p = ROOT / "artifacts/sim/coverage_overlays.json"
+    if cov_p.exists():
+        cov = [c for c in json.loads(cov_p.read_text()) if c["name"] in sites]
+        print(f"  coverage heatmaps: {len(cov)} gateways")
+
+    # live coverage grid: which relay service-areas cover each grid cell, so
+    # the browser can paint a cell green while ≥1 covering node is alive and
+    # red once they've all died — coverage loss made spatially explicit.
+    covgrid = build_coverage_grid(service)
+    if covgrid:
+        print(f"  coverage grid: {covgrid['nlat']}x{covgrid['nlon']} cells, "
+              f"{len(covgrid['cov'])} covered")
 
     data = {
         "title": args.title,
@@ -231,7 +303,7 @@ def main() -> int:
         "duration_s": duration, "start_utc": "2025-07-01T00:00:00Z",
         "movers": movers_shared or {}, "trails": trails, "nh": nh,
         "routegeom": routegeom, "moverdef": moverdef,
-        "service": service, "runs": runs,
+        "service": service, "cov": cov, "covgrid": covgrid, "runs": runs,
     }
     vendor = ROOT / "artifacts/vendor"
     html = (TEMPLATE
@@ -257,6 +329,21 @@ window.onerror=function(m,s,l,c){var d=document.createElement('div');
 <style>
  body{margin:0;font-family:-apple-system,Helvetica,sans-serif;display:flex;height:100vh}
  #map{flex:1} #panel{width:360px;background:#151a21;color:#dde;overflow-y:auto;padding:10px;font-size:12px}
+ #batpanel{width:225px;background:#11151c;color:#dde;display:flex;flex-direction:column;
+   font-size:11px;transition:width .2s;overflow:hidden}
+ #batpanel.closed{width:30px}
+ #bathead{display:flex;align-items:center;gap:6px;padding:6px;border-bottom:1px solid #2a3540;white-space:nowrap}
+ #batpanel.closed #bathead b,#batpanel.closed #batcount,#batpanel.closed #batlist{display:none}
+ #batcol{background:#222b36;color:#dde;border:1px solid #3a4550;border-radius:4px;cursor:pointer;padding:2px 6px}
+ #batcount{color:#9ab;margin-left:auto;font-size:10px}
+ #batlist{flex:1;overflow-y:auto;padding:2px 6px}
+ .brow{display:flex;align-items:center;gap:5px;padding:1.5px 0;border-bottom:1px solid #1c232c;cursor:pointer}
+ .brow:hover{background:#1a222c}
+ .brow .bn{width:92px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#bcd}
+ .brow.bdead .bn{color:#f66}
+ .bbar{flex:1;height:7px;background:#222b36;border-radius:3px;overflow:hidden}
+ .bfill{height:100%;background:#3c3;width:100%;border-radius:3px}
+ .bpc{width:30px;text-align:right;font-variant-numeric:tabular-nums;color:#9ab}
  select#algo{font-size:15px;padding:3px;margin:4px 0;width:100%}
  table{width:100%;border-collapse:collapse;font-size:11px;margin:6px 0}
  td,th{border-bottom:1px solid #333;padding:2px 4px;text-align:right}
@@ -269,12 +356,35 @@ window.onerror=function(m,s,l,c){var d=document.createElement('div');
  #log div{border-bottom:1px solid #222;padding:1px 0}
  .dead{color:#f66}.deliver{color:#6f6}.lg{font-size:10px;color:#9ab}
 </style></head><body>
+<div id="batpanel">
+ <div id="bathead"><button id="batcol">◀</button> <b>relay batteries</b> <span id="batcount"></span></div>
+ <div id="batlist"></div>
+</div>
 <div id="map"></div>
 <div id="panel">
  <h2 id="ttl" style="font-size:14px"></h2>
  <select id="algo"></select>
  <label class="lg"><input type="checkbox" id="hikonly" checked> hiker traffic only
  (origins pulse at the hiker)</label>
+ <div class="lg" id="layers" style="display:flex;flex-wrap:wrap;gap:2px 10px;margin:4px 0;padding:4px;background:#0d1117;border-radius:6px">
+  <b style="width:100%">map layers</b>
+  <label><input type="checkbox" id="ly_live" checked> <b style="color:#5c6">live coverage</b> (green=up, red=lost)</label>
+  <label><input type="checkbox" id="ly_cov"> ITM signal heatmap</label>
+  <label><input type="checkbox" id="ly_svc"> service-area outlines</label>
+  <label><input type="checkbox" id="ly_lnk" checked> struggling links</label>
+  <label><input type="checkbox" id="ly_trl" checked> trails</label>
+ </div>
+ <div class="lg" id="covstat" style="padding:2px 4px"></div>
+ <div class="lg" style="padding:2px 4px;line-height:1.6">
+  <b>node dots</b> = battery:
+  <span style="color:hsl(120,82%,47%)">●</span> full
+  <span style="color:hsl(60,82%,47%)">●</span> half
+  <span style="color:hsl(18,82%,47%)">●</span> low (alive) ·
+  <span style="color:#e01e1e">◯</span> red ring = dead<br>
+  <b>coverage area</b>:
+  <span style="color:#2abe5a">■</span> covered ·
+  <span style="color:#eb1e1e">■</span> lost (all relays here dead)
+ </div>
  <table id="stats"><tr><th>algo</th><th>PDR</th><th>SOS</th><th>util</th><th>deaths</th><th>Gini</th><th>rent%</th></tr></table>
  <canvas id="socchart" style="width:100%;height:90px;background:#0d1117;border-radius:6px"></canvas>
  <div class="lg">fleet battery through the year (p10–median band) · 📦 = charging box (count = radios docked)</div>
@@ -301,16 +411,114 @@ map.fitBounds(L.latLngBounds(pts).pad(0.1));
 if(D.nh.length){L.polyline(D.nh.concat([D.nh[0]]),{color:'#111',weight:2.5}).addTo(map);
  L.polygon([[[85,-180],[85,180],[-85,180],[-85,-180]],D.nh],
   {stroke:false,fillColor:'#fff',fillOpacity:0.35,interactive:false}).addTo(map);}
+const trailLayer=L.layerGroup().addTo(map);
 for(const line of Object.values(D.trails))
-  L.polyline(line,{color:'#0a58ff',weight:1.8,opacity:0.5}).addTo(map);
+  trailLayer.addLayer(L.polyline(line,{color:'#0a58ff',weight:1.8,opacity:0.5}));
+const svcLayer=L.layerGroup();
 const svcPolys={};
 for(const [n,sv] of Object.entries(D.service)){
   const p=[],mlat=111320,mlon=111320*Math.cos(sv.lat*Math.PI/180);
   for(let k=0;k<sv.r.length;k++){const az=k*2*Math.PI/sv.r.length,r=Math.max(sv.r[k],40);
     p.push([sv.lat+r*Math.cos(az)/mlat,sv.lon+r*Math.sin(az)/mlon]);}
   svcPolys[n]=L.polygon(p,{color:'#0a7d2c',weight:0.8,opacity:0.4,
-    fillColor:'#27b04b',fillOpacity:0.07}).addTo(map);
+    fillColor:'#27b04b',fillOpacity:0.07});
+  svcLayer.addLayer(svcPolys[n]);
 }
+// ── live coverage grid: green where a relay is up, red where coverage died ──
+const CG=D.covgrid;
+let covImg=null, covPixels=null, covCanvas=null;
+if(CG){
+  covCanvas=document.createElement('canvas');
+  covCanvas.width=CG.nlon; covCanvas.height=CG.nlat;
+  covPixels=covCanvas.getContext('2d').createImageData(CG.nlon,CG.nlat);
+  const bounds=[[CG.lat0,CG.lon0],
+    [CG.lat0+CG.nlat*CG.cell,CG.lon0+CG.nlon*CG.cell]];
+  covImg=L.imageOverlay('',bounds,{opacity:0.72,interactive:false,className:'covgrid'});
+  if(document.getElementById('ly_live').checked)covImg.addTo(map);
+}
+// canvas rows run top→bottom but our grid row 0 is the SOUTH edge, so flip
+function paintCoverage(){
+  if(!CG||!covImg)return;
+  const d=covPixels.data, nlon=CG.nlon, nlat=CG.nlat;
+  let up=0, lost=0;
+  d.fill(0);
+  for(const [cell,nodes] of covEntries){
+    const row=(cell/nlon)|0, col=cell%nlon;
+    let anyAlive=false;
+    for(let z=0;z<nodes.length;z++){if(aliveSet[nodes[z]]){anyAlive=true;break;}}
+    anyAlive?up++:lost++;
+    const y=nlat-1-row, o=(y*nlon+col)*4;
+    // green = still covered (soft, lets terrain show); red = coverage LOST
+    // (bold + opaque, because "where does coverage end" is the whole point)
+    if(anyAlive){d[o]=42;d[o+1]=190;d[o+2]=90;d[o+3]=120;}
+    else{d[o]=235;d[o+1]=30;d[o+2]=30;d[o+3]=235;}
+  }
+  covCanvas.getContext('2d').putImageData(covPixels,0,0);
+  covImg.setUrl(covCanvas.toDataURL());
+  const tot=up+lost, km2=Math.round(up*CG.cell_km2);
+  document.getElementById('covstat').innerHTML=tot?
+    '<b style="color:#5c6">'+Math.round(up/tot*100)+'% coverage online</b> · '+
+    km2.toLocaleString()+' km² · <span style="color:#e66">'+
+    Math.round(lost*CG.cell_km2).toLocaleString()+' km² lost</span>':'';
+}
+const covEntries=CG?Object.entries(CG.cov).map(([k,v])=>[+k,v]):[];
+// aliveSet[nodeIdx] tracks each relay's current alive state for the grid
+const covNameIdx={}; if(CG)CG.names.forEach((n,i)=>covNameIdx[n]=i);
+const aliveSet=CG?new Uint8Array(CG.names.length).fill(1):null;
+// ITM coverage heatmaps (one raster per gateway; RdYlGn centered on the
+// -100 dBm planning threshold) — off by default, toggled from the panel
+const covLayer=L.layerGroup();
+for(const c of (D.cov||[]))
+  covLayer.addLayer(L.imageOverlay(c.png,c.bounds,{opacity:0.55,interactive:false}));
+function wireLayer(id,layer){const cb=document.getElementById(id);
+ cb.onchange=()=>{cb.checked?layer.addTo(map):layer.remove();};}
+wireLayer('ly_cov',covLayer);
+wireLayer('ly_svc',svcLayer);
+wireLayer('ly_trl',trailLayer);
+if(covImg)document.getElementById('ly_live').onchange=e=>{
+ e.target.checked?covImg.addTo(map):covImg.remove();if(e.target.checked)paintCoverage();};
+// ── relay-battery sidebar: live list, worst first, collapsible ────────────
+const relayNames=Object.keys(D.sites).filter(n=>!D.sites[n].mqtt).sort();
+const batList=document.getElementById('batlist');
+for(const n of relayNames){
+  const row=document.createElement('div');row.className='brow';row.id='br_'+n;
+  row.innerHTML='<span class="bn" title="'+n+'">'+n+'</span>'+
+   '<div class="bbar"><div class="bfill" id="bf_'+n+'"></div></div>'+
+   '<span class="bpc" id="bp_'+n+'">—</span>';
+  row.onclick=()=>{const s=D.sites[n];map.setView([s.lat,s.lon],12);
+    if(markers[n])markers[n].openTooltip();};
+  batList.appendChild(row);
+}
+let lastSort=0,lastPaint=0;
+function updateBatList(){
+  let alive=0,dead=0,covChanged=false;
+  for(const n of relayNames){
+    const rec=batOf(n);if(!rec)continue;
+    const f=document.getElementById('bf_'+n),p=document.getElementById('bp_'+n);
+    const isAlive=rec[3]===1; isAlive?alive++:dead++;
+    if(aliveSet&&n in covNameIdx){const v=isAlive?1:0;
+      if(aliveSet[covNameIdx[n]]!==v){aliveSet[covNameIdx[n]]=v;covChanged=true;}}
+    if(f){f.style.width=Math.round(Math.max(rec[1],0.02)*100)+'%';
+      f.style.background=socColor(rec[1],isAlive);}
+    if(p){p.textContent=isAlive?Math.round(rec[1]*100)+'%':'✕';
+      p.style.color=isAlive?'':'#f66';}
+    document.getElementById('br_'+n).classList.toggle('bdead',!isAlive);
+  }
+  document.getElementById('batcount').textContent=alive+' up · '+dead+' down';
+  const now=performance.now();
+  if(covChanged&&now-lastPaint>250){lastPaint=now;paintCoverage();}
+  if(now-lastSort>600){lastSort=now;
+    const order=relayNames.slice().sort((a,b)=>{
+      const ra=batOf(a),rb=batOf(b);
+      const ka=ra?(ra[3]===1?ra[1]:-1):2,kb=rb?(rb[3]===1?rb[1]:-1):2;
+      return ka-kb;});
+    for(const n of order)batList.appendChild(document.getElementById('br_'+n));}
+}
+document.getElementById('batcol').onclick=()=>{
+  const bp=document.getElementById('batpanel');
+  bp.classList.toggle('closed');
+  document.getElementById('batcol').textContent=bp.classList.contains('closed')?'🔋':'◀';
+  setTimeout(()=>map.invalidateSize(),250);};
 const markers={};
 for(const [n,s] of Object.entries(D.sites))
   markers[n]=L.circleMarker([s.lat,s.lon],{radius:s.mqtt?8:5,color:'#fff',weight:1,
@@ -357,11 +565,14 @@ function applyKiosks(){
 }
 let linkLayer=L.layerGroup().addTo(map);
 function rebuildLinks(){
-  linkLayer.remove(); linkLayer=L.layerGroup().addTo(map);
+  linkLayer.remove(); linkLayer=L.layerGroup();
+  if(document.getElementById('ly_lnk').checked)linkLayer.addTo(map);
   for(const l of (R.links||[]))
     if(l[4])linkLayer.addLayer(L.polyline([[l[0],l[1]],[l[2],l[3]]],
       {color:'#ff8800',weight:2,opacity:0.7,dashArray:'6 6'}));
 }
+document.getElementById('ly_lnk').onchange=e=>
+  e.target.checked?linkLayer.addTo(map):linkLayer.remove();
 // walker radio assignment: walker -> current radio (for battery fill)
 let asgIdx=0; const walkerRadio={};
 function applyAssigns(){
@@ -390,9 +601,13 @@ function routePos(md,t){
 
 // ── run switching ──────────────────────────────────────────────────────────
 const modes=Object.keys(D.runs);
-let mode=modes[0];
+// default to a duty-cycled mode if present: those keep relays alive long
+// enough that coverage loss reads as a gradual winter recession rather than
+// an instant day-10 blackout (flood/always-on collapse before you can watch)
+let mode=modes.find(m=>m.startsWith('duty'))||modes[0];
 const sel=document.getElementById('algo');
 for(const m of modes){const o=document.createElement('option');o.value=m;o.textContent=m;sel.appendChild(o);}
+sel.value=mode;
 const tbl=document.getElementById('stats');
 for(const m of modes){
   const s=D.runs[m].stats, r=tbl.insertRow(); r.id='row_'+m;
@@ -412,20 +627,28 @@ function resetCursors(){ei=R.edges.findIndex(e=>e[0]>=simT);if(ei<0)ei=R.edges.l
 function setMode(m){mode=m;R=D.runs[m];document.getElementById('mode').textContent=m;
  for(const x of modes)document.getElementById('row_'+x).className=x===m?'active':'';
  kioskIdx=0;asgIdx=0;for(const k in walkerRadio)delete walkerRadio[k];
- rebuildLinks();resetCursors();applyAssigns();applyKiosks();drawSoc();}
+ rebuildLinks();resetCursors();applyAssigns();applyKiosks();drawSoc();
+ if(aliveSet)aliveSet.fill(1);updateBatList();paintCoverage();}
 sel.onchange=e=>setMode(e.target.value);
-function socColor(s,alive){if(!alive)return'#555';return`hsl(${Math.max(0,Math.min(120,s*120))},80%,45%)`;}
+// battery ramp stops at amber (hue 18), never pure red, so a low-but-ALIVE
+// relay reads as amber — red is reserved for DEATH (dead dots get a red ring,
+// dead coverage goes red) so the two never get confused
+function socColor(s,alive){if(!alive)return'#3a2323';return`hsl(${Math.max(18,Math.min(120,s*120))},82%,47%)`;}
+function socRing(alive){return alive?'#fff':'#e01e1e';}
 function batOf(n){const b=R.bat[n];if(!b)return null;
  return b[Math.min(bi[n]??0,b.length-1)];}
 function applyBat(){for(const n in R.bat){const rec=batOf(n);
- if(!rec)continue;if(markers[n])markers[n].setStyle({fillColor:socColor(rec[1],rec[3]===1)});
+ if(!rec)continue;const a=rec[3]===1;
+ if(markers[n])markers[n].setStyle({fillColor:socColor(rec[1],a),
+   color:socRing(a),weight:a?1:2.5});
  if(moverMarkers[n]){moverMarkers[n].setStyle({fillColor:socColor(rec[1],rec[3]===1)});
   moverMarkers[n].setTooltipContent(n+' — battery '+Math.round(rec[1]*100)+'%');}
  if(svcPolys[n])svcPolys[n].setStyle(rec[3]===1?{opacity:0.4,fillOpacity:0.07}:{opacity:0.1,fillOpacity:0,color:'#c22'});}
  // walkers wear their assigned radio's battery
  for(const w in walkerRadio){const rec=batOf(walkerRadio[w]);
   if(rec&&moverMarkers[w]){moverMarkers[w].setStyle({fillColor:socColor(rec[1],rec[3]===1)});
-   moverMarkers[w].setTooltipContent(w+' ('+walkerRadio[w]+') — '+Math.round(rec[1]*100)+'%');}}}
+   moverMarkers[w].setTooltipContent(w+' ('+walkerRadio[w]+') — '+Math.round(rec[1]*100)+'%');}}
+ updateBatList();}
 function drawSoc(){
   const c=document.getElementById('socchart');if(!c)return;
   const w=c.clientWidth,h=c.clientHeight;
