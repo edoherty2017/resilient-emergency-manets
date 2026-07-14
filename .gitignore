@@ -89,3 +89,5 @@ artifacts/sim/corrected/*
 artifacts/sim/corrected/release_v1/*
 !artifacts/sim/corrected/release_v1/corrected_stats.json
 !artifacts/sim/corrected/release_v1/input_hashes.txt
+
+!docs/simulator-methods-findings-report-2026-07-14.pdf
