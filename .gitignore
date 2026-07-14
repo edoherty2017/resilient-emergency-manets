@@ -81,3 +81,11 @@ fastsim/target/
 # generated fastsim smoke summary (regenerable, never commit)
 fastsim/*_summary.json
 !artifacts/coverage_prediction/reconcile_trial1_provenance.json
+# corrected replacement release: track the compact aggregate + input hashes,
+# not the bulky per-run summaries (regenerable from the committed engine)
+!artifacts/sim/corrected/
+artifacts/sim/corrected/*
+!artifacts/sim/corrected/release_v1/
+artifacts/sim/corrected/release_v1/*
+!artifacts/sim/corrected/release_v1/corrected_stats.json
+!artifacts/sim/corrected/release_v1/input_hashes.txt

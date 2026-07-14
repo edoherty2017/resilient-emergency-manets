@@ -463,6 +463,52 @@ statistical noise.
    variance, board current, panel yield, CAD behavior, or real traffic. Controlled
    field and bench data are now the critical path.
 
+## 5A. Corrected multi-seed results (2026-07-14)
+
+The corrected FastSim engine was run for all nine shared modes across seeds
+42–46 (365 days, NH statewide, hash-locked inputs frozen at
+`artifacts/sim/corrected/release_v1/`, aggregated in `corrected_stats.json`).
+These are **MODEL-ONLY, uncalibrated** results. The Python arm is not yet run at
+statewide scale — bucket-3 reconciliation is at the micro-scenario stage, where
+the two engines agree within the pre-registered tolerances on PDR, deaths, and
+duty-misses (§4). So these are single-engine numbers cross-checked at
+micro-scale, **not** a completed statewide two-engine parity.
+
+| Mode | PDR (95% CI) | Death-events/yr | SOS delivered | duty-misses/yr | Class |
+|---|---|---|---|---|---|
+| flood | 0.911 ± 0.000 | 29,234 | 189/189 (100%) | 0 | always-on |
+| min_hop | 0.862 ± 0.000 | 29,164 | 189/189 (100%) | 0 | always-on |
+| etx | 0.866 ± 0.000 | 29,165 | 189/189 (100%) | 0 | always-on |
+| energy_aware | 0.866 ± 0.000 | 29,164 | 189/189 (100%) | 0 | always-on |
+| lb_energy | 0.866 ± 0.000 | 29,164 | 189/189 (99.9%) | 0 | always-on |
+| duty_sync | 0.728 ± 0.000 | 1,217 | 179/189 (94.7%) | 23.8 M | duty |
+| duty_adaptive | 0.755 ± 0.003 | 1,737 | 188/189 (99.3%) | 25.6 M | duty |
+| rotate_lb | 0.809 ± 0.000 | 4,877 | 188/189 (99.5%) | 24.1 M | duty |
+| selective_duty | 0.811 ± 0.000 | 5,311 | 188/189 (99.3%) | 23.3 M | duty |
+
+Observed tradeoffs — **no single mode is declared best** (full statewide parity
+is still pending, per §9):
+
+- Always-on modes hold PDR 0.86–0.91 but incur ~29,000 death-events/yr: solar
+  relays cycle depleted/revived through the winter energy deficit.
+- Duty-cycled modes cut death-events 6–24× but lower PDR to 0.73–0.81. This is
+  the survival-versus-delivery tradeoff, now quantified on the corrected engine.
+- SOS (the life-safety class, flooded in every mode) is recovered to ~99% by
+  `duty_adaptive`, `rotate_lb`, and `selective_duty` — each keeps energy-rich or
+  connectivity-critical relays awake — while uniform `duty_sync` drops SOS to
+  94.7%.
+- Among the ~99%-SOS duty modes, `duty_adaptive` reaches it at the fewest deaths
+  (1,737); `selective_duty` reaches it at higher PDR (0.811) but more deaths
+  (5,311), because keeping the connectivity-critical backbone always awake drains
+  those nodes. No mode dominates on all of PDR, survival, and SOS simultaneously;
+  the choice is an explicit weighting decision, which is why no "winner" is named.
+
+Confidence intervals are tiny (< 0.005 on PDR) because the engine is
+near-deterministic given a seed — traffic and weather are seed-fixed, so
+seed variation is not the dominant uncertainty. The dominant uncertainty remains
+**empirical** (uncalibrated propagation and energy parameters), per §7, not
+statistical.
+
 ## 6. Important mistakes and corrected claim categories
 
 The audit found mistakes, not evidence of intentional lying:

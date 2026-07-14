@@ -1,0 +1,114 @@
+{
+  "engine": "fastsim (rust)",
+  "seeds": [
+    42,
+    43,
+    44,
+    45,
+    46
+  ],
+  "ci": "t-based 95% (df=4)",
+  "days": 365,
+  "claim_status": "MODEL_ONLY_uncalibrated",
+  "modes": {
+    "flood": {
+      "pdr": 0.9111,
+      "pdr_ci": 0.0001,
+      "deaths": 29234.2,
+      "deaths_ci": 1.36,
+      "offered_airtime": 0.624,
+      "offered_airtime_ci": 0.0002,
+      "sos_delivered": 189.2,
+      "sos_sent": 189.2,
+      "duty_misses": 0
+    },
+    "min_hop": {
+      "pdr": 0.8624,
+      "pdr_ci": 0.0002,
+      "deaths": 29163.6,
+      "deaths_ci": 1.4155,
+      "offered_airtime": 0.172,
+      "offered_airtime_ci": 0.0001,
+      "sos_delivered": 189.2,
+      "sos_sent": 189.2,
+      "duty_misses": 0
+    },
+    "etx": {
+      "pdr": 0.8663,
+      "pdr_ci": 0.0002,
+      "deaths": 29165,
+      "deaths_ci": 1.9629,
+      "offered_airtime": 0.1721,
+      "offered_airtime_ci": 0.0,
+      "sos_delivered": 189.2,
+      "sos_sent": 189.2,
+      "duty_misses": 0
+    },
+    "energy_aware": {
+      "pdr": 0.8658,
+      "pdr_ci": 0.0002,
+      "deaths": 29163.6,
+      "deaths_ci": 2.0774,
+      "offered_airtime": 0.1724,
+      "offered_airtime_ci": 0.0001,
+      "sos_delivered": 189.2,
+      "sos_sent": 189.2,
+      "duty_misses": 0
+    },
+    "lb_energy": {
+      "pdr": 0.8659,
+      "pdr_ci": 0.0002,
+      "deaths": 29163.6,
+      "deaths_ci": 1.4155,
+      "offered_airtime": 0.173,
+      "offered_airtime_ci": 0.0001,
+      "sos_delivered": 189,
+      "sos_sent": 189.2,
+      "duty_misses": 0
+    },
+    "duty_sync": {
+      "pdr": 0.7281,
+      "pdr_ci": 0.0002,
+      "deaths": 1217.4,
+      "deaths_ci": 1.1104,
+      "offered_airtime": 0.1095,
+      "offered_airtime_ci": 0.0001,
+      "sos_delivered": 179.2,
+      "sos_sent": 189.2,
+      "duty_misses": 23841731.0
+    },
+    "duty_adaptive": {
+      "pdr": 0.755,
+      "pdr_ci": 0.0028,
+      "deaths": 1737,
+      "deaths_ci": 0.8778,
+      "offered_airtime": 0.1493,
+      "offered_airtime_ci": 0.0004,
+      "sos_delivered": 187.8,
+      "sos_sent": 189.2,
+      "duty_misses": 25569198.0
+    },
+    "rotate_lb": {
+      "pdr": 0.8088,
+      "pdr_ci": 0.0002,
+      "deaths": 4877,
+      "deaths_ci": 2.3226,
+      "offered_airtime": 0.1464,
+      "offered_airtime_ci": 0.0001,
+      "sos_delivered": 188.2,
+      "sos_sent": 189.2,
+      "duty_misses": 24085101.0
+    },
+    "selective_duty": {
+      "pdr": 0.8111,
+      "pdr_ci": 0.0001,
+      "deaths": 5310.6,
+      "deaths_ci": 5.3108,
+      "offered_airtime": 0.1481,
+      "offered_airtime_ci": 0.0001,
+      "sos_delivered": 187.8,
+      "sos_sent": 189.2,
+      "duty_misses": 23279755
+    }
+  }
+}
