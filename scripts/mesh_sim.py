@@ -337,6 +337,11 @@ class MeshSim:
             node.wake_phase_s = (0.0 if mode in ("duty_sync", "selective_duty")
                                  else float(self.rng_for("duty_phase", name).random())
                                  * T_SNIFF_S)
+        # duty modes assign duty at t=0 (matches Rust): without this, every
+        # relay idles fully awake until the first routed packet lazily builds
+        # the tree, briefly overstating early reception and listen drain.
+        if mode in DUTY_MODES:
+            self.build_route_tree()
 
     def rng_for(self, phenomenon: str, entity: str = "") -> np.random.Generator:
         """Return a deterministic RNG stream keyed by phenomenon and entity.

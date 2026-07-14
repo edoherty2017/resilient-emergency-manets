@@ -369,7 +369,7 @@ firmware testing, ns-3-level protocol studies, or field evidence.
 |---|---|
 | Does FastSim pass its current software regressions? | Yes: 41 Rust unit tests and 3 integration tests pass; formatting and strict Clippy are clean. |
 | Is one FastSim seed reproducible across processes? | Yes in the tested case. Four independent 1.3-day min_hop runs with seed 4242 and the locked NH inputs produced identical 423,626-byte JSON and SHA-256 `ed5d23d605e0579f273b85af686030df9cbae2ebcc69f289519abb6da6569384`. |
-| Do the current Python and Rust engines agree within preregistered tolerances? | **Yes at micro-scenario scale.** After reconciling six semantic gaps in `mesh_sim.py` (route-track timing, duty-miss aggregation, selective-duty route-parent wake, global forward-event EWMA, duty-weighted TX energy, horizon truncation), a shared pilot micro-scenario (`scripts/sim_micro_parity.py`, modes flood/duty_sync/selective_duty, seed 42) agrees within every pre-registered tolerance band on PDR, deaths, offered airtime, SOS, and duty-misses — e.g. selective-duty offered-airtime divergence fell from 13.9% to 1.0%. Two gaps remain deferred and documented (§4.3): ordered energy-segment integration (bounded < 60 s/transition; parity passes without it) and a 600 s packet TTL (unreachable under the current hop-limit/CSMA parameters). A **statewide-scale** two-engine parity is still not run because the Python engine is too slow for full-year multi-seed sweeps (~48 s per pilot-day); the micro-scenario is the auditor-endorsed substitute. |
+| Do the current Python and Rust engines agree within preregistered tolerances? | **Yes at micro-scenario scale.** After reconciling seven semantic gaps in `mesh_sim.py` (route-track timing, duty-miss aggregation, selective-duty route-parent wake, global forward-event EWMA, duty-weighted TX energy, horizon truncation, initial duty assignment at t=0), a shared pilot micro-scenario (`scripts/sim_micro_parity.py`, modes flood/duty_sync/selective_duty, seed 42) agrees within every pre-registered tolerance band on PDR, deaths, offered airtime, SOS, and duty-misses — e.g. selective-duty offered-airtime divergence fell from 13.9% to 1.5% and its PDR gap to 0.03%. Three gaps remain deferred and documented (§4.3): ordered energy-segment integration (bounded < 60 s/transition; parity passes without it), a 600 s packet TTL (unreachable under the current hop-limit/CSMA parameters), and mid-frame availability-epoch invalidation (reachable only on sub-second transitions). The CAD wake-phase RNG is documented as engine-specific by design. A **statewide-scale** two-engine parity is still not run because the Python engine is too slow for full-year multi-seed sweeps (~48 s per pilot-day); the micro-scenario is the auditor-endorsed substitute. |
 | Does either engine agree with the real NH system? | Unknown. There is no controlled Trial 2 dataset. |
 
 ### 4.2 Historical cross-engine results—retained but withdrawn
@@ -491,7 +491,7 @@ is still pending, per §9):
 
 - Always-on modes hold PDR 0.86–0.91 but incur ~29,000 death-events/yr: solar
   relays cycle depleted/revived through the winter energy deficit.
-- Duty-cycled modes cut death-events 6–24× but lower PDR to 0.73–0.81. This is
+- Duty-cycled modes cut death-events 5.5–24× but lower PDR to 0.73–0.81. This is
   the survival-versus-delivery tradeoff, now quantified on the corrected engine.
 - SOS (the life-safety class, flooded in every mode) is recovered to ~99% by
   `duty_adaptive`, `rotate_lb`, and `selective_duty` — each keeps energy-rich or
