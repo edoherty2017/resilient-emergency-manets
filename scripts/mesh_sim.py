@@ -435,7 +435,11 @@ class MeshSim:
         return (walk + getattr(node, "track_offset", 0.0)) % h["t_s"][-1]
 
     def route_track_t(self, node: Node, t: float) -> float | None:
-        """Renter track time; None when not walking (docked/parked)."""
+        """Renter track time; None when not walking (docked/parked/unassigned).
+        A kiosk radio not currently checked out has start_s=None and is not on
+        any walk — matching the Rust engine's handling of unassigned radios."""
+        if node.start_s is None or node.route is None:
+            return None
         tt = (t % 86400.0) - node.start_s
         return tt if 0.0 <= tt <= node.route["duration_s"] else None
 
@@ -444,7 +448,8 @@ class MeshSim:
             r = node.route
             tt = self.route_track_t(node, t)
             if tt is None:
-                tt = 0.0 if (t % 86400.0) < node.start_s else r["duration_s"]
+                tt = (r["duration_s"] if node.start_s is not None
+                      and (t % 86400.0) >= node.start_s else 0.0)
             return (float(np.interp(tt, r["t_s"], r["lat"])),
                     float(np.interp(tt, r["t_s"], r["lon"])))
         h = self.topo["hiker"]
@@ -1647,6 +1652,8 @@ class MeshSim:
                 nd.soc_wh / nd.cap_wh for nd in solar)), 4) if solar else None),
             "deaths_total": death_events,  # compatibility alias: event count
             "death_events_total": death_events,
+            "duty_misses_total": int(sum(nd.stats["duty_misses"]
+                                         for nd in self.nodes.values())),
             "unique_nodes_died": sum(nd.ever_died for nd in solar),
             "dead_time_s_total": round(solar_dead_s, 2),
             "availability": (round(max(0.0, 1.0 - solar_dead_s /
