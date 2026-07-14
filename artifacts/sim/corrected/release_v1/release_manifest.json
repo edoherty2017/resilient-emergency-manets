@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "artifact_kind": "corrected_replacement_release",
+  "claim_status": "MODEL_ONLY_uncalibrated_single_engine_microparity_checked",
+  "git_head": "d37172ccdf8bdded61b740309fdf9ce0b280827f",
+  "git_worktree_dirty": true,
+  "engine": "fastsim (rust)",
+  "engine_binary_sha256": "ed086a2f87b148104d04d5a21d2c25cdddc853f6187aaa5d699bad68d480c20e",
+  "modes": [
+    "flood",
+    "min_hop",
+    "etx",
+    "energy_aware",
+    "lb_energy",
+    "duty_sync",
+    "duty_adaptive",
+    "rotate_lb",
+    "selective_duty"
+  ],
+  "seeds": [
+    42,
+    43,
+    44,
+    45,
+    46
+  ],
+  "days": 365,
+  "locked_inputs_sha256": {
+    "topology_statewide.json": "97ec3986777aa0061788414e1e2874d6129e5e941ff889e2ec0cada27ce24330",
+    "routes_statewide.json": "b6e61359ff606749744c19634ff44d9294e02cce952241b5953090c6f165f5bb",
+    "weather_year.json": "55c3df53a9d10da4541fc47da648cfb3ddf4a54557e687b48be2120892c9bddf",
+    "wmnf_sim.yaml": "a42bc069fa024d3a15af1181d1eb8fd81f937c8a6d407231684163d31c34ffe2"
+  },
+  "n_run_files": 45,
+  "aggregate": "corrected_stats.json",
+  "aggregate_sha256": "82980ecdd25879d18b6f117c90ac6384d0048403813b3d91b5fd30275d8e94ec",
+  "reproduce": "scripts/run_corrected_release.sh",
+  "note": "Rust-only; Python arm not run at statewide scale. Micro-parity within tolerance except duty-mode offered_airtime. No algorithm winner declared."
+}
