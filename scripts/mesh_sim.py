@@ -152,6 +152,7 @@ class Node:
         self.pending_rebroadcast: dict = {}
         self.tx_until = -1.0
         self.fwd_ewma = 0.0        # relay-burden tracker (lb_energy)
+        self.fwd_ewma_seq = 0      # last global forward-event seq applied
         self.death_score = 0.0     # decaying death memory (lb_energy)
         self.duty = 1.0            # listen duty cycle (duty-cycled modes)
         self.wake_phase_s = 0.0    # deterministic CAD phase within T_SNIFF_S
@@ -301,6 +302,7 @@ class MeshSim:
         self.route_tree_t = -1e9
         self.route_refresh_s = route_refresh_s
         self._fwd_median = 0.0
+        self.forward_event_seq = 0   # global forward-TX counter (fwd_ewma clock)
         self.fleet_soc_series: list = []
         # learned-control state (q_routing / rl_duty)
         self.qrt: dict[str, dict[str, float]] | None = None   # Q[u][v] cost-to-gw
@@ -535,12 +537,24 @@ class MeshSim:
         sender.tx_until = t0 + air_s
         sender.stats["tx"] += 1
         if pkt["kind"] == "fwd":
-            sender.fwd_ewma = 0.995 * sender.fwd_ewma + 1.0
-        sender.stats["tx_airtime_s"] += air_s
+            # global forward-event EWMA (matches Rust): every forward advances a
+            # shared sequence; a relay's load decays by 0.995 per elapsed event
+            # so idle relays fall off, not only self-forwarding ones.
+            self.forward_event_seq += 1
+            elapsed = self.forward_event_seq - sender.fwd_ewma_seq
+            sender.fwd_ewma = sender.fwd_ewma * (0.995 ** elapsed) + 1.0
+            sender.fwd_ewma_seq = self.forward_event_seq
         horizon = self.days * 86400.0
-        self.total_airtime_s += max(min(t0 + air_s, horizon) - t0, 0.0)
+        accounted_air = max(min(t0 + air_s, horizon) - t0, 0.0)
+        sender.stats["tx_airtime_s"] += accounted_air
+        self.total_airtime_s += accounted_air
         e = self.cfg["energy"]
-        etx = (e["tx_current_ma"] - e["rx_listen_ma"]) / 1000.0 * e["battery_v"] * air_s / 3600.0
+        # duty-weighted baseline current (matches Rust): charge only the TX
+        # current above the listen/sleep baseline the sender would draw anyway.
+        d = sender.duty
+        baseline_ma = d * e["rx_listen_ma"] + (1.0 - d) * e["light_sleep_ma"]
+        etx = (max(e["tx_current_ma"] - baseline_ma, 0.0) / 1000.0
+               * e["battery_v"] * accounted_air / 3600.0)
         sender.stats["energy_tx_wh"] += etx
         if sender.power != "grid":
             sender.soc_wh -= etx
@@ -945,6 +959,15 @@ class MeshSim:
             return
         t = self.env.now
         if self.mode in DUTY_MODES or self.mode == "lb_energy":
+            # catch-up decay: bring every relay's fwd_ewma current to the global
+            # forward-event clock before reading the median (matches Rust — idle
+            # relays decay lazily rather than only on their own next forward).
+            seq = self.forward_event_seq
+            for nd in self.nodes.values():
+                gap = seq - nd.fwd_ewma_seq
+                if gap > 0:
+                    nd.fwd_ewma *= 0.995 ** gap
+                    nd.fwd_ewma_seq = seq
             fwds = sorted(nd.fwd_ewma for nd in self.nodes.values()
                           if not nd.mqtt and nd.name not in self.hiker_names)
             self._fwd_median = fwds[len(fwds) // 2] if fwds else 0.0
@@ -986,7 +1009,11 @@ class MeshSim:
                     # stay fully awake so delivery holds; everyone else sleeps
                     # at the duty_sync rate to conserve. Recomputed each rebuild
                     # so the awake backbone tracks the live graph as nodes die.
-                    nd.duty = 1.0 if n in crit else 0.05
+                    # keep both the connectivity-critical (cut-vertex) relays
+                    # AND the current route-tree parents awake (matches Rust):
+                    # a next-hop parent left CAD-gated at 5% would miss most
+                    # receptions and break the source-routed forward chain.
+                    nd.duty = 1.0 if (n in crit or n in on_tree) else 0.05
                 elif self.mode == "duty_adaptive":
                     runway = nd.soc_wh + (self.solar_remaining_wh(nd, t)
                                           if nd.power == "solar" else 0.0)
