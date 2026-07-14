@@ -49,9 +49,12 @@ energy:
   #   Heltec V3 measured avg ~130 mA (tutoduino.fr), ~110 mA (meshtastic forum)
   #   T-Beam router ~100 mA (meshtastic forum)
   #   RAK4631 nRF52 idle 2-6 mA (RAK power thread) — the solar/router choice
-  # 68 mA retained as mid-bracket default; conclusions verified invariant
-  # across 6-130 mA (artifacts/sim/sweep_hw/). [BENCH-CALIBRATE overnight
-  # discharge test on our own Heltec pins this exactly]
+  # 68 mA retained as mid-bracket default. NOTE: the earlier "verified
+  # invariant across 6-130 mA" claim came from pre-audit runs that are now
+  # WITHDRAWN (superseded simulator semantics); do not treat listen-current
+  # sensitivity as established until re-run on the corrected engine and
+  # bench-measured. [BENCH-CALIBRATE overnight discharge test on our own
+  # Heltec pins this exactly]
   rx_listen_ma: 68.0         # router idle/RX, screen+BT off [BENCH-CALIBRATE]
   light_sleep_ma: 12.0       # ESP32 light-sleep between CAD [BENCH-CALIBRATE]
   gps_active_ma: 25.0        # u-blox class module when enabled
