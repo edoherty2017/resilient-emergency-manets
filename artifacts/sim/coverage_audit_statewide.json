@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-07-13T18:27:15.248151+00:00",
+  "generated_at_utc": "2026-07-14T15:35:20.929567+00:00",
   "audit_kind": "uncalibrated_model_screen",
   "claim_status": "PLANNING_SCREEN_FAIL",
   "inputs": {
@@ -10,13 +10,13 @@
     },
     "topology": {
       "path": "artifacts/sim/topology_statewide.json",
-      "bytes": 299979,
-      "sha256": "97ec3986777aa0061788414e1e2874d6129e5e941ff889e2ec0cada27ce24330"
+      "bytes": 300696,
+      "sha256": "02575ad2cb70d8132e1a3fc648ea9d1ef5cfd692bcd4f8117a0be4fc2b823451"
     },
     "link_matrix": {
       "path": "artifacts/sim/link_matrix_statewide.csv",
-      "bytes": 137191,
-      "sha256": "fe517b6c2c30c9dd9ca6280d39806b8205bdee6fa552e25c5407346c2792aef1"
+      "bytes": 138289,
+      "sha256": "d10872ffba6c09c611f2fd409f3f4aa8e56e432d8013fad306f4a8bba88e3f47"
     },
     "routes": {
       "path": "artifacts/sim/routes_statewide.json",
@@ -45,7 +45,7 @@
     "backhaul_estimate": "q90 modeled received power",
     "trail_estimate": "q50 modeled path loss (route input has no q90)",
     "n_components": 39,
-    "n_usable_links": 401,
+    "n_usable_links": 415,
     "allows_unvalidated_short_link_policy": true,
     "n_excluded_short_link_policy": 0,
     "n_assumed_short_link_policy": 52,
