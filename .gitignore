@@ -68,5 +68,16 @@ artifacts/dem/cache/*
 artifacts/osm/*
 !artifacts/osm/nh_boundary.json
 !artifacts/osm/trails_*.json
+# Trial 2 preregistration: the frozen prediction table and its hash manifest are
+# small evidence files that MUST be versioned; everything else here is ignored.
+# The directory itself must be re-included before child negations can work.
+!artifacts/trial2/
+artifacts/trial2/*
+!artifacts/trial2/predictions.csv
+!artifacts/trial2/prereg_manifest.json
 artifacts/vendor/*
 fastsim/target/
+
+# generated fastsim smoke summary (regenerable, never commit)
+fastsim/*_summary.json
+!artifacts/coverage_prediction/reconcile_trial1_provenance.json

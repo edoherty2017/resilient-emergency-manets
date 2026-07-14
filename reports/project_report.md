@@ -17,6 +17,8 @@ controlled remote transmitter, direct-hop labels, and an uninterrupted collector
 record. A Garmin track supplies independent receiver-position ground truth only; it
 does not establish transmitter position or RF-link ground truth.
 
+**Scope:** This project is scoped to New Hampshire only; Brenta/EU deployments are descoped and FCC applicability is a documented limitation, not an in-scope claim.
+
 ---
 
 ## Artifacts
@@ -31,10 +33,12 @@ What it shows:
 - Gray segment: Ammo ascent before collector came online
 - Red dashed segment: 2h48m collector offline gap (09:36–12:24 EDT)
 - Summit pin at 1917m, 14:23 EDT
-- The map input contains 50 decoded node IDs; the separately generated mesh catalog
-  contains 41 unique RF source IDs, 24 with GPS. These artifact/filter definitions
-  have not been reconciled, so neither count should be presented as the single
-  authoritative “nodes heard” total.
+- The map input contains 50 decoded node IDs (686 records) from the afternoon hike
+  window; the separately generated mesh catalog contains 41 unique RF source IDs (764
+  RF observations), 24 with GPS, from the earlier pre-hike soak. These counts are now
+  reconciled (`scripts/reconcile_trial1_counts.py`): they are two distinct time windows
+  on the same decoded receiver log — 18 IDs in both, 32 hike-only, 23 catalog-only — not
+  one population, so neither is a single authoritative “nodes heard” total.
 - Animated HEAD marker that follows the Garmin track in real time (Play/Pause)
 - Rolling 30-min node counter
 - **"PROPOSED — Relay Infrastructure"** layer: three fixed relay nodes with link budget tables at each marker (click to open)

@@ -107,7 +107,7 @@ Networking*, vol. 2011, art. 13, 2011. DOI: 10.1186/1687-1499-2011-13
 **[11]** Y. Bai, W. Du, Z. Ma, C. Shen, Y. Zhou, and B. Chen, "Emergency
 Communication System by Heterogeneous Wireless Networking," in *Proc. 2010 IEEE
 International Conference on Wireless Communications, Networking and Information
-Security (WCNIS)*, 2010, pp. 488–492. DOI: 10.1109/WCINS.2010.5541719
+Security (WCINS)*, 2010, pp. 488–492. DOI: 10.1109/WCINS.2010.5541719
 > Proposes integrated disaster response communication using heterogeneous wireless stacks
 > (WSN, MANET, satellite, cellular gateways). Evaluates systems at the service layer —
 > number of supported services, routing success rate — not at the physical signal layer.

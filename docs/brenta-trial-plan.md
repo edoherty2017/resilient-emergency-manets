@@ -1,3 +1,9 @@
+> **DESCOPED 2026-07-13 — OUT OF PROJECT SCOPE.** The project is scoped to New
+> Hampshire only. The Brenta (Italy/EU) extension is not part of the directed-study
+> deliverable: its EU declaration of conformity, CEPT/Italian ERP authorization, and
+> refuge/park site permissions are not being pursued. This document is retained as
+> historical planning material and must not be cited as active or planned work.
+
 # Brenta Dolomites Trial Plan — 4-Day Hut-to-Hut Extension
 
 Route (booked): Madonna di Campiglio → Passo Grostè → Rif. Tuckett → Rif. Alimonta

@@ -1,0 +1,17 @@
+{
+  "description": "Canonical input checksums for scripts/reconcile_trial1_counts.py (audit ledger 2026-07-13 \u00a73).",
+  "generated_by": "scripts/reconcile_trial1_counts.py inputs",
+  "inputs_sha256": {
+    "data/raw-telemetry-export/20260524T112222Z/remote_meshhikernode1/telemetry_stream.jsonl": "50910bfcec1f6af2b44cfbc0ca05e3aa7022e44629470ba8de0375e61a76d3ad",
+    "artifacts/mesh_catalog/node_summary.json": "e3b21e55a9d8734cab68b518b940a960f9bcbf3ea2dd047465ac5ee402f4bcb0"
+  },
+  "expected_counts": {
+    "hike_map_records": 686,
+    "hike_map_unique_ids": 50,
+    "catalog_rf_observations": 764,
+    "catalog_unique_ids": 41,
+    "ids_in_both": 18,
+    "hike_only": 32,
+    "catalog_only": 23
+  }
+}

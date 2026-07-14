@@ -1,0 +1,82 @@
+{
+  "build_timestamp_utc": "2026-07-13T18:30:00+00:00",
+  "generated_by": "scripts/freeze_trial2_prereg.py",
+  "git_head": "d39ee27448dcdc542b6a09e0dabe8abd537035f7",
+  "git_worktree_dirty": true,
+  "input_count": 12,
+  "inputs": {
+    "analysis_code": {
+      "bytes": 11826,
+      "description": "PDR / opportunity-accounting analysis used to score the frozen predictions.",
+      "path": "scripts/pdr_analysis.py",
+      "sha256": "136c617000d73943676b6c771688ee8a5a04932a3bc0ced1ab3290b002ac3a00"
+    },
+    "dem_manifest": {
+      "bytes": 1125,
+      "description": "USGS 3DEP Presidentials-wide DEM source manifest (binds the omitted raster).",
+      "path": "artifacts/dem/cache/usgs_3dep_presidentials_wide_manifest.json",
+      "sha256": "5dd23225eb02d084755ede91b3a38d90f3ae1800389d1ecb1f8bc48b4eb9c25a"
+    },
+    "eligibility_rules": {
+      "bytes": 42945,
+      "description": "Calibration-eligibility gate (hops_away==0, exclusions) applied to field data.",
+      "path": "scripts/airmap_live_trial.py",
+      "sha256": "e71b78487fec2d2b4c8fe780bbfe95499eb479944c5f3ec4213b6f104ca8e852"
+    },
+    "generator": {
+      "bytes": 9326,
+      "description": "Generator that produced the prediction table and the prereg document.",
+      "path": "scripts/trial2_predictions.py",
+      "sha256": "681ec54e0e84c3e4b7a7208ce146627cf9f90ef887ad88b4306a7ac03d9ab392"
+    },
+    "generator_lib_itm": {
+      "bytes": 15369,
+      "description": "ITM DEM sampling / haversine library the generator imports.",
+      "path": "scripts/itm_relay_links.py",
+      "sha256": "bf5b5de14e8a730f7559dea7921e059b02e18565abfc0e358ab5657883f131fa"
+    },
+    "generator_lib_radio": {
+      "bytes": 2920,
+      "description": "Link-budget library the generator imports (RX power reference).",
+      "path": "scripts/radio_link_budget.py",
+      "sha256": "6bc62a88ddba413af63156358804155cffd974994038eea56234b133eaaae735"
+    },
+    "generator_routes": {
+      "bytes": 775489,
+      "description": "Routes JSON the generator reads for the Ammo-Jewell walk geometry.",
+      "path": "artifacts/sim/routes.json",
+      "sha256": "dbb09923bc45540b9ec136898df124b0708328e5dca239312c6389ba09cd8df0"
+    },
+    "generator_topology": {
+      "bytes": 164529,
+      "description": "Topology JSON the generator reads for beacon site coordinates.",
+      "path": "artifacts/sim/topology.json",
+      "sha256": "352a9784718eb546fefedadb3f3c158439a56a1e09b890ecf679ceaf815f0c87"
+    },
+    "prediction_csv": {
+      "bytes": 2004,
+      "description": "Corrected prospective per-stratum RSSI / threshold-exceedance predictions.",
+      "path": "artifacts/trial2/predictions.csv",
+      "sha256": "98f3c4c33bff098c7f20b185d7c0a25ef064bccb9ded8fb862bd896110d16151"
+    },
+    "radio_metadata": {
+      "bytes": 5672,
+      "description": "Canonical radio / link-budget configuration for the deployment.",
+      "path": "config/sim/wmnf_sim.yaml",
+      "sha256": "a42bc069fa024d3a15af1181d1eb8fd81f937c8a6d407231684163d31c34ffe2"
+    },
+    "routes_statewide": {
+      "bytes": 7382033,
+      "description": "Statewide route geometry pack.",
+      "path": "artifacts/sim/routes_statewide.json",
+      "sha256": "b6e61359ff606749744c19634ff44d9294e02cce952241b5953090c6f165f5bb"
+    },
+    "topology_statewide": {
+      "bytes": 299979,
+      "description": "Statewide topology (beacon site coordinates and metadata).",
+      "path": "artifacts/sim/topology_statewide.json",
+      "sha256": "97ec3986777aa0061788414e1e2874d6129e5e941ff889e2ec0cada27ce24330"
+    }
+  },
+  "schema_version": "trial2-prereg/1.0"
+}

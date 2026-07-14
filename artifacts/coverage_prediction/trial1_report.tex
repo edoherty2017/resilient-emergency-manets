@@ -77,8 +77,10 @@ by a Garmin wearable GPS unit carried simultaneously.
 14:23 & Summit reached --- 1917\,m. Peak node density: $\sim$22 unique nodes in rolling 30-min window. \\
 14:23 -- 18:33 & Descent via Jewell Trail. Signal quality tracked in 5-min RSSI windows. \\
 18:33 & Collector stopped. The hike-map input contains 686 packet events across the
-active window; the separately generated mesh catalog reports 764 RF observations, so
-the pipeline/filter definitions must be reconciled before citing one total. \\
+afternoon active window; the separately generated mesh catalog reports 764 RF
+observations from the earlier pre-hike soak. The two totals have been reconciled
+(\texttt{scripts/reconcile\_trial1\_counts.py}): they are distinct time windows on the
+same decoded receiver log, not one population, so neither is a single ``nodes heard'' total. \\
 18:40 & Returned to trailhead. \\
 \bottomrule
 \end{tabular}
@@ -103,9 +105,13 @@ Analyzed 5-min descent windows with $\geq$1 packet from any source & \textcolor{
 \end{tabular}
 \end{center}
 
-The count differences above come from independently generated artifacts with different
-event/filter definitions; they are unresolved provenance differences, not sampling
-uncertainty. In every analyzed 5-minute window of the descent interval (summit at 14:23 until the
+The count differences above are reconciled, not sampling uncertainty: they come from
+two different time windows on the same decoded receiver log. The 686 records / 50 IDs
+are the afternoon hike window ($\geq$16:24\,UTC, all packet types); the 764
+observations / 41 IDs are the pre-hike soak snapshot (before 02:34\,UTC, rssi-bearing
+packets). The reconciliation script (\texttt{scripts/reconcile\_trial1\_counts.py})
+reproduces both the 686/50 numbers and the exact 41-node catalog ID set from that single
+log, and finds 18 IDs in both windows, 32 hike-only, and 23 catalog-only. In every analyzed 5-minute window of the descent interval (summit at 14:23 until the
 collector stopped at 18:33), the HEAD node demodulated at least one Meshtastic packet from
 \emph{some} source --- any of $\sim$50 ambient mesh nodes at unknown
 distances, potentially relayed. This is evidence of ambient 915\,MHz mesh activity reaching

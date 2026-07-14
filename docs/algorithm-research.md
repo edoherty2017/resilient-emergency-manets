@@ -23,7 +23,7 @@ with all board-level currents marked [BENCH-CALIBRATE].
 | **WiseMAC** | learns neighbors' sniff phase, starts preamble just-in-time | near-optimal preamble cost | state per neighbor; drift |
 | **LoRa CAD sniffing** (Semtech AN1200.48; LoRa-DuCy; MDPI preamble-sampling multi-hop 2023; JMAC) | SX126x Channel Activity Detection = a few ms sniff, radio wakes host on hit | LoRa-native X-MAC; CAD costs ~ms of RX per second → % duty | SF11 CAD windows are long; strobes lengthen airtime → more collisions |
 | **TDMA / On-demand TDMA** | scheduled slots (GPS can provide time to equipped nodes) | near-zero idle listening in an ideal schedule | GPS/clock energy and sky view; schedule maintenance; hikers are unscheduled |
-| **Wake-up radio (WuR)** | separate ~3 µW receiver (−83 dBm @ 868 MHz demonstrated) triggers main radio | 99.9%+ idle reduction, ms latency | extra hardware; −83 dBm sensitivity ≪ −131 (range gap) |
+| **Wake-up radio (WuR)** | separate ~3 µW receiver (−83 dBm @ 868 MHz demonstrated) triggers main radio | 99.9%+ idle reduction, ms latency | extra hardware; −83 dBm sensitivity ≪ the project's *assumed* −131 dBm LongFast sensitivity (range gap) |
 | **LEACH / HEED role rotation** | rotate which nodes serve as always-on relays; rest sleep | marries fairness (our lb_energy) to the actual lever | cluster churn; coverage holes if rotation too aggressive |
 
 **Implemented simulation designs** (correctness/results require the post-audit suite):
@@ -77,7 +77,10 @@ energy on the corrected simulator and controlled hardware.
   added later for exploratory runs. The old G3 result cannot establish a flat reward
   surface, and the new RL outputs are not yet validated.
 
-Source leads (incomplete; verify editions and replace shorthand with full citations):
+Source leads — **UNVERIFIED shorthand, not a bibliography** (incomplete; every token
+below must be resolved to a primary source, edition/DOI confirmed, and the specific
+numeric claim it supports checked before any of these appear in a report; see the
+claims-source audit in `docs/claims-source-audit-2026-07.md`):
 Semtech AN1200.48 (SX126x CAD), RAKwireless CAD note, SX1262 datasheet
 (4.6 mA RX), Buettner et al. X-MAC, Dunkels ContikiMAC, El-Hoiydi WiseMAC,
 Ye et al. S-MAC, Heinzelman et al. LEACH, JMAC (arXiv 2312.08387), LoRa-DuCy,

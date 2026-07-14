@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-07-13T18:31:46.450808+00:00",
+  "generated_at_utc": "2026-07-14T15:14:28.944234+00:00",
   "claim_status": "CORRECTED_SOURCE_BUILD_NOT_FIELD_VALIDATION",
   "compiler": "Tectonic 0.16.9",
   "generator": {
@@ -9,12 +9,12 @@
   },
   "source": {
     "path": "artifacts/coverage_prediction/trial1_report.tex",
-    "bytes": 28889,
-    "sha256": "a6ea9480a1222d14d260f2a4b3c2c022761abfad63e11e51afd8b8ac665303cf"
+    "bytes": 29464,
+    "sha256": "47f239163ddd0896e2effba5bd5f46f1b25bf9568014a2bfd9cc91bf54804ba2"
   },
   "output": {
     "path": "artifacts/coverage_prediction/trial1_report.pdf",
-    "bytes": 102421,
-    "sha256": "1c4910827bc890cce14bdd8d19f0970ab9ac35f3d3817bf8a1485efa83dad5c0"
+    "bytes": 103137,
+    "sha256": "54ba3ae289c25bcdba923c5c670cda2d7d72eb4a8c0314c03d6b7a506ed05a36"
   }
 }
