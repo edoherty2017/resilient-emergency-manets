@@ -57,8 +57,9 @@ KIOSK_MIN_CHECKOUT_SOC = 0.20  # operational reserve; configurable per run confi
 LATENCY_RESERVOIR_SIZE = 2000
 ROUTED_MODES = ("min_hop", "etx", "energy_aware", "lb_energy",
                 "duty_sync", "duty_adaptive", "rotate_lb",
-                "q_routing", "rl_duty")
-DUTY_MODES = ("duty_sync", "duty_adaptive", "rotate_lb", "rl_duty")
+                "q_routing", "rl_duty", "selective_duty")
+DUTY_MODES = ("duty_sync", "duty_adaptive", "rotate_lb", "rl_duty",
+              "selective_duty")
 LEARNED_MODES = ("q_routing", "rl_duty")
 
 
@@ -331,8 +332,8 @@ class MeshSim:
         # A receiver's wake clock is deterministic and independent of event
         # order. duty_sync shares phase zero; other duty modes are per-node.
         for name, node in self.nodes.items():
-            node.wake_phase_s = (0.0 if mode == "duty_sync" else
-                                 float(self.rng_for("duty_phase", name).random())
+            node.wake_phase_s = (0.0 if mode in ("duty_sync", "selective_duty")
+                                 else float(self.rng_for("duty_phase", name).random())
                                  * T_SNIFF_S)
 
     def rng_for(self, phenomenon: str, entity: str = "") -> np.random.Generator:
@@ -968,11 +969,19 @@ class MeshSim:
         if self.mode in DUTY_MODES:
             on_tree = set(v for v in nxt.values() if v) | \
                       {n for n, nd in self.nodes.items() if nd.mqtt}
+            crit = (self._critical_relays() if self.mode == "selective_duty"
+                    else set())
             for n, nd in self.nodes.items():
                 if nd.mqtt or nd.power == "grid" or n in self.hiker_names:
                     continue
                 if self.mode == "duty_sync":
                     nd.duty = 0.05
+                elif self.mode == "selective_duty":
+                    # connectivity-critical relays (cut-vertices to a gateway)
+                    # stay fully awake so delivery holds; everyone else sleeps
+                    # at the duty_sync rate to conserve. Recomputed each rebuild
+                    # so the awake backbone tracks the live graph as nodes die.
+                    nd.duty = 1.0 if n in crit else 0.05
                 elif self.mode == "duty_adaptive":
                     runway = nd.soc_wh + (self.solar_remaining_wh(nd, t)
                                           if nd.power == "solar" else 0.0)
@@ -982,6 +991,57 @@ class MeshSim:
                     self._rl_duty_step(nd, t)
                 else:  # rotate_lb: tree relays always-on, everyone else sniffs
                     nd.duty = 1.0 if n in on_tree else 0.02
+
+    def _critical_relays(self) -> set:
+        """Relays whose sleep would strand another node from every gateway —
+        the cut-vertices of the live connectivity graph. Iterative Tarjan
+        articulation-point search on the alive fixed sites plus a virtual
+        super-source joined to all live gateways; O(V+E) per rebuild."""
+        adj: dict[str, list] = {}
+        gws = []
+        for n, nd in self.nodes.items():
+            if n in self.hiker_names or not nd.alive or nd.docked:
+                continue
+            adj.setdefault(n, [])
+            if nd.mqtt:
+                gws.append(n)
+        for u in list(adj.keys()):
+            for v, _margin in self.fixed_adj.get(u, ()):
+                if v in adj:
+                    adj[u].append(v)
+        S = "\x00super"
+        adj[S] = list(gws)
+        for g in gws:
+            adj[g].append(S)
+        disc: dict[str, int] = {}
+        low: dict[str, int] = {}
+        parent: dict[str, str] = {}
+        ap: set = set()
+        timer = 0
+        disc[S] = low[S] = timer
+        timer += 1
+        stack = [(S, iter(adj[S]))]
+        while stack:
+            u, it = stack[-1]
+            pushed = False
+            for v in it:
+                if v not in disc:
+                    parent[v] = u
+                    disc[v] = low[v] = timer
+                    timer += 1
+                    stack.append((v, iter(adj[v])))
+                    pushed = True
+                    break
+                elif v != parent.get(u):
+                    low[u] = min(low[u], disc[v])
+            if not pushed:
+                stack.pop()
+                if stack:
+                    p = stack[-1][0]
+                    low[p] = min(low[p], low[u])
+                    if parent.get(p) is not None and low[u] >= disc[p]:
+                        ap.add(p)
+        return {n for n in ap if n != S and not self.nodes[n].mqtt}
 
     def tree_path(self, start: str) -> list[str] | None:
         path, cur = [start], start
@@ -1745,7 +1805,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="WMNF mesh discrete-event simulation")
     ap.add_argument("--mode", choices=["flood", "min_hop", "etx", "energy_aware",
                     "lb_energy", "duty_sync", "duty_adaptive", "rotate_lb",
-                    "q_routing", "rl_duty"],
+                    "q_routing", "rl_duty", "selective_duty"],
                     default="flood")
     ap.add_argument(
         "--days",

@@ -12,13 +12,17 @@ use std::sync::Arc;
 pub const SLOT_S: f64 = 0.040;
 pub const CARRIER_SENSE_DBM: f64 = -124.0;
 pub const REVIVE_FRACTION: f64 = 0.05;
-pub const MIN_CHECKOUT_SOC_FRACTION: f64 = 0.20;
 /// Low-power-listening CAD cadence.  A receiver must overlap the LoRa
 /// preamble for at least two symbols during its deterministic awake window.
 pub const CAD_PERIOD_S: f64 = 1.0;
 pub const CAD_MIN_SYMBOLS: f64 = 2.0;
 pub const TREELINE_M: f64 = 1100.0;
 pub const LATENCY_SAMPLE_CAP: usize = 2000;
+/// End-to-end lifetime for one logical packet. Events that outlive this bound
+/// are discarded rather than transmitting after their accounting record has
+/// already been settled as a failure.
+pub const PACKET_TTL_S: f64 = 600.0;
+pub const FORWARD_EWMA_DECAY: f64 = 0.995;
 
 pub const RNG_TRAFFIC_TELEMETRY: u64 = 0x5452_4146_5400_0001;
 pub const RNG_TRAFFIC_BEACON: u64 = 0x5452_4146_4200_0002;
@@ -44,6 +48,7 @@ pub enum Mode {
     DutySync,
     DutyAdaptive,
     RotateLb,
+    SelectiveDuty,
 }
 
 impl Mode {
@@ -57,11 +62,15 @@ impl Mode {
             "duty_sync" => Mode::DutySync,
             "duty_adaptive" => Mode::DutyAdaptive,
             "rotate_lb" => Mode::RotateLb,
+            "selective_duty" => Mode::SelectiveDuty,
             _ => return None,
         })
     }
     pub fn is_duty(self) -> bool {
-        matches!(self, Mode::DutySync | Mode::DutyAdaptive | Mode::RotateLb)
+        matches!(
+            self,
+            Mode::DutySync | Mode::DutyAdaptive | Mode::RotateLb | Mode::SelectiveDuty
+        )
     }
     pub fn is_routed(self) -> bool {
         !matches!(self, Mode::Flood)
@@ -105,6 +114,7 @@ pub struct Flight {
     pub sos_id: u64,  // 0 = n/a
     pub ack_for: u64, // 0 = n/a
     pub is_fwd: bool,
+    pub expires_at: f64,
 }
 
 pub struct PktMeta {
@@ -177,6 +187,19 @@ pub struct NodeStats {
     pub solar_wh: f64,
 }
 
+#[derive(Clone, Debug)]
+pub enum EnergySegment {
+    Active {
+        listen_s: f64,
+        sleep_s: f64,
+        gps_s: f64,
+    },
+    Docked {
+        seconds: f64,
+        kiosk: Option<u32>,
+    },
+}
+
 pub struct Node {
     pub name: String,
     pub lat: f64,
@@ -193,6 +216,9 @@ pub struct Node {
     pub energy_alive: bool,
     pub forced_outage: bool,
     pub alive: bool,
+    /// Incremented on every powered-availability transition. A matching epoch
+    /// at TxEnd proves the sender/receiver stayed available for the full frame.
+    pub availability_epoch: u64,
     pub unavailable_since: Option<f64>,
     pub docked: bool,
     pub duty: f64,
@@ -200,9 +226,19 @@ pub struct Node {
     pub channel: u8,
     pub kiosk: Option<u32>, // fixed-site index of current box
     pub route: Option<u32>,
+    /// Absolute simulation time when the current walk began.  Walker schedules
+    /// separately retain their daily checkout phase.
     pub start_s: f64,
     pub tx_until: f64,
+    /// Ordered piecewise-state energy accounting since the last global
+    /// integration. State transitions first accrue elapsed time here, so the
+    /// next energy step cannot apply a post-transition duty, docking state, or
+    /// kiosk bank backward.
+    pub energy_state_t: f64,
+    pub energy_segments: Vec<EnergySegment>,
     pub fwd_ewma: f64,
+    /// Global forwarding-event sequence at which fwd_ewma was last decayed.
+    pub fwd_ewma_seq: u64,
     pub death_score: f64,
     pub seen: HashSet<(u32, u64)>,
     pub pending: HashMap<(u32, u64), u64>, // rebroadcast tombstones (event seq)
@@ -229,7 +265,8 @@ pub struct ActiveTx {
     pub start: f64,
     pub end: f64,
     pub sender: u32,
-    pub rssi_at: Vec<(u32, f64)>,
+    pub rssi_at: Vec<(u32, f64, u64)>,
+    pub sender_availability_epoch: u64,
     /// Receivers whose awake/CAD window acquired the preamble at TxStart.
     pub cad_acquired: HashSet<u32>,
     pub flight: Flight,
@@ -401,6 +438,7 @@ pub struct Sim {
     /// Slow/fast fading innovations are isolated per undirected RF link.
     pub link_rng: HashMap<(u32, u32), Rng>,
     pub now: f64,
+    pub energy_last_t: f64,
     pub seq: u64,
     pub heap: BinaryHeap<Reverse<Sched>>,
 
@@ -413,8 +451,9 @@ pub struct Sim {
     pub route_site_loss: Vec<Vec<Vec<f64>>>, // [route][site][sample]
     pub walkers: Vec<Walker>,
     pub kiosk_banks: std::collections::HashMap<u32, KioskBank>,
-    pub weather: Vec<(f64, f64)>, // (kt, snow_factor)
-    pub start_doy: u32,
+    pub weather: Vec<(f64, f64)>,            // (kt, snow_factor)
+    pub weather_calendar: Vec<(u32, usize)>, // (Gregorian day-of-year, zero-based month)
+    pub start_date: String,
 
     pub active: HashMap<u64, ActiveTx>,
     /// Recently completed transmissions retained until every overlapping
@@ -431,6 +470,7 @@ pub struct Sim {
     pub route_cost: Vec<f64>,
     pub route_tree_t: f64,
     pub fwd_median: f64,
+    pub forward_event_seq: u64,
     pub shadow: HashMap<(u32, u32), (f64, f64)>,
     pub link_health: HashMap<(u32, u32), LinkHealth>,
     pub rental: RentalStats,
@@ -448,15 +488,96 @@ pub struct Sim {
 impl Sim {
     pub(crate) fn event_uniform(&mut self, domain: u64, entity: u64, lo: f64, hi: f64) -> f64 {
         let counter = self.draw_counters.entry((domain, entity)).or_insert(0);
-        let key = Rng::mix64(entity) ^ Rng::mix64(*counter);
+        // Preserve tuple order: XOR of separately mixed entity/counter values
+        // made (entity=a, counter=b) collide with the swapped pair.
+        let key = event_draw_key(entity, *counter);
         *counter += 1;
         lo + (hi - lo) * Rng::keyed_f64(self.p.seed, domain, key)
     }
+
+    pub(crate) fn decay_forward_loads(&mut self) {
+        let sequence = self.forward_event_seq;
+        for node in &mut self.nodes {
+            let elapsed = sequence.saturating_sub(node.fwd_ewma_seq);
+            if elapsed > 0 {
+                node.fwd_ewma *= FORWARD_EWMA_DECAY.powf(elapsed as f64);
+                node.fwd_ewma_seq = sequence;
+            }
+        }
+    }
+
+    pub(crate) fn record_forward(&mut self, node: u32) {
+        self.forward_event_seq = self.forward_event_seq.wrapping_add(1);
+        let sequence = self.forward_event_seq;
+        let target = &mut self.nodes[node as usize];
+        let elapsed = sequence.saturating_sub(target.fwd_ewma_seq);
+        target.fwd_ewma *= FORWARD_EWMA_DECAY.powf(elapsed as f64);
+        target.fwd_ewma += 1.0;
+        target.fwd_ewma_seq = sequence;
+    }
+
+    pub(crate) fn accrue_node_energy_state(&mut self, node: u32) {
+        let now = self.now;
+        let target = &mut self.nodes[node as usize];
+        let elapsed = (now - target.energy_state_t).max(0.0);
+        if elapsed > 0.0 && !target.grid {
+            if target.docked {
+                match target.energy_segments.last_mut() {
+                    Some(EnergySegment::Docked { seconds, kiosk }) if *kiosk == target.kiosk => {
+                        *seconds += elapsed;
+                    }
+                    _ => target.energy_segments.push(EnergySegment::Docked {
+                        seconds: elapsed,
+                        kiosk: target.kiosk,
+                    }),
+                }
+            } else if target.energy_alive {
+                let duty = target.duty.clamp(0.0, 1.0);
+                let listen_s = duty * elapsed;
+                let sleep_s = (1.0 - duty) * elapsed;
+                let gps_s = if target.is_radio { elapsed } else { 0.0 };
+                match target.energy_segments.last_mut() {
+                    Some(EnergySegment::Active {
+                        listen_s: pending_listen_s,
+                        sleep_s: pending_sleep_s,
+                        gps_s: pending_gps_s,
+                    }) => {
+                        *pending_listen_s += listen_s;
+                        *pending_sleep_s += sleep_s;
+                        *pending_gps_s += gps_s;
+                    }
+                    _ => target.energy_segments.push(EnergySegment::Active {
+                        listen_s,
+                        sleep_s,
+                        gps_s,
+                    }),
+                }
+            }
+        }
+        target.energy_state_t = now;
+    }
+}
+
+fn event_draw_key(entity: u64, counter: u64) -> u64 {
+    Rng::mix64(
+        entity.wrapping_add(0xD1B5_4A32_D192_ED03)
+            ^ Rng::mix64(counter.wrapping_add(0x9E37_79B9_7F4A_7C15)),
+    )
+}
+
+pub fn linear_quantile_sorted(values: &[f64], probability: f64) -> Option<f64> {
+    if values.is_empty() {
+        return None;
+    }
+    let position = probability.clamp(0.0, 1.0) * (values.len() - 1) as f64;
+    let lower = position.floor() as usize;
+    let upper = position.ceil() as usize;
+    Some(values[lower] + (values[upper] - values[lower]) * (position - lower as f64))
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{BusyUnion, OriginAgg, LATENCY_SAMPLE_CAP};
+    use super::{event_draw_key, linear_quantile_sorted, BusyUnion, OriginAgg, LATENCY_SAMPLE_CAP};
 
     #[test]
     fn busy_union_counts_overlaps_once() {
@@ -493,5 +614,17 @@ mod tests {
             .iter()
             .any(|(_, latency)| *latency > LATENCY_SAMPLE_CAP as f64));
         assert_eq!(forward.delivered_latency_count, count);
+    }
+
+    #[test]
+    fn linear_quantiles_match_numpy_style_interpolation() {
+        let values = [1.0, 100.0];
+        assert_eq!(linear_quantile_sorted(&values, 0.5), Some(50.5));
+        assert_eq!(linear_quantile_sorted(&values, 0.95), Some(95.05));
+    }
+
+    #[test]
+    fn event_uniform_keeps_entity_counter_pairs_distinct_when_swapped() {
+        assert_ne!(event_draw_key(0, 1), event_draw_key(1, 0));
     }
 }

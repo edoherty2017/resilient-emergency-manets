@@ -27,6 +27,9 @@ impl Sim {
             let idx = nodes.len() as u32;
             name_to_idx.insert((*name).clone(), idx);
             let solar = s.power == "solar";
+            let cap_wh = cfg.battery.capacity_wh * cfg.battery.usable_fraction;
+            let soc_wh = cap_wh * cfg.battery.start_soc;
+            let energy_alive = s.power == "grid" || soc_wh > 0.0;
             nodes.push(Node {
                 name: (*name).clone(),
                 lat: s.lat,
@@ -48,14 +51,13 @@ impl Sim {
                 } else {
                     None
                 },
-                cap_wh: cfg.battery.capacity_wh * cfg.battery.usable_fraction,
-                soc_wh: cfg.battery.capacity_wh
-                    * cfg.battery.usable_fraction
-                    * cfg.battery.start_soc,
-                energy_alive: true,
+                cap_wh,
+                soc_wh,
+                energy_alive,
                 forced_outage: false,
-                alive: true,
-                unavailable_since: None,
+                alive: energy_alive,
+                availability_epoch: 0,
+                unavailable_since: (!energy_alive).then_some(0.0),
                 docked: false,
                 duty: 1.0,
                 is_radio: false,
@@ -64,7 +66,10 @@ impl Sim {
                 route: None,
                 start_s: 0.0,
                 tx_until: -1.0,
+                energy_state_t: 0.0,
+                energy_segments: Vec::new(),
                 fwd_ewma: 0.0,
+                fwd_ewma_seq: 0,
                 death_score: 0.0,
                 seen: HashSet::new(),
                 pending: HashMap::new(),
@@ -93,6 +98,19 @@ impl Sim {
                 fixed_adj[ia as usize].push((ib, margin));
                 fixed_adj[ib as usize].push((ia, margin));
             }
+        }
+        // `Topology::links` is deserialized into a HashMap whose iteration
+        // order is intentionally randomized for each process.  Dijkstra uses
+        // insertion sequence as its final tie-break, so leaving adjacency in
+        // that order made equal-cost routes (especially min_hop) change across
+        // otherwise identical same-seed runs.  Canonicalize every neighbor
+        // list before it can affect components or routing.
+        for neighbors in &mut fixed_adj {
+            neighbors.sort_by(|(left_node, left_margin), (right_node, right_margin)| {
+                left_node
+                    .cmp(right_node)
+                    .then_with(|| left_margin.total_cmp(right_margin))
+            });
         }
 
         // regional channels: connected components of the usable-link graph
@@ -200,13 +218,18 @@ impl Sim {
                     cap_wh: cfg.kiosk.battery_wh,
                 },
             );
-            let n_radios = (kiosk_load[&kiosk] + p.kiosk_spares).min(cfg.kiosk.capacity);
+            let n_radios = kiosk_load[&kiosk]
+                .saturating_add(p.kiosk_spares)
+                .min(cfg.kiosk.capacity);
             for i in 0..n_radios {
                 let base = &nodes[kiosk as usize];
                 let (lat, lon) = (base.lat, base.lon);
                 let name = format!("radio_{}_{}", base.name, i);
                 let idx = nodes.len() as u32;
                 name_to_idx.insert(name.clone(), idx);
+                let cap_wh = cfg.battery.capacity_wh * cfg.battery.usable_fraction;
+                let soc_wh = cap_wh * cfg.battery.start_soc;
+                let energy_alive = soc_wh > 0.0;
                 nodes.push(Node {
                     name,
                     lat,
@@ -216,12 +239,13 @@ impl Sim {
                     mqtt: false,
                     horizon: Vec::new(),
                     site_solar: None,
-                    cap_wh: cfg.battery.capacity_wh * cfg.battery.usable_fraction,
-                    soc_wh: cfg.battery.capacity_wh * cfg.battery.usable_fraction,
-                    energy_alive: true,
+                    cap_wh,
+                    soc_wh,
+                    energy_alive,
                     forced_outage: false,
-                    alive: true,
-                    unavailable_since: None,
+                    alive: energy_alive,
+                    availability_epoch: 0,
+                    unavailable_since: (!energy_alive).then_some(0.0),
                     docked: true,
                     duty: 1.0,
                     is_radio: true,
@@ -230,7 +254,10 @@ impl Sim {
                     route: None,
                     start_s: 0.0,
                     tx_until: -1.0,
+                    energy_state_t: 0.0,
+                    energy_segments: Vec::new(),
                     fwd_ewma: 0.0,
+                    fwd_ewma_seq: 0,
                     death_score: 0.0,
                     seen: HashSet::new(),
                     pending: HashMap::new(),
@@ -239,9 +266,14 @@ impl Sim {
             }
         }
 
-        let start_doy = doy_from_date(&weather.start_date);
+        let start_date = weather.start_date.clone();
         let weather_v: Vec<(f64, f64)> =
             weather.days.iter().map(|d| (d.kt, d.snow_factor)).collect();
+        let weather_calendar: Vec<(u32, usize)> = weather
+            .days
+            .iter()
+            .map(|d| (doy_from_date(&d.date), month_index_from_date(&d.date)))
+            .collect();
 
         let n_nodes = nodes.len();
         let mut sim = Sim {
@@ -250,6 +282,7 @@ impl Sim {
             draw_counters: HashMap::new(),
             link_rng: HashMap::new(),
             now: 0.0,
+            energy_last_t: 0.0,
             seq: 0,
             heap: BinaryHeap::new(),
             nodes,
@@ -261,7 +294,8 @@ impl Sim {
             route_site_loss,
             walkers,
             weather: weather_v,
-            start_doy,
+            weather_calendar,
+            start_date,
             active: HashMap::new(),
             completed_overlap: HashMap::new(),
             next_tx_idx: 0,
@@ -274,6 +308,7 @@ impl Sim {
             route_cost: vec![f64::INFINITY; n_nodes],
             route_tree_t: -1e18,
             fwd_median: 0.0,
+            forward_event_seq: 0,
             shadow: HashMap::new(),
             link_health: HashMap::new(),
             kiosk_banks,
@@ -292,6 +327,13 @@ impl Sim {
             solar_profile: HashMap::new(),
             airtime_lut: HashMap::new(),
         };
+        // Duty state is part of the initial condition, not a side effect of
+        // whichever routed packet happens to arrive first. Without this, the
+        // first energy interval and any early flooded traffic used a perfect
+        // 100% wake state.
+        if sim.p.mode.is_duty() {
+            sim.build_route_tree();
+        }
         sim.bootstrap();
         sim
     }
@@ -373,7 +415,7 @@ impl Sim {
         let node = &self.nodes[i as usize];
         if let Some(ri) = node.route {
             let r = &self.routes[ri as usize];
-            let tt = ((self.now % 86400.0) - node.start_s).clamp(0.0, r.duration_s);
+            let tt = (self.now - node.start_s).clamp(0.0, r.duration_s);
             let (la, lo) = interp2(&r.t_s, &r.lat, &r.lon, tt);
             return (la, lo);
         }
@@ -394,7 +436,7 @@ impl Sim {
                 if d > 8000.0 {
                     return DEAD_DB;
                 }
-                let fspl = 20.0 * d.log10() + 20.0 * 915.0f64.log10() - 27.55;
+                let fspl = 20.0 * d.log10() + 20.0 * self.cfg.radio.freq_mhz.log10() - 27.55;
                 fspl + 20.0 + 12.0 * (d / 1000.0 - 1.5).max(0.0)
             }
             _ => {
@@ -402,7 +444,7 @@ impl Sim {
                 let rn = &self.nodes[radio as usize];
                 let Some(ri) = rn.route else { return DEAD_DB };
                 let r = &self.routes[ri as usize];
-                let tt = ((self.now % 86400.0) - rn.start_s).clamp(0.0, r.duration_s);
+                let tt = (self.now - rn.start_s).clamp(0.0, r.duration_s);
                 interp1(
                     &r.loss_t_s,
                     &self.route_site_loss[ri as usize][site as usize],
@@ -439,8 +481,8 @@ impl Sim {
         let key = (i, day);
         if !self.solar_profile.contains_key(&key) {
             let node = &self.nodes[i as usize];
-            let doy = 1 + (self.start_doy as usize + day as usize - 1) % 365;
-            let month = month_index_from_doy(doy);
+            let calendar_index = (day as usize).min(self.weather_calendar.len().saturating_sub(1));
+            let (doy, month) = self.weather_calendar[calendar_index];
             let kt = self
                 .cfg
                 .solar
@@ -454,7 +496,7 @@ impl Sim {
                     *p = solar_power_w(
                         node.lat,
                         node.lon,
-                        doy as u32,
+                        doy,
                         h as f64 * 3600.0,
                         kt,
                         &node.horizon,
@@ -492,8 +534,12 @@ impl Sim {
         w
     }
 
-    fn build_route_tree(&mut self) {
+    pub(crate) fn build_route_tree(&mut self) {
         if matches!(self.p.mode.weight_mode(), Mode::LbEnergy) {
+            // Apply the implicit zero observations from forwarding events
+            // handled by other nodes. The former per-node-only update never
+            // decayed an avoided relay and was not a true network-load EWMA.
+            self.decay_forward_loads();
             let mut fwds: Vec<f64> = self.nodes[..self.n_fixed]
                 .iter()
                 .filter(|n| !n.mqtt)
@@ -534,7 +580,11 @@ impl Sim {
                 if !nv.alive || nv.docked {
                     continue;
                 }
-                let w = self.edge_weight(v, margin);
+                // The reverse Dijkstra relaxation represents a packet sent
+                // from upstream node `v` to gatewayward relay `u`.  Charge the
+                // relay that will receive and forward the packet, matching the
+                // Python reference and the documented scarcity(relay) cost.
+                let w = self.edge_weight(u as u32, margin);
                 if s.t + w < dist[v as usize] {
                     dist[v as usize] = s.t + w;
                     next[v as usize] = Some(u as u32);
@@ -559,12 +609,28 @@ impl Sim {
                 .filter_map(|x| *x)
                 .chain((0..self.n_fixed as u32).filter(|&i| self.nodes[i as usize].mqtt))
                 .collect();
+            // selective_duty keeps every current route-tree parent awake, plus
+            // all connectivity-critical cut vertices. Articulation points alone
+            // are not a connected awake backbone in redundant/diamond graphs.
+            let critical: HashSet<u32> = if matches!(self.p.mode, Mode::SelectiveDuty) {
+                self.critical_relays()
+            } else {
+                HashSet::new()
+            };
             for i in 0..self.n_fixed {
                 if self.nodes[i].mqtt || self.nodes[i].grid {
                     continue;
                 }
+                self.accrue_node_energy_state(i as u32);
                 self.nodes[i].duty = match self.p.mode {
                     Mode::DutySync => 0.05,
+                    Mode::SelectiveDuty => {
+                        if critical.contains(&(i as u32)) || on_tree.contains(&(i as u32)) {
+                            1.0
+                        } else {
+                            0.05
+                        }
+                    }
                     Mode::DutyAdaptive => {
                         let runway = self.nodes[i].soc_wh
                             + if self.nodes[i].solar {
@@ -588,10 +654,74 @@ impl Sim {
         }
     }
 
+    /// Relays whose removal would strand another node from every gateway — the
+    /// cut-vertices of the live connectivity graph. Iterative Tarjan
+    /// articulation-point search over alive/undocked fixed sites plus a virtual
+    /// super-source joined to all live gateways. O(V+E) per rebuild.
+    fn critical_relays(&self) -> HashSet<u32> {
+        let n = self.n_fixed;
+        let s = n; // virtual super-source index
+        let mut adj: Vec<Vec<u32>> = vec![Vec::new(); n + 1];
+        let live = |i: usize| self.nodes[i].alive && !self.nodes[i].docked;
+        for u in 0..n {
+            if !live(u) {
+                continue;
+            }
+            for &(v, _margin) in &self.fixed_adj[u] {
+                let vv = v as usize;
+                if vv < n && live(vv) {
+                    adj[u].push(v);
+                }
+            }
+            if self.nodes[u].mqtt {
+                adj[u].push(s as u32);
+                adj[s].push(u as u32);
+            }
+        }
+        let mut disc = vec![-1i64; n + 1];
+        let mut low = vec![0i64; n + 1];
+        let mut parent = vec![u32::MAX; n + 1];
+        let mut ap: HashSet<u32> = HashSet::new();
+        let mut timer = 0i64;
+        // DFS from the super-source (its own articulation status is irrelevant).
+        disc[s] = timer;
+        low[s] = timer;
+        timer += 1;
+        let mut stack: Vec<(usize, usize)> = vec![(s, 0)];
+        while let Some(&(u, ei)) = stack.last() {
+            if ei < adj[u].len() {
+                stack.last_mut().unwrap().1 += 1;
+                let v = adj[u][ei] as usize;
+                if disc[v] == -1 {
+                    parent[v] = u as u32;
+                    disc[v] = timer;
+                    low[v] = timer;
+                    timer += 1;
+                    stack.push((v, 0));
+                } else if v as u32 != parent[u] {
+                    low[u] = low[u].min(disc[v]);
+                }
+            } else {
+                stack.pop();
+                if let Some(&(p, _)) = stack.last() {
+                    low[p] = low[p].min(low[u]);
+                    if parent[p] != u32::MAX && low[u] >= disc[p] {
+                        ap.insert(p as u32);
+                    }
+                }
+            }
+        }
+        ap.into_iter()
+            .filter(|&i| (i as usize) < n && !self.nodes[i as usize].mqtt)
+            .collect()
+    }
+
     fn tree_path(&self, start: u32) -> Option<Vec<u32>> {
         let mut path = vec![start];
         let mut cur = start;
-        for _ in 0..24 {
+        // A Dijkstra tree is acyclic, but bound defensively by the actual
+        // fixed-site population rather than an undocumented 24-node constant.
+        for _ in 0..=self.n_fixed {
             match self.route_next[cur as usize] {
                 None => {
                     return if self.nodes[cur as usize].mqtt {
@@ -618,9 +748,13 @@ impl Sim {
         }
         // mobile: attach to the best reachable fixed site
         let mut best: Option<(u32, f64)> = None;
+        let origin_channel = self.nodes[origin as usize].channel;
         for s in 0..self.n_fixed as u32 {
             let ns = &self.nodes[s as usize];
             if !ns.alive || ns.docked {
+                continue;
+            }
+            if self.p.regional_channels && ns.channel != origin_channel {
                 continue;
             }
             let c = self.route_cost[s as usize];
@@ -656,9 +790,13 @@ pub fn haversine_m(lat1: f64, lon1: f64, lat2: f64, lon2: f64) -> f64 {
     2.0 * r * a.sqrt().atan2((1.0 - a).sqrt())
 }
 
-fn month_index_from_doy(doy: usize) -> usize {
-    const MONTH_ENDS: [usize; 12] = [31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365];
-    MONTH_ENDS.iter().position(|&end| doy <= end).unwrap_or(11)
+fn month_index_from_date(date: &str) -> usize {
+    date.split('-')
+        .nth(1)
+        .and_then(|value| value.parse::<usize>().ok())
+        .unwrap_or(1)
+        .clamp(1, 12)
+        - 1
 }
 
 pub fn erf(x: f64) -> f64 {

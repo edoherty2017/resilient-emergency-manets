@@ -1,6 +1,7 @@
-//! SplitMix64 RNG + normal sampling. Statistically equivalent to (not
-//! bit-compatible with) numpy's Generator — fastsim results match the Python
-//! sim in distribution, which is what multi-seed sweeps consume.
+//! SplitMix64 RNG + normal sampling. This is intentionally not bit-compatible
+//! with NumPy's Generator. Sharing nominal uniform/normal distributions does
+//! not establish Python/Rust model parity; bounded metric differences must be
+//! measured on matched multi-seed runs.
 
 #[derive(Clone, Debug)]
 pub struct Rng {

@@ -25,13 +25,21 @@ impl Sim {
     pub fn run(&mut self) {
         let end = self.p.days * 86400.0;
         while let Some(Reverse(s)) = self.heap.pop() {
-            if s.t > end {
+            // The modeled interval is [0, end).  Processing a checkout exactly
+            // at `end` would count a served rental with zero in-horizon time.
+            if s.t >= end {
                 break;
             }
             self.now = s.t;
             self.handle(s.ev, s.seq);
         }
         self.now = end;
+        if self.now > self.energy_last_t {
+            self.handle_energy();
+        }
+        if self.p.mode.is_duty() && self.route_tree_t < -1.0e17 {
+            self.build_route_tree();
+        }
         self.final_prune();
     }
 
@@ -139,7 +147,11 @@ impl Sim {
             }
             Ev::SosBurst { node, flight } => {
                 let n = &self.nodes[node as usize];
-                if n.alive && !n.docked {
+                if n.alive
+                    && !n.docked
+                    && self.now <= flight.expires_at
+                    && self.pkt_meta.contains_key(&flight.id)
+                {
                     self.csma2(node, flight);
                 }
             }
@@ -158,7 +170,9 @@ impl Sim {
                 let n = &mut self.nodes[node as usize];
                 if n.pending.get(&key) == Some(&seq) {
                     n.pending.remove(&key);
-                    self.csma2(node, flight);
+                    if self.now <= flight.expires_at && self.pkt_meta.contains_key(&flight.id) {
+                        self.csma2(node, flight);
+                    }
                 }
             }
             Ev::EnergyStep => {
@@ -174,15 +188,14 @@ impl Sim {
                     .collect();
                 socs.sort_by(f64::total_cmp);
                 if !socs.is_empty() {
-                    let q = |p: f64| socs[((socs.len() - 1) as f64 * p) as usize];
                     let mean = socs.iter().sum::<f64>() / socs.len() as f64;
                     let var =
                         socs.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / socs.len() as f64;
                     self.soc_series.push((
                         self.now / 86400.0,
-                        q(0.10),
-                        q(0.50),
-                        q(0.90),
+                        linear_quantile_sorted(&socs, 0.10).expect("non-empty SOC sample"),
+                        linear_quantile_sorted(&socs, 0.50).expect("non-empty SOC sample"),
+                        linear_quantile_sorted(&socs, 0.90).expect("non-empty SOC sample"),
                         var.sqrt(),
                     ));
                 }
@@ -211,11 +224,13 @@ impl Sim {
                 self.handle_dispatch(walker);
             }
             Ev::WalkEnd { walker } => {
-                let w = &mut self.walkers[walker as usize];
-                if let Some(radio) = w.radio.take() {
-                    let ret = w.return_kiosk;
+                let (radio, ret) = {
+                    let w = &mut self.walkers[walker as usize];
+                    (w.radio.take(), w.return_kiosk)
+                };
+                if let Some(radio) = radio {
+                    self.set_docked(radio, true);
                     let n = &mut self.nodes[radio as usize];
-                    n.docked = true;
                     n.kiosk = Some(ret);
                     n.route = None;
                 }
@@ -233,6 +248,9 @@ impl Sim {
                 self.refresh_node_availability(node);
             }
         }
+        if self.p.mode.is_duty() && self.route_tree_t < -1.0e17 {
+            self.build_route_tree();
+        }
     }
 
     fn walking(&self, node: u32) -> bool {
@@ -242,8 +260,9 @@ impl Sim {
     fn track_t2(&self, node: u32) -> Option<f64> {
         let n = &self.nodes[node as usize];
         let ri = n.route? as usize;
-        let tt = (self.now % 86400.0) - n.start_s;
-        if tt >= 0.0 && tt <= self.routes[ri].duration_s {
+        let route = self.routes.get(ri)?;
+        let tt = self.now - n.start_s;
+        if tt >= 0.0 && tt < route.duration_s {
             Some(tt)
         } else {
             None
@@ -257,7 +276,7 @@ impl Sim {
                 .map(|i| i as u32)
                 .filter(|&i| {
                     let n = &self.nodes[i as usize];
-                    n.alive && !n.docked && n.route.is_some()
+                    n.alive && !n.docked && n.route.is_some() && self.walking(i)
                 })
                 .collect();
             if out.is_empty() {
@@ -300,7 +319,7 @@ impl Sim {
             return;
         }
         let n = &self.nodes[node as usize];
-        if !n.alive || n.docked {
+        if !n.alive || n.docked || !self.walking(node) {
             return;
         }
         // 5-minute retries until ACK, up to 24
@@ -325,7 +344,11 @@ impl Sim {
     }
 
     fn handle_tx_attempt(&mut self, node: u32, flight: Flight, tries: u32, post_difs: bool) {
-        if !self.nodes[node as usize].alive {
+        if !self.nodes[node as usize].alive
+            || self.nodes[node as usize].docked
+            || self.now > flight.expires_at
+            || !self.pkt_meta.contains_key(&flight.id)
+        {
             return;
         }
         // A radio cannot originate/forward two frames concurrently.  This is
@@ -338,7 +361,10 @@ impl Sim {
                     node,
                     flight,
                     tries,
-                    post_difs,
+                    // The prior DIFS is no longer valid after waiting through
+                    // our own transmission; sense the channel and perform a
+                    // fresh DIFS before sending.
+                    post_difs: false,
                 },
             );
             return;
@@ -401,20 +427,60 @@ impl Sim {
     }
 
     fn transmit(&mut self, sender: u32, flight: Flight) {
+        // Pay all baseline/GPS energy accrued through this instant before
+        // deciding whether the sender can start another frame.
+        self.accrue_node_energy_state(sender);
+        self.settle_node_energy_segments(sender);
+        if !self.nodes[sender as usize].alive || self.nodes[sender as usize].docked {
+            return;
+        }
         // Duty cycling affects deterministic receiver acquisition, not packet
         // airtime.  The old random 0..1 s extension was a perfect-wakeup
         // abstraction and also consumed an algorithm-dependent RNG draw.
         let air = self.airtime_s2(flight.bytes);
+        let horizon = self.p.days * 86400.0;
+        let accounted_air = ((self.now + air).min(horizon) - self.now).max(0.0);
+        let etx = {
+            let e = &self.cfg.energy;
+            let sender_node = &self.nodes[sender as usize];
+            let listen_ma = if sender_node.is_radio && self.p.hiker_rx_ma > 0.0 {
+                self.p.hiker_rx_ma
+            } else if !sender_node.is_radio && self.p.relay_rx_ma > 0.0 {
+                self.p.relay_rx_ma
+            } else {
+                e.rx_listen_ma
+            };
+            let baseline_ma =
+                sender_node.duty * listen_ma + (1.0 - sender_node.duty) * e.light_sleep_ma;
+            let incremental_tx_ma = (e.tx_current_ma - baseline_ma).max(0.0);
+            incremental_tx_ma / 1000.0 * e.battery_v * accounted_air / 3600.0
+        };
+        if !self.nodes[sender as usize].grid && self.nodes[sender as usize].soc_wh < etx {
+            let n = &mut self.nodes[sender as usize];
+            n.soc_wh = 0.0;
+            n.energy_alive = false;
+            n.stats.deaths += 1;
+            n.death_score = 0.7 * n.death_score + 1.0;
+            self.refresh_node_availability(sender);
+            return;
+        }
         let mut rssi_at = Vec::new();
         for j in 0..self.nodes.len() as u32 {
             if j == sender {
                 continue;
             }
-            let nj = &self.nodes[j as usize];
-            if !nj.alive || nj.docked {
+            let (receiver_docked, receiver_channel, receiver_epoch) = {
+                let receiver = &self.nodes[j as usize];
+                (
+                    receiver.docked,
+                    receiver.channel,
+                    receiver.availability_epoch,
+                )
+            };
+            if receiver_docked {
                 continue;
             }
-            if self.p.regional_channels && nj.channel != self.nodes[sender as usize].channel {
+            if self.p.regional_channels && receiver_channel != self.nodes[sender as usize].channel {
                 continue;
             }
             let loss = self.loss_db(sender, j);
@@ -422,18 +488,20 @@ impl Sim {
                 continue;
             }
             let sh = self.shadow_sample2(sender, j);
-            rssi_at.push((j, self.cfg.radio.received_power_reference_dbm() - loss + sh));
+            rssi_at.push((
+                j,
+                self.cfg.radio.received_power_reference_dbm() - loss + sh,
+                receiver_epoch,
+            ));
         }
         let end = self.now + air;
-        let horizon = self.p.days * 86400.0;
-        let accounted_air = (end.min(horizon) - self.now).max(0.0);
         let cad_acquired: HashSet<u32> = rssi_at
             .iter()
-            .map(|(rx, _)| *rx)
+            .map(|(rx, _, _)| *rx)
             .filter(|&rx| self.receiver_acquires_preamble_at(rx, self.now, end))
             .collect();
         self.local_busy[sender as usize].add(self.now, end);
-        for &(rx, rssi) in &rssi_at {
+        for &(rx, rssi, _) in &rssi_at {
             if rssi >= CARRIER_SENSE_DBM {
                 self.local_busy[rx as usize].add(self.now, end);
             }
@@ -447,23 +515,19 @@ impl Sim {
                 end,
                 sender,
                 rssi_at,
+                sender_availability_epoch: self.nodes[sender as usize].availability_epoch,
                 cad_acquired,
                 flight: flight.clone(),
             },
         );
         {
-            let e = &self.cfg.energy;
-            let etx = (e.tx_current_ma - e.rx_listen_ma) / 1000.0 * e.battery_v * air / 3600.0;
             let n = &mut self.nodes[sender as usize];
             n.tx_until = end;
             n.stats.tx += 1;
-            n.stats.tx_airtime_s += air;
+            n.stats.tx_airtime_s += accounted_air;
             n.stats.energy_tx_wh += etx;
-            if flight.is_fwd {
-                n.fwd_ewma = 0.995 * n.fwd_ewma + 1.0;
-            }
             if !n.grid {
-                n.soc_wh -= etx;
+                n.soc_wh = (n.soc_wh - etx).max(0.0);
                 if n.energy_alive && n.soc_wh <= 0.0 {
                     n.soc_wh = 0.0;
                     n.energy_alive = false;
@@ -471,6 +535,9 @@ impl Sim {
                     n.death_score = 0.7 * n.death_score + 1.0;
                 }
             }
+        }
+        if flight.is_fwd {
+            self.record_forward(sender);
         }
         self.refresh_node_availability(sender);
         self.total_offered_airtime_s += accounted_air;
@@ -489,8 +556,15 @@ impl Sim {
             r.capture_threshold_db,
         );
         let sender_fixed = !self.nodes[tx.sender as usize].is_radio;
-        for &(rx, rssi) in &tx.rssi_at {
-            if !self.nodes[rx as usize].alive {
+        let sender_continuously_available = self.nodes[tx.sender as usize].alive
+            && !self.nodes[tx.sender as usize].docked
+            && self.nodes[tx.sender as usize].availability_epoch == tx.sender_availability_epoch;
+        for &(rx, rssi, receiver_epoch) in &tx.rssi_at {
+            if !sender_continuously_available
+                || !self.nodes[rx as usize].alive
+                || self.nodes[rx as usize].docked
+                || self.nodes[rx as usize].availability_epoch != receiver_epoch
+            {
                 continue;
             }
             let receiver_was_transmitting = self
@@ -513,13 +587,15 @@ impl Sim {
             if cad_acquired {
                 for other in self.active.values().chain(self.completed_overlap.values()) {
                     if other.sender != rx && other.start < tx.end && other.end > tx.start {
-                        if let Some(&(_, ri)) = other.rssi_at.iter().find(|(n, _)| *n == rx) {
+                        if let Some(&(_, ri, _)) = other.rssi_at.iter().find(|(n, _, _)| *n == rx) {
                             worst_i = worst_i.max(ri);
                         }
                     }
                 }
             }
-            if sender_fixed && !self.nodes[rx as usize].is_radio {
+            // Link health measures PHY opportunities, not a duty-cycle CAD
+            // sleep that deliberately prevented an attempted reception.
+            if sender_fixed && !self.nodes[rx as usize].is_radio && cad_acquired {
                 let key = if tx.sender < rx {
                     (tx.sender, rx)
                 } else {
@@ -572,6 +648,9 @@ impl Sim {
         }
         let k0 = flight.okind;
         let node_mqtt = self.nodes[rx as usize].mqtt;
+        if self.now > flight.expires_at || !self.pkt_meta.contains_key(&flight.id) {
+            return;
+        }
         let arrived = match flight.dest {
             Dest::Mqtt => node_mqtt,
             Dest::Node(d) => rx == d,
@@ -640,28 +719,98 @@ impl Sim {
         }
     }
 
-    fn handle_energy(&mut self) {
-        let step = self.p.energy_step_s;
-        let day = self.day2();
-        let (kt, snow) = self.kt_snow2(day);
-        let doy = 1 + (self.start_doy as usize + day - 1) % 365;
-        let e_batt_v = self.cfg.energy.battery_v;
-        let relay_ma = if self.p.relay_rx_ma > 0.0 {
+    fn settle_node_energy_segments(&mut self, node: u32) {
+        let i = node as usize;
+        let segments = std::mem::take(&mut self.nodes[i].energy_segments);
+        if self.nodes[i].grid {
+            return;
+        }
+        let battery_v = self.cfg.energy.battery_v;
+        let listen_ma = if self.nodes[i].is_radio {
+            if self.p.hiker_rx_ma > 0.0 {
+                self.p.hiker_rx_ma
+            } else {
+                self.cfg.energy.rx_listen_ma
+            }
+        } else if self.p.relay_rx_ma > 0.0 {
             self.p.relay_rx_ma
         } else {
             self.cfg.energy.rx_listen_ma
         };
-        let hiker_ma = if self.p.hiker_rx_ma > 0.0 {
-            self.p.hiker_rx_ma
-        } else {
-            self.cfg.energy.rx_listen_ma
-        };
-        let sleep_w = self.cfg.energy.light_sleep_ma / 1000.0 * e_batt_v;
-        let gps_w = self.cfg.energy.gps_active_ma / 1000.0 * e_batt_v;
+        let sleep_w = self.cfg.energy.light_sleep_ma / 1000.0 * battery_v;
+        let gps_w = self.cfg.energy.gps_active_ma / 1000.0 * battery_v;
+
+        for segment in segments {
+            match segment {
+                EnergySegment::Docked { seconds, kiosk } => {
+                    let headroom_wh = (self.nodes[i].cap_wh - self.nodes[i].soc_wh).max(0.0);
+                    let want_wh =
+                        (self.cfg.kiosk.charge_w_per_bay * seconds / 3600.0).min(headroom_wh);
+                    let got_wh = if let Some(k) = kiosk {
+                        if let Some(bank) = self.kiosk_banks.get_mut(&k) {
+                            let got = want_wh.min(bank.soc_wh.max(0.0));
+                            bank.soc_wh -= got;
+                            got
+                        } else {
+                            want_wh
+                        } // grid-site kiosk fallback
+                    } else {
+                        want_wh
+                    };
+                    let n = &mut self.nodes[i];
+                    n.soc_wh = (n.soc_wh + got_wh).min(n.cap_wh);
+                    if !n.energy_alive && n.soc_wh >= REVIVE_FRACTION * n.cap_wh {
+                        n.energy_alive = true;
+                    }
+                }
+                EnergySegment::Active {
+                    listen_s,
+                    sleep_s,
+                    gps_s,
+                } => {
+                    let drain = (listen_s * listen_ma / 1000.0 * battery_v
+                        + sleep_s * sleep_w
+                        + gps_s * gps_w)
+                        / 3600.0;
+                    let n = &mut self.nodes[i];
+                    n.soc_wh = (n.soc_wh - drain).max(0.0);
+                    if n.energy_alive && n.soc_wh <= 0.0 {
+                        n.energy_alive = false;
+                        n.stats.deaths += 1;
+                        n.death_score = 0.7 * n.death_score + 1.0;
+                    }
+                }
+            }
+        }
+        let n = &mut self.nodes[i];
+        if n.soc_wh <= 0.0 {
+            n.soc_wh = 0.0;
+            if n.energy_alive {
+                n.energy_alive = false;
+                n.stats.deaths += 1;
+                n.death_score = 0.7 * n.death_score + 1.0;
+            }
+        }
+        self.refresh_node_availability(node);
+    }
+
+    fn handle_energy(&mut self) {
+        let step = (self.now - self.energy_last_t).max(0.0);
+        if step <= 0.0 {
+            return;
+        }
+        self.energy_last_t = self.now;
+        for i in 0..self.nodes.len() {
+            self.accrue_node_energy_state(i as u32);
+        }
+        let day = self.day2();
+        let (kt, snow) = self.kt_snow2(day);
+        let calendar_index = day.min(self.weather_calendar.len().saturating_sub(1));
+        let doy = self.weather_calendar[calendar_index].0;
         let sec_of_day = self.now % 86400.0;
-        let mut tree_dirty = false;
         // kiosk solar arrays: flat-mount panel using the site's horizon mask
-        let kiosk_sites: Vec<u32> = self.kiosk_banks.keys().copied().collect();
+        let mut kiosk_sites: Vec<u32> = self.kiosk_banks.keys().copied().collect();
+        kiosk_sites.sort_unstable();
         for ks in kiosk_sites {
             let (lat, lon, hz) = {
                 let n = &self.nodes[ks as usize];
@@ -676,7 +825,7 @@ impl Sim {
                 snow * solar_power_w(
                     lat,
                     lon,
-                    doy as u32,
+                    doy,
                     sec_of_day,
                     kt,
                     &hz,
@@ -690,48 +839,12 @@ impl Sim {
             }
         }
         for i in 0..self.nodes.len() {
-            let (is_grid, is_docked) = {
+            let (is_grid, is_solar, lat, lon) = {
                 let n = &self.nodes[i];
-                (n.grid, n.docked)
+                (n.grid, n.solar, n.lat, n.lon)
             };
             if is_grid {
                 continue;
-            }
-            if is_docked {
-                let kiosk = self.nodes[i].kiosk;
-                let per_bay = self.cfg.kiosk.charge_w_per_bay;
-                let headroom_wh = (self.nodes[i].cap_wh - self.nodes[i].soc_wh).max(0.0);
-                let want_wh = (per_bay * step / 3600.0).min(headroom_wh);
-                let got_wh = if let Some(k) = kiosk {
-                    if let Some(bank) = self.kiosk_banks.get_mut(&k) {
-                        let g = want_wh.min(bank.soc_wh.max(0.0));
-                        bank.soc_wh -= g;
-                        g
-                    } else {
-                        want_wh
-                    } // grid-site kiosk fallback
-                } else {
-                    want_wh
-                };
-                {
-                    let n = &mut self.nodes[i];
-                    n.soc_wh += got_wh;
-                    if !n.energy_alive && n.soc_wh >= REVIVE_FRACTION * n.cap_wh {
-                        n.energy_alive = true;
-                        tree_dirty = true;
-                    }
-                }
-                self.refresh_node_availability(i as u32);
-                continue;
-            }
-            let (duty, is_radio, is_solar, lat, lon) = {
-                let n = &self.nodes[i];
-                (n.duty, n.is_radio, n.solar, n.lat, n.lon)
-            };
-            let rx_w = (if is_radio { hiker_ma } else { relay_ma }) / 1000.0 * e_batt_v;
-            let mut drain = (duty * rx_w + (1.0 - duty) * sleep_w) / 3600.0 * step;
-            if is_radio {
-                drain += gps_w / 3600.0 * step;
             }
             if is_solar {
                 let gain = {
@@ -740,7 +853,7 @@ impl Sim {
                         snow * solar_power_w(
                             lat,
                             lon,
-                            doy as u32,
+                            doy,
                             sec_of_day,
                             kt,
                             &n.horizon,
@@ -755,32 +868,18 @@ impl Sim {
                 n.soc_wh = (n.soc_wh + gain).min(n.cap_wh);
                 n.stats.solar_wh += gain;
             }
+            if !self.nodes[i].energy_alive
+                && self.nodes[i].soc_wh >= REVIVE_FRACTION * self.nodes[i].cap_wh
             {
-                let n = &mut self.nodes[i];
-                if n.energy_alive {
-                    n.soc_wh -= drain;
-                    if n.soc_wh <= 0.0 {
-                        n.soc_wh = 0.0;
-                        n.energy_alive = false;
-                        n.stats.deaths += 1;
-                        n.death_score = 0.7 * n.death_score + 1.0;
-                        tree_dirty = true;
-                    }
-                } else if n.soc_wh >= REVIVE_FRACTION * n.cap_wh {
-                    n.energy_alive = true;
-                    tree_dirty = true;
-                }
+                self.nodes[i].energy_alive = true;
             }
-            self.refresh_node_availability(i as u32);
-        }
-        if tree_dirty {
-            self.route_tree_t = -1e18;
+            self.settle_node_energy_segments(i as u32);
         }
     }
 
     fn handle_dispatch(&mut self, walker: u32) {
         let w = &self.walkers[walker as usize];
-        let (kiosk, route, start_s) = (w.kiosk, w.route, w.start_s);
+        let (kiosk, route) = (w.kiosk, w.route);
         self.rental.walker_days += 1;
         let stock: Vec<u32> = (self.n_fixed..self.nodes.len())
             .map(|i| i as u32)
@@ -794,7 +893,7 @@ impl Sim {
             .copied()
             .filter(|&i| {
                 let n = &self.nodes[i as usize];
-                n.alive && n.cap_wh > 0.0 && n.soc_wh / n.cap_wh >= MIN_CHECKOUT_SOC_FRACTION
+                n.alive && n.cap_wh > 0.0 && n.soc_wh / n.cap_wh >= self.cfg.kiosk.min_checkout_soc
             })
             .collect();
         if pool.is_empty() {
@@ -821,10 +920,11 @@ impl Sim {
             self.nodes[best as usize].soc_wh / self.nodes[best as usize].cap_wh;
         {
             let ch = self.nodes[kiosk as usize].channel;
+            let dispatch_t = self.now;
+            self.set_docked(best, false);
             let n = &mut self.nodes[best as usize];
-            n.docked = false;
             n.route = Some(route);
-            n.start_s = start_s;
+            n.start_s = dispatch_t;
             n.channel = ch;
         }
         self.walkers[walker as usize].radio = Some(best);
@@ -862,7 +962,12 @@ impl Sim {
                     .filter(|(k, v)| {
                         **k != kiosk && (v.len() as i64) > *demand.get(k).unwrap_or(&0)
                     })
-                    .max_by_key(|(k, v)| v.len() as i64 - *demand.get(k).unwrap_or(&0))
+                    // HashMap iteration order must not decide equal-surplus
+                    // shuttle moves. Prefer the lowest stable kiosk index on
+                    // ties after maximizing available surplus.
+                    .max_by_key(|(k, v)| {
+                        (v.len() as i64 - *demand.get(k).unwrap_or(&0), Reverse(**k))
+                    })
                     .map(|(k, _)| *k);
                 let Some(src) = donor else { break };
                 // move the worst-charged surplus radio
@@ -879,6 +984,9 @@ impl Sim {
                         .unwrap();
                     pool.swap_remove(pos)
                 };
+                // Settle the elapsed dock interval against its source bank
+                // before changing the radio's kiosk assignment.
+                self.accrue_node_energy_state(radio);
                 self.nodes[radio as usize].kiosk = Some(kiosk);
                 docked.entry(kiosk).or_default().push(radio);
             }
@@ -915,7 +1023,7 @@ impl Sim {
                 && tx
                     .rssi_at
                     .iter()
-                    .any(|(n, r)| *n == node && *r >= CARRIER_SENSE_DBM)
+                    .any(|(n, r, _)| *n == node && *r >= CARRIER_SENSE_DBM)
             {
                 return true;
             }
@@ -938,7 +1046,7 @@ impl Sim {
         if awake_len + f64::EPSILON < needed {
             return false;
         }
-        let phase = if self.p.mode == Mode::DutySync {
+        let phase = if matches!(self.p.mode, Mode::DutySync | Mode::SelectiveDuty) {
             0.0
         } else {
             Rng::keyed_f64(self.p.seed, RNG_CAD_PHASE, rx as u64) * CAD_PERIOD_S
@@ -958,6 +1066,7 @@ impl Sim {
         if should_be_alive == n.alive {
             return;
         }
+        n.availability_epoch = n.availability_epoch.wrapping_add(1);
         if should_be_alive {
             if let Some(start) = n.unavailable_since.take() {
                 n.stats.unavailable_s += (self.now - start).max(0.0);
@@ -967,6 +1076,14 @@ impl Sim {
         }
         n.alive = should_be_alive;
         self.route_tree_t = -1e18;
+    }
+    fn set_docked(&mut self, i: u32, docked: bool) {
+        self.accrue_node_energy_state(i);
+        let node = &mut self.nodes[i as usize];
+        if node.docked != docked {
+            node.docked = docked;
+            node.availability_epoch = node.availability_epoch.wrapping_add(1);
+        }
     }
     fn airtime_s2(&mut self, bytes: u32) -> f64 {
         let r = &self.cfg.radio;
@@ -1047,6 +1164,7 @@ impl Sim {
             sos_id: 0,
             ack_for: 0,
             is_fwd: false,
+            expires_at: self.now + PACKET_TTL_S,
         }
     }
     fn csma2(&mut self, node: u32, flight: Flight) {
@@ -1072,7 +1190,7 @@ mod tests {
         BatteryCfg, Config, EnergyCfg, KioskCfg, Link, RadioCfg, Route, RoutesFile, ShadowCfg,
         Site, SolarCfg, Topology, TrafficCfg, WeatherDay, WeatherFile,
     };
-    use std::collections::{HashMap, HashSet};
+    use std::collections::HashMap;
 
     fn site(mqtt: bool) -> Site {
         Site {
@@ -1089,6 +1207,7 @@ mod tests {
     fn test_config() -> Config {
         Config {
             radio: RadioCfg {
+                freq_mhz: 915.0,
                 sf: 7,
                 bw_hz: 125_000.0,
                 cr: 1,
@@ -1128,15 +1247,19 @@ mod tests {
                 monthly_kt_mean: vec![0.4; 12],
             },
             traffic: TrafficCfg {
+                telemetry_interval_s: 900.0,
+                position_interval_s: 300.0,
                 telemetry_payload_b: 40,
                 position_payload_b: 40,
                 sos_payload_b: 64,
             },
+            sim: SimCfg::default(),
             kiosk: KioskCfg {
                 capacity: 20,
                 panel_w: 100.0,
                 battery_wh: 100.0,
                 charge_w_per_bay: 10.0,
+                min_checkout_soc: 0.20,
                 demand_tier_a: 1,
                 demand_tier_b: 1,
                 demand_tier_c: 1,
@@ -1171,11 +1294,16 @@ mod tests {
         let weather = WeatherFile {
             start_date: "2026-01-01".to_string(),
             days: vec![WeatherDay {
+                date: "2026-01-01".to_string(),
                 kt: 0.4,
                 snow_factor: 1.0,
             }],
         };
-        let params = Params {
+        Sim::new(test_config(), topology, routes, weather, test_params(mode))
+    }
+
+    fn test_params(mode: Mode) -> Params {
+        Params {
             mode,
             days: 1.0,
             seed: 42,
@@ -1190,8 +1318,42 @@ mod tests {
             hiker_rx_ma: 0.0,
             regional_channels: false,
             outages: Vec::new(),
+        }
+    }
+
+    fn rental_test_sim(duration_s: f64, days: f64) -> Sim {
+        let sites = HashMap::from([("kiosk".to_string(), site(true))]);
+        let route = Route {
+            kiosk: "kiosk".to_string(),
+            return_kiosk: "kiosk".to_string(),
+            duration_s,
+            t_s: vec![0.0, duration_s],
+            lat: vec![44.0, 44.1],
+            lon: vec![-71.0, -71.0],
+            loss_t_s: vec![0.0, duration_s],
+            loss_db_q50: HashMap::from([("kiosk".to_string(), vec![100.0, 120.0])]),
         };
-        Sim::new(test_config(), topology, routes, weather, params)
+        let mut params = test_params(Mode::MinHop);
+        params.days = days;
+        Sim::new(
+            test_config(),
+            Topology {
+                sites,
+                links: HashMap::new(),
+            },
+            RoutesFile {
+                routes: HashMap::from([("overnight".to_string(), route)]),
+            },
+            WeatherFile {
+                start_date: "2026-01-01".to_string(),
+                days: vec![WeatherDay {
+                    date: "2026-01-01".to_string(),
+                    kt: 0.4,
+                    snow_factor: 1.0,
+                }],
+            },
+            params,
+        )
     }
 
     fn simultaneous_collision(sender_order: [&str; 2]) -> (u64, u64, bool, bool) {
@@ -1265,9 +1427,415 @@ mod tests {
         sim.handle_tx_attempt(sender, second, 0, true);
         assert_eq!(sim.active.len(), 1);
         assert!(sim.heap.iter().any(|Reverse(s)| {
-            matches!(&s.ev, Ev::TxAttempt { node, .. } if *node == sender)
-                && s.t >= sim.nodes[sender as usize].tx_until
+            matches!(
+                &s.ev,
+                Ev::TxAttempt {
+                    node,
+                    post_difs: false,
+                    ..
+                } if *node == sender
+            ) && s.t >= sim.nodes[sender as usize].tx_until
         }));
+    }
+
+    #[test]
+    fn docked_radio_cannot_transmit_a_queued_frame() {
+        let mut sim = test_sim(Mode::Flood);
+        let sender = sim.name_to_idx["a"];
+        let flight = sim.new_flight2(sender, Kind::Tel, 40, Dest::Mqtt, false);
+        sim.nodes[sender as usize].docked = true;
+        sim.handle_tx_attempt(sender, flight, 0, false);
+        assert!(sim.active.is_empty());
+        assert_eq!(sim.nodes[sender as usize].stats.tx, 0);
+    }
+
+    #[test]
+    fn duty_mode_is_initialized_before_the_first_event() {
+        let mut sites = HashMap::new();
+        let mut relay = site(false);
+        relay.power = "solar".to_string();
+        sites.insert("relay".to_string(), relay);
+        sites.insert("gateway".to_string(), site(true));
+        let mut links = HashMap::new();
+        links.insert(
+            "relay|gateway".to_string(),
+            Link {
+                loss_db_q50: 100.0,
+                loss_db_q90: 100.0,
+            },
+        );
+        let sim = Sim::new(
+            test_config(),
+            Topology { sites, links },
+            RoutesFile {
+                routes: HashMap::new(),
+            },
+            WeatherFile {
+                start_date: "2026-01-01".to_string(),
+                days: vec![WeatherDay {
+                    date: "2026-01-01".to_string(),
+                    kt: 0.4,
+                    snow_factor: 1.0,
+                }],
+            },
+            test_params(Mode::DutySync),
+        );
+        let relay = sim.name_to_idx["relay"] as usize;
+        assert_eq!(sim.now, 0.0);
+        assert_eq!(sim.nodes[relay].duty, 0.05);
+        assert_eq!(sim.route_tree_t, 0.0);
+    }
+
+    #[test]
+    fn energy_aware_cost_is_charged_to_the_gatewayward_relay() {
+        let mut sites = HashMap::new();
+        sites.insert("gateway".to_string(), site(true));
+        for name in ["relay_a", "relay_b", "source"] {
+            let mut relay = site(false);
+            relay.power = "battery".to_string();
+            sites.insert(name.to_string(), relay);
+        }
+        let mut links = HashMap::new();
+        for (key, loss_db_q50) in [
+            ("gateway|relay_a", 127.0),
+            ("gateway|relay_b", 90.0),
+            ("relay_a|source", 90.0),
+            ("relay_b|source", 127.0),
+        ] {
+            links.insert(
+                key.to_string(),
+                Link {
+                    loss_db_q50,
+                    loss_db_q90: loss_db_q50,
+                },
+            );
+        }
+        let mut cfg = test_config();
+        cfg.shadowing.sigma_db = 8.0;
+        let mut sim = Sim::new(
+            cfg,
+            Topology { sites, links },
+            RoutesFile {
+                routes: HashMap::new(),
+            },
+            WeatherFile {
+                start_date: "2026-01-01".to_string(),
+                days: vec![WeatherDay {
+                    date: "2026-01-01".to_string(),
+                    kt: 0.4,
+                    snow_factor: 1.0,
+                }],
+            },
+            test_params(Mode::EnergyAware),
+        );
+
+        let relay_a = sim.name_to_idx["relay_a"];
+        let relay_b = sim.name_to_idx["relay_b"];
+        let source = sim.name_to_idx["source"];
+        // scarcity = 1 + 3(1-rf)/rf, so these are 2.5 and 3.0.
+        sim.nodes[relay_a as usize].soc_wh = sim.nodes[relay_a as usize].cap_wh * (2.0 / 3.0);
+        sim.nodes[relay_b as usize].soc_wh = sim.nodes[relay_b as usize].cap_wh * 0.6;
+        sim.build_route_tree();
+
+        assert_eq!(
+            sim.route_next[source as usize],
+            Some(relay_a),
+            "the weak inbound link through relay_b must multiply relay_b's scarcity"
+        );
+    }
+
+    #[test]
+    fn energy_accounting_splits_at_checkout_state_transition() {
+        let mut sim = rental_test_sim(3600.0, 1.0);
+        sim.now = 11.0 * 3600.0;
+        sim.handle_dispatch(0);
+        let radio = sim.walkers[0].radio.expect("radio checked out");
+        sim.now += 300.0;
+        sim.handle_energy();
+
+        let cap = sim.nodes[radio as usize].cap_wh;
+        let expected_drain_wh = (10.0 + 1.0) / 1000.0 * 3.7 * 300.0 / 3600.0;
+        assert!((sim.nodes[radio as usize].soc_wh - (cap - expected_drain_wh)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn energy_segments_preserve_active_then_docked_chronology() {
+        let mut sim = rental_test_sim(3600.0, 1.0);
+        sim.now = 11.0 * 3600.0;
+        sim.handle_dispatch(0);
+        let radio = sim.walkers[0].radio.expect("radio checked out");
+        let cap = sim.nodes[radio as usize].cap_wh;
+
+        sim.now += 300.0;
+        sim.handle(Ev::WalkEnd { walker: 0 }, 1);
+        sim.now += 300.0;
+        sim.handle_energy();
+
+        assert!(
+            (sim.nodes[radio as usize].soc_wh - cap).abs() < 1e-12,
+            "the post-walk dock interval must recharge energy drained during the walk"
+        );
+    }
+
+    #[test]
+    fn docked_energy_segments_remain_charged_to_their_source_kiosk() {
+        let mut sim = test_sim(Mode::Flood);
+        let radio = sim.name_to_idx["a"];
+        let source = sim.name_to_idx["b"];
+        let destination = sim.name_to_idx["c"];
+        sim.cfg.kiosk.panel_w = 0.0;
+        {
+            let n = &mut sim.nodes[radio as usize];
+            n.grid = false;
+            n.docked = true;
+            n.kiosk = Some(source);
+            n.soc_wh = 0.0;
+            n.energy_alive = false;
+        }
+        for kiosk in [source, destination] {
+            sim.kiosk_banks.insert(
+                kiosk,
+                KioskBank {
+                    soc_wh: 50.0,
+                    cap_wh: 50.0,
+                },
+            );
+        }
+
+        sim.now = 300.0;
+        sim.accrue_node_energy_state(radio);
+        sim.nodes[radio as usize].kiosk = Some(destination);
+        sim.now = 600.0;
+        sim.handle_energy();
+
+        let expected_debit = sim.cfg.kiosk.charge_w_per_bay * 300.0 / 3600.0;
+        assert!((sim.kiosk_banks[&source].soc_wh - (50.0 - expected_debit)).abs() < 1e-12);
+        assert!((sim.kiosk_banks[&destination].soc_wh - (50.0 - expected_debit)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn walk_interval_excludes_its_exact_endpoint() {
+        let mut sim = rental_test_sim(3600.0, 1.0);
+        sim.now = 11.0 * 3600.0;
+        sim.handle_dispatch(0);
+        let radio = sim.walkers[0].radio.expect("radio checked out");
+        sim.now += 3600.0;
+        assert!(!sim.walking(radio));
+    }
+
+    #[test]
+    fn zero_start_soc_is_initially_unavailable() {
+        let mut relay = site(false);
+        relay.power = "battery".to_string();
+        let sites = HashMap::from([
+            ("relay".to_string(), relay),
+            ("gateway".to_string(), site(true)),
+        ]);
+        let links = HashMap::from([(
+            "relay|gateway".to_string(),
+            Link {
+                loss_db_q50: 100.0,
+                loss_db_q90: 100.0,
+            },
+        )]);
+        let mut cfg = test_config();
+        cfg.battery.start_soc = 0.0;
+        let sim = Sim::new(
+            cfg,
+            Topology { sites, links },
+            RoutesFile {
+                routes: HashMap::new(),
+            },
+            WeatherFile {
+                start_date: "2026-01-01".to_string(),
+                days: vec![WeatherDay {
+                    date: "2026-01-01".to_string(),
+                    kt: 0.4,
+                    snow_factor: 1.0,
+                }],
+            },
+            test_params(Mode::MinHop),
+        );
+        let relay = &sim.nodes[sim.name_to_idx["relay"] as usize];
+        assert!(!relay.energy_alive);
+        assert!(!relay.alive);
+        assert_eq!(relay.unavailable_since, Some(0.0));
+    }
+
+    #[test]
+    fn final_partial_energy_step_rebuilds_invalidated_duty_tree() {
+        let mut relay = site(false);
+        relay.power = "battery".to_string();
+        let sites = HashMap::from([
+            ("relay".to_string(), relay),
+            ("gateway".to_string(), site(true)),
+        ]);
+        let links = HashMap::from([(
+            "relay|gateway".to_string(),
+            Link {
+                loss_db_q50: 100.0,
+                loss_db_q90: 100.0,
+            },
+        )]);
+        let mut params = test_params(Mode::DutySync);
+        params.days = 60.0 / 86400.0;
+        params.energy_step_s = 600.0;
+        params.telemetry_iv = 1.0e12;
+        let mut sim = Sim::new(
+            test_config(),
+            Topology { sites, links },
+            RoutesFile {
+                routes: HashMap::new(),
+            },
+            WeatherFile {
+                start_date: "2026-01-01".to_string(),
+                days: vec![WeatherDay {
+                    date: "2026-01-01".to_string(),
+                    kt: 0.0,
+                    snow_factor: 1.0,
+                }],
+            },
+            params,
+        );
+        let relay = sim.name_to_idx["relay"];
+        sim.nodes[relay as usize].soc_wh = 1.0e-9;
+        sim.run();
+
+        assert!(!sim.nodes[relay as usize].alive);
+        assert_eq!(sim.route_tree_t, sim.now);
+        assert_eq!(sim.route_next[relay as usize], None);
+    }
+
+    #[test]
+    fn event_exactly_at_horizon_does_not_create_zero_duration_rental() {
+        let mut sim = rental_test_sim(3600.0, 11.0 / 24.0);
+        sim.run();
+        assert_eq!(sim.rental.walker_days, 0);
+        assert_eq!(sim.rental.served, 0);
+    }
+
+    #[test]
+    fn route_progress_remains_continuous_across_utc_midnight() {
+        let mut sim = rental_test_sim(20.0 * 3600.0, 2.0);
+        sim.now = 11.0 * 3600.0;
+        sim.handle_dispatch(0);
+        let radio = sim.walkers[0].radio.expect("radio checked out");
+        sim.now = 25.0 * 3600.0;
+
+        assert_eq!(sim.track_t2(radio), Some(14.0 * 3600.0));
+        let kiosk = sim.name_to_idx["kiosk"];
+        assert!((sim.loss_db(radio, kiosk) - 114.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn route_path_depth_is_bounded_by_topology_not_a_magic_constant() {
+        let mut sites = HashMap::new();
+        for i in 0..26 {
+            sites.insert(format!("n{i:02}"), site(false));
+        }
+        sites.insert("gateway".to_string(), site(true));
+        let mut links = HashMap::new();
+        for i in 0..25 {
+            links.insert(
+                format!("n{i:02}|n{:02}", i + 1),
+                Link {
+                    loss_db_q50: 100.0,
+                    loss_db_q90: 100.0,
+                },
+            );
+        }
+        links.insert(
+            "n25|gateway".to_string(),
+            Link {
+                loss_db_q50: 100.0,
+                loss_db_q90: 100.0,
+            },
+        );
+        let mut sim = Sim::new(
+            test_config(),
+            Topology { sites, links },
+            RoutesFile {
+                routes: HashMap::new(),
+            },
+            WeatherFile {
+                start_date: "2026-01-01".to_string(),
+                days: vec![WeatherDay {
+                    date: "2026-01-01".to_string(),
+                    kt: 0.4,
+                    snow_factor: 1.0,
+                }],
+            },
+            test_params(Mode::MinHop),
+        );
+        let source = sim.name_to_idx["n00"];
+        let path = sim.route_to_mqtt_public(source).expect("long valid route");
+        assert_eq!(path.len(), 27);
+        assert_eq!(path.last().copied(), Some(sim.name_to_idx["gateway"]));
+    }
+
+    #[test]
+    fn selective_duty_keeps_every_route_parent_awake() {
+        let mut sites = HashMap::new();
+        for name in ["a", "b", "c"] {
+            let mut relay = site(false);
+            relay.power = "solar".to_string();
+            sites.insert(name.to_string(), relay);
+        }
+        sites.insert("gateway".to_string(), site(true));
+        let mut links = HashMap::new();
+        for key in ["a|gateway", "b|gateway", "c|a", "c|b"] {
+            links.insert(
+                key.to_string(),
+                Link {
+                    loss_db_q50: 100.0,
+                    loss_db_q90: 100.0,
+                },
+            );
+        }
+        let sim = Sim::new(
+            test_config(),
+            Topology { sites, links },
+            RoutesFile {
+                routes: HashMap::new(),
+            },
+            WeatherFile {
+                start_date: "2026-01-01".to_string(),
+                days: vec![WeatherDay {
+                    date: "2026-01-01".to_string(),
+                    kt: 0.4,
+                    snow_factor: 1.0,
+                }],
+            },
+            test_params(Mode::SelectiveDuty),
+        );
+        for parent in sim.route_next.iter().filter_map(|value| *value) {
+            let node = &sim.nodes[parent as usize];
+            assert!(
+                node.mqtt || node.grid || node.duty == 1.0,
+                "route parent {} was allowed to sleep",
+                node.name
+            );
+        }
+    }
+
+    #[test]
+    fn selective_duty_uses_the_documented_shared_phase() {
+        let mut sim = test_sim(Mode::SelectiveDuty);
+        let receiver = sim.name_to_idx["c"];
+        sim.nodes[receiver as usize].duty = 0.05;
+        let air = sim.airtime_s2(40);
+        assert!(sim.receiver_acquires_preamble_at(receiver, 0.020, 0.020 + air));
+        assert!(!sim.receiver_acquires_preamble_at(receiver, 0.200, 0.200 + air));
+    }
+
+    #[test]
+    fn duty_tree_rebuilds_in_the_same_availability_event() {
+        let mut sim = test_sim(Mode::DutySync);
+        let relay = sim.name_to_idx["a"];
+        sim.now = 10.0;
+        sim.handle(Ev::OutageStart { node: relay }, 1);
+        assert!(!sim.nodes[relay as usize].alive);
+        assert_eq!(sim.route_tree_t, 10.0);
     }
 
     #[test]
@@ -1290,15 +1858,22 @@ mod tests {
     }
 
     #[test]
-    fn offered_airtime_is_clipped_at_simulation_horizon() {
+    fn airtime_and_tx_energy_are_clipped_at_simulation_horizon() {
         let mut sim = test_sim(Mode::Flood);
         let sender = sim.name_to_idx["a"];
+        sim.nodes[sender as usize].grid = false;
         let air = sim.airtime_s2(40);
         sim.p.days = (air / 2.0) / 86400.0;
+        let baseline_ma = sim.cfg.energy.rx_listen_ma;
+        let expected_tx_wh = (sim.cfg.energy.tx_current_ma - baseline_ma) / 1000.0
+            * sim.cfg.energy.battery_v
+            * (air / 2.0)
+            / 3600.0;
         let flight = sim.new_flight2(sender, Kind::Tel, 40, Dest::Mqtt, false);
         sim.transmit(sender, flight);
         assert!((sim.total_offered_airtime_s - air / 2.0).abs() < 1e-12);
-        assert!((sim.nodes[sender as usize].stats.tx_airtime_s - air).abs() < 1e-12);
+        assert!((sim.nodes[sender as usize].stats.tx_airtime_s - air / 2.0).abs() < 1e-12);
+        assert!((sim.nodes[sender as usize].stats.energy_tx_wh - expected_tx_wh).abs() < 1e-12);
     }
 
     #[test]
@@ -1347,6 +1922,7 @@ mod tests {
             },
         );
 
+        sim.now = 600.0;
         sim.handle_energy();
         assert_eq!(
             sim.kiosk_banks[&kiosk].soc_wh, 50.0,
@@ -1354,12 +1930,66 @@ mod tests {
         );
 
         sim.nodes[radio].soc_wh = sim.nodes[radio].cap_wh - 1.0;
+        sim.now = 1200.0;
         sim.handle_energy();
         assert!((sim.nodes[radio].soc_wh - sim.nodes[radio].cap_wh).abs() < 1e-12);
         assert!(
             (sim.kiosk_banks[&kiosk].soc_wh - 49.0).abs() < 1e-12,
             "bank debit must equal energy actually accepted"
         );
+    }
+
+    #[test]
+    fn pending_baseline_energy_is_settled_before_transmission() {
+        let mut sim = test_sim(Mode::Flood);
+        let sender = sim.name_to_idx["a"];
+        {
+            let n = &mut sim.nodes[sender as usize];
+            n.grid = false;
+            n.solar = false;
+            n.duty = 1.0;
+            n.soc_wh = 0.001;
+        }
+        sim.now = 600.0;
+        let flight = sim.new_flight2(sender, Kind::Tel, 40, Dest::Mqtt, false);
+        sim.transmit(sender, flight);
+
+        assert!(sim.active.is_empty());
+        assert_eq!(sim.nodes[sender as usize].stats.tx, 0);
+        assert!(!sim.nodes[sender as usize].alive);
+        assert_eq!(sim.nodes[sender as usize].stats.deaths, 1);
+    }
+
+    #[test]
+    fn insufficient_tx_energy_does_not_create_a_phantom_frame() {
+        let mut sim = test_sim(Mode::Flood);
+        let sender = sim.name_to_idx["a"];
+        sim.nodes[sender as usize].grid = false;
+        sim.nodes[sender as usize].soc_wh = 1.0e-6;
+        let flight = sim.new_flight2(sender, Kind::Tel, 40, Dest::Mqtt, false);
+        sim.transmit(sender, flight);
+
+        assert!(sim.active.is_empty());
+        assert_eq!(sim.nodes[sender as usize].stats.tx, 0);
+        assert_eq!(sim.nodes[sender as usize].stats.tx_airtime_s, 0.0);
+        assert_eq!(sim.nodes[sender as usize].stats.energy_tx_wh, 0.0);
+        assert!(!sim.nodes[sender as usize].alive);
+    }
+
+    #[test]
+    fn energy_integration_uses_the_actual_elapsed_step() {
+        let mut sim = test_sim(Mode::Flood);
+        let node = sim.name_to_idx["a"] as usize;
+        sim.nodes[node].grid = false;
+        sim.nodes[node].solar = false;
+        sim.nodes[node].duty = 1.0;
+        let start = sim.nodes[node].soc_wh;
+        sim.now = 300.0;
+        sim.handle_energy();
+        let expected =
+            sim.cfg.energy.rx_listen_ma / 1000.0 * sim.cfg.energy.battery_v * 300.0 / 3600.0;
+        assert!((sim.nodes[node].soc_wh - (start - expected)).abs() < 1e-12);
+        assert_eq!(sim.energy_last_t, 300.0);
     }
 
     #[test]
@@ -1379,42 +2009,158 @@ mod tests {
     }
 
     #[test]
-    fn sos_initial_burst_reuses_id_at_absolute_offsets_and_retry_is_fresh() {
+    fn availability_interruption_invalidates_an_in_flight_reception() {
         let mut sim = test_sim(Mode::Flood);
+        let sender = sim.name_to_idx["a"];
+        let receiver = sim.name_to_idx["c"];
+        let flight = sim.new_flight2(sender, Kind::Tel, 40, Dest::Mqtt, false);
+        sim.transmit(sender, flight);
+        let end = sim.active[&0].end;
+
+        sim.now = end / 3.0;
+        sim.nodes[receiver as usize].forced_outage = true;
+        sim.refresh_node_availability(receiver);
+        sim.now = 2.0 * end / 3.0;
+        sim.nodes[receiver as usize].forced_outage = false;
+        sim.refresh_node_availability(receiver);
+        sim.now = end;
+        sim.handle_tx_end(0);
+
+        assert!(sim.nodes[receiver as usize].alive);
+        assert_eq!(sim.nodes[receiver as usize].stats.rx_ok, 0);
+    }
+
+    #[test]
+    fn dock_and_recheckout_during_a_frame_invalidates_reception() {
+        let mut sim = test_sim(Mode::Flood);
+        let sender = sim.name_to_idx["a"];
+        let receiver = sim.name_to_idx["c"];
+        let flight = sim.new_flight2(sender, Kind::Tel, 40, Dest::Mqtt, false);
+        sim.transmit(sender, flight);
+        let end = sim.active[&0].end;
+        sim.now = end / 3.0;
+        sim.set_docked(receiver, true);
+        sim.now = 2.0 * end / 3.0;
+        sim.set_docked(receiver, false);
+        sim.now = end;
+        sim.handle_tx_end(0);
+        assert_eq!(sim.nodes[receiver as usize].stats.rx_ok, 0);
+    }
+
+    #[test]
+    fn transmit_energy_uses_the_actual_duty_baseline() {
+        let mut sim = test_sim(Mode::Flood);
+        let sender = sim.name_to_idx["a"];
+        sim.nodes[sender as usize].grid = false;
+        sim.nodes[sender as usize].duty = 0.05;
+        sim.p.relay_rx_ma = 100.0;
+        let air = sim.airtime_s2(40);
+        let baseline_ma = 0.05 * 100.0 + 0.95 * sim.cfg.energy.light_sleep_ma;
+        let expected =
+            (sim.cfg.energy.tx_current_ma - baseline_ma) / 1000.0 * sim.cfg.energy.battery_v * air
+                / 3600.0;
+
+        let flight = sim.new_flight2(sender, Kind::Tel, 40, Dest::Mqtt, false);
+        sim.transmit(sender, flight);
+        assert!((sim.nodes[sender as usize].stats.energy_tx_wh - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn forwarding_load_decays_when_other_relays_carry_traffic() {
+        let mut sim = test_sim(Mode::LbEnergy);
+        let avoided = sim.name_to_idx["a"];
+        let active = sim.name_to_idx["b"];
+        sim.record_forward(avoided);
+        for _ in 0..200 {
+            sim.record_forward(active);
+        }
+        assert_eq!(sim.nodes[avoided as usize].fwd_ewma, 1.0);
+        sim.decay_forward_loads();
+        assert!(sim.nodes[avoided as usize].fwd_ewma < 0.37);
+        assert!(sim.nodes[active as usize].fwd_ewma > sim.nodes[avoided as usize].fwd_ewma);
+    }
+
+    #[test]
+    fn settled_packet_cannot_transmit_late() {
+        let mut sim = test_sim(Mode::Flood);
+        let sender = sim.name_to_idx["a"];
+        let flight = sim.new_flight2(sender, Kind::Tel, 40, Dest::Mqtt, false);
+        sim.pkt_meta.remove(&flight.id);
+        sim.handle_tx_attempt(sender, flight, 0, false);
+        assert!(sim.active.is_empty());
+        assert_eq!(sim.nodes[sender as usize].stats.tx, 0);
+    }
+
+    #[test]
+    fn regional_channel_mobile_attachment_stays_in_its_component() {
+        let mut sites = HashMap::new();
+        sites.insert("a".to_string(), site(false));
+        sites.insert("b".to_string(), site(false));
+        sites.insert("g0".to_string(), site(true));
+        sites.insert("g1".to_string(), site(true));
+        let mut links = HashMap::new();
+        for key in ["a|g0", "b|g1"] {
+            links.insert(
+                key.to_string(),
+                Link {
+                    loss_db_q50: 100.0,
+                    loss_db_q90: 100.0,
+                },
+            );
+        }
+        let route = Route {
+            kiosk: "a".to_string(),
+            return_kiosk: "a".to_string(),
+            duration_s: 3600.0,
+            t_s: vec![0.0, 3600.0],
+            lat: vec![44.0, 44.0],
+            lon: vec![-71.0, -71.0],
+            loss_t_s: vec![0.0, 3600.0],
+            loss_db_q50: HashMap::from([
+                ("a".to_string(), vec![120.0, 120.0]),
+                ("b".to_string(), vec![90.0, 90.0]),
+            ]),
+        };
+        let mut params = test_params(Mode::Etx);
+        params.regional_channels = true;
+        let mut sim = Sim::new(
+            test_config(),
+            Topology { sites, links },
+            RoutesFile {
+                routes: HashMap::from([("route".to_string(), route)]),
+            },
+            WeatherFile {
+                start_date: "2026-01-01".to_string(),
+                days: vec![WeatherDay {
+                    date: "2026-01-01".to_string(),
+                    kt: 0.4,
+                    snow_factor: 1.0,
+                }],
+            },
+            params,
+        );
+        let radio = sim.n_fixed as u32;
+        let a = sim.name_to_idx["a"];
+        sim.nodes[radio as usize].docked = false;
+        sim.nodes[radio as usize].route = Some(0);
+        sim.nodes[radio as usize].channel = sim.nodes[a as usize].channel;
+        let path = sim
+            .route_to_mqtt_public(radio)
+            .expect("same-channel route to gateway");
+        assert_eq!(path[1], a);
+        assert!(path
+            .iter()
+            .all(|&node| sim.nodes[node as usize].channel == sim.nodes[radio as usize].channel));
+    }
+
+    #[test]
+    fn sos_initial_burst_reuses_id_at_absolute_offsets_and_retry_is_fresh() {
+        let mut sim = rental_test_sim(3600.0, 1.0);
         sim.p.sos_retry = true;
-        let radio = sim.nodes.len() as u32;
-        sim.nodes.push(Node {
-            name: "test_radio".to_string(),
-            lat: 44.0,
-            lon: -71.0,
-            grid: false,
-            solar: false,
-            mqtt: false,
-            horizon: Vec::new(),
-            site_solar: None,
-            cap_wh: 10.0,
-            soc_wh: 10.0,
-            energy_alive: true,
-            forced_outage: false,
-            alive: true,
-            unavailable_since: None,
-            docked: false,
-            duty: 1.0,
-            is_radio: true,
-            channel: 0,
-            kiosk: None,
-            route: Some(0),
-            start_s: 0.0,
-            tx_until: -1.0,
-            fwd_ewma: 0.0,
-            death_score: 0.0,
-            seen: HashSet::new(),
-            pending: HashMap::new(),
-            stats: NodeStats::default(),
-        });
-        sim.local_busy.push(BusyUnion::default());
-        sim.route_next.push(None);
-        sim.route_cost.push(f64::INFINITY);
+        let radio = sim.n_fixed as u32;
+        sim.set_docked(radio, false);
+        sim.nodes[radio as usize].route = Some(0);
+        sim.nodes[radio as usize].start_s = 0.0;
 
         sim.handle_sos(u32::MAX, 0, 0);
         let (&sos_id, incident) = sim.sos_incidents.iter().next().unwrap();
@@ -1466,5 +2212,22 @@ mod tests {
             .collect();
         assert_eq!(retry_packet_ids.len(), 1);
         assert_eq!(sim.sos_incidents[&sos_id].1, 2);
+    }
+
+    #[test]
+    fn sos_retry_stops_when_the_walk_interval_has_ended() {
+        let mut sim = rental_test_sim(3600.0, 1.0);
+        let radio = sim.n_fixed as u32;
+        sim.set_docked(radio, false);
+        sim.nodes[radio as usize].route = Some(0);
+        sim.nodes[radio as usize].start_s = 0.0;
+        sim.now = 3600.0;
+        sim.sos_incidents.insert(99, (0.0, 1, false, 0.0));
+        let queued_before = sim.heap.len();
+
+        sim.handle_sos(radio, 99, 1);
+
+        assert_eq!(sim.sos_incidents[&99].1, 1);
+        assert_eq!(sim.heap.len(), queued_before);
     }
 }
