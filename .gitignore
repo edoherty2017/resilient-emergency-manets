@@ -92,3 +92,5 @@ artifacts/sim/corrected/release_v1/*
 
 !docs/simulator-methods-findings-report-2026-07-14.pdf
 !artifacts/sim/corrected/release_v1/release_manifest.json
+!artifacts/sim/corrected/release_v1/meaningful_metrics.json
+!artifacts/sim/corrected/corrected_metrics.html

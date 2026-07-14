@@ -1,0 +1,301 @@
+{
+  "claim_status": "MODEL_ONLY_uncalibrated",
+  "definitions": {
+    "fleet_availability": "1 - (solar-node unavailable time / total solar node-time)",
+    "site_years_dark_per_year": "total solar dead time per simulated year, in site-years",
+    "sites_below_90pct": "solar sites individually available <90% of the year (chronic dark spots)",
+    "days_fleet_p10_depleted": "days where >=10% of the solar fleet was at <=5% charge",
+    "tx_mwh_per_delivered_packet": "fleet transmit energy divided by delivered packets",
+    "receiver_busy_p95": "95th-percentile per-site physical RF busy fraction (interval union), NOT summed airtime"
+  },
+  "modes": {
+    "flood": {
+      "sos": {
+        "delivery_rate": 1.0,
+        "latency_p50_s": 0.75,
+        "latency_p95_s": 31.86,
+        "latency_max_s": 4202.95,
+        "mean_tries": 1.35,
+        "incidents": 946
+      },
+      "availability": {
+        "fleet_availability": 0.5347,
+        "site_years_dark_per_year": 73.98,
+        "unique_sites_ever_died": 159,
+        "sites_below_90pct": 118,
+        "worst_site_availability": 0.3211
+      },
+      "winter": {
+        "days_fleet_p10_depleted": 355
+      },
+      "efficiency": {
+        "tx_mwh_per_delivered_packet": 1.4432
+      },
+      "channel": {
+        "receiver_busy_p95": 0.09525,
+        "offered_airtime": 0.624
+      },
+      "rental": {
+        "walker_days_served": 77380,
+        "walker_days_starved": 0
+      },
+      "n_seeds": 5
+    },
+    "min_hop": {
+      "sos": {
+        "delivery_rate": 1.0,
+        "latency_p50_s": 0.75,
+        "latency_p95_s": 5.18,
+        "latency_max_s": 5101.83,
+        "mean_tries": 1.33,
+        "incidents": 946
+      },
+      "availability": {
+        "fleet_availability": 0.5371,
+        "site_years_dark_per_year": 73.6,
+        "unique_sites_ever_died": 159,
+        "sites_below_90pct": 118,
+        "worst_site_availability": 0.3266
+      },
+      "winter": {
+        "days_fleet_p10_depleted": 355
+      },
+      "efficiency": {
+        "tx_mwh_per_delivered_packet": 0.4197
+      },
+      "channel": {
+        "receiver_busy_p95": 0.02422,
+        "offered_airtime": 0.172
+      },
+      "rental": {
+        "walker_days_served": 77380,
+        "walker_days_starved": 0
+      },
+      "n_seeds": 5
+    },
+    "etx": {
+      "sos": {
+        "delivery_rate": 1.0,
+        "latency_p50_s": 0.75,
+        "latency_p95_s": 30.72,
+        "latency_max_s": 5101.87,
+        "mean_tries": 1.28,
+        "incidents": 946
+      },
+      "availability": {
+        "fleet_availability": 0.5371,
+        "site_years_dark_per_year": 73.6,
+        "unique_sites_ever_died": 159,
+        "sites_below_90pct": 118,
+        "worst_site_availability": 0.3266
+      },
+      "winter": {
+        "days_fleet_p10_depleted": 355
+      },
+      "efficiency": {
+        "tx_mwh_per_delivered_packet": 0.4182
+      },
+      "channel": {
+        "receiver_busy_p95": 0.02437,
+        "offered_airtime": 0.1721
+      },
+      "rental": {
+        "walker_days_served": 77380,
+        "walker_days_starved": 0
+      },
+      "n_seeds": 5
+    },
+    "energy_aware": {
+      "sos": {
+        "delivery_rate": 1.0,
+        "latency_p50_s": 0.75,
+        "latency_p95_s": 3.91,
+        "latency_max_s": 4802.95,
+        "mean_tries": 1.29,
+        "incidents": 946
+      },
+      "availability": {
+        "fleet_availability": 0.5371,
+        "site_years_dark_per_year": 73.6,
+        "unique_sites_ever_died": 159,
+        "sites_below_90pct": 118,
+        "worst_site_availability": 0.3266
+      },
+      "winter": {
+        "days_fleet_p10_depleted": 355
+      },
+      "efficiency": {
+        "tx_mwh_per_delivered_packet": 0.4191
+      },
+      "channel": {
+        "receiver_busy_p95": 0.02426,
+        "offered_airtime": 0.1724
+      },
+      "rental": {
+        "walker_days_served": 77380,
+        "walker_days_starved": 0
+      },
+      "n_seeds": 5
+    },
+    "lb_energy": {
+      "sos": {
+        "delivery_rate": 0.9989,
+        "latency_p50_s": 0.75,
+        "latency_p95_s": 4.67,
+        "latency_max_s": 3900.73,
+        "mean_tries": 1.27,
+        "incidents": 946
+      },
+      "availability": {
+        "fleet_availability": 0.5371,
+        "site_years_dark_per_year": 73.6,
+        "unique_sites_ever_died": 159,
+        "sites_below_90pct": 118,
+        "worst_site_availability": 0.3266
+      },
+      "winter": {
+        "days_fleet_p10_depleted": 355
+      },
+      "efficiency": {
+        "tx_mwh_per_delivered_packet": 0.4206
+      },
+      "channel": {
+        "receiver_busy_p95": 0.02432,
+        "offered_airtime": 0.173
+      },
+      "rental": {
+        "walker_days_served": 77380,
+        "walker_days_starved": 0
+      },
+      "n_seeds": 5
+    },
+    "duty_sync": {
+      "sos": {
+        "delivery_rate": 0.9471,
+        "latency_p50_s": 0.75,
+        "latency_p95_s": 2100.75,
+        "latency_max_s": 7200.75,
+        "mean_tries": 3.48,
+        "incidents": 946
+      },
+      "availability": {
+        "fleet_availability": 0.9645,
+        "site_years_dark_per_year": 5.64,
+        "unique_sites_ever_died": 114,
+        "sites_below_90pct": 7,
+        "worst_site_availability": 0.3543
+      },
+      "winter": {
+        "days_fleet_p10_depleted": 61.4
+      },
+      "efficiency": {
+        "tx_mwh_per_delivered_packet": 0.3005
+      },
+      "channel": {
+        "receiver_busy_p95": 0.01695,
+        "offered_airtime": 0.1095
+      },
+      "rental": {
+        "walker_days_served": 77380,
+        "walker_days_starved": 0
+      },
+      "n_seeds": 5
+    },
+    "duty_adaptive": {
+      "sos": {
+        "delivery_rate": 0.9926,
+        "latency_p50_s": 0.75,
+        "latency_p95_s": 901.84,
+        "latency_max_s": 7200.74,
+        "mean_tries": 2.04,
+        "incidents": 946
+      },
+      "availability": {
+        "fleet_availability": 0.9469,
+        "site_years_dark_per_year": 8.45,
+        "unique_sites_ever_died": 116,
+        "sites_below_90pct": 13,
+        "worst_site_availability": 0.3543
+      },
+      "winter": {
+        "days_fleet_p10_depleted": 81.8
+      },
+      "efficiency": {
+        "tx_mwh_per_delivered_packet": 0.3975
+      },
+      "channel": {
+        "receiver_busy_p95": 0.02251,
+        "offered_airtime": 0.1493
+      },
+      "rental": {
+        "walker_days_served": 77380,
+        "walker_days_starved": 0
+      },
+      "n_seeds": 5
+    },
+    "rotate_lb": {
+      "sos": {
+        "delivery_rate": 0.9947,
+        "latency_p50_s": 0.75,
+        "latency_p95_s": 32.88,
+        "latency_max_s": 4802.95,
+        "mean_tries": 1.54,
+        "incidents": 946
+      },
+      "availability": {
+        "fleet_availability": 0.9103,
+        "site_years_dark_per_year": 14.27,
+        "unique_sites_ever_died": 84,
+        "sites_below_90pct": 31,
+        "worst_site_availability": 0.3417
+      },
+      "winter": {
+        "days_fleet_p10_depleted": 275
+      },
+      "efficiency": {
+        "tx_mwh_per_delivered_packet": 0.3527
+      },
+      "channel": {
+        "receiver_busy_p95": 0.02131,
+        "offered_airtime": 0.1464
+      },
+      "rental": {
+        "walker_days_served": 77380,
+        "walker_days_starved": 0
+      },
+      "n_seeds": 5
+    },
+    "selective_duty": {
+      "sos": {
+        "delivery_rate": 0.9926,
+        "latency_p50_s": 0.75,
+        "latency_p95_s": 61.84,
+        "latency_max_s": 6902.9,
+        "mean_tries": 1.68,
+        "incidents": 946
+      },
+      "availability": {
+        "fleet_availability": 0.8965,
+        "site_years_dark_per_year": 16.46,
+        "unique_sites_ever_died": 124.8,
+        "sites_below_90pct": 33,
+        "worst_site_availability": 0.3453
+      },
+      "winter": {
+        "days_fleet_p10_depleted": 280.8
+      },
+      "efficiency": {
+        "tx_mwh_per_delivered_packet": 0.3581
+      },
+      "channel": {
+        "receiver_busy_p95": 0.02093,
+        "offered_airtime": 0.1481
+      },
+      "rental": {
+        "walker_days_served": 77380,
+        "walker_days_starved": 0
+      },
+      "n_seeds": 5
+    }
+  }
+}

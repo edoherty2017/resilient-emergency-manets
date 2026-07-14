@@ -1,0 +1,155 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NH MANET — Corrected Metrics</title>
+<style>
+  :root{--bg:#0E1310;--panel:#151C18;--ink:#E5EBE7;--muted:#8F9E96;--ever:#4FC3A1;
+    --ever2:#14251E;--sig:#E0894A;--rule:#25302B;--code:#1A231E;--done:#57C48A;
+    --defer:#D6A44A;--bad:#D18578;--contour:rgba(79,195,161,.07)}
+  *{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--ink)}
+  body{font-family:'Avenir Next',Avenir,system-ui,-apple-system,sans-serif;line-height:1.5;font-size:15px}
+  .wrap{max-width:960px;margin:0 auto;padding:0 1.2rem 4rem}
+  .mono{font-family:'SF Mono',ui-monospace,Menlo,monospace}
+  header{position:relative;overflow:hidden;border-bottom:1px solid var(--rule);padding:2.6rem 1.2rem 1.8rem;margin-bottom:1.6rem}
+  header svg{position:absolute;inset:0;pointer-events:none}
+  .hin{position:relative;max-width:960px;margin:0 auto}
+  .eyebrow{font-family:'SF Mono',monospace;font-size:.68rem;letter-spacing:.16em;text-transform:uppercase;color:var(--ever);margin:0 0 .4rem}
+  h1{font-size:2rem;font-weight:700;letter-spacing:-.02em;margin:.1rem 0 .4rem}
+  .lede{color:var(--muted);max-width:62ch;margin:0;font-size:1rem}
+  .meta{display:flex;flex-wrap:wrap;gap:.3rem 1.3rem;margin-top:1rem;font-family:'SF Mono',monospace;font-size:.72rem;color:var(--muted)}
+  .honest{background:var(--ever2);border-left:3px solid var(--ever);padding:.8rem 1rem;border-radius:0 6px 6px 0;margin:0 0 1.8rem;font-size:.92rem}
+  .honest b{color:var(--ever)}
+  h2{font-size:1.15rem;margin:2rem 0 .3rem}
+  .sub{color:var(--muted);font-size:.85rem;margin:.1rem 0 1rem}
+  .card{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:1rem 1.1rem}
+  table{width:100%;border-collapse:collapse;font-size:.82rem}
+  th{text-transform:uppercase;letter-spacing:.05em;font-size:.64rem;font-weight:650;color:var(--muted);text-align:left;padding:.4rem .5rem;border-bottom:2px solid var(--rule);white-space:nowrap}
+  td{padding:.4rem .5rem;border-bottom:1px solid var(--rule);vertical-align:middle;font-variant-numeric:tabular-nums}
+  tr:last-child td{border-bottom:none}
+  td.m{font-family:'SF Mono',monospace;font-size:.78rem;white-space:nowrap}
+  .cls{display:inline-block;font-size:.6rem;font-weight:700;letter-spacing:.03em;text-transform:uppercase;padding:.08rem .4rem;border-radius:3px}
+  .cls.on{background:var(--ever2);color:var(--ever)}
+  .cls.duty{background:rgba(224,137,74,.16);color:var(--sig)}
+  .bar{position:relative;height:14px;border-radius:3px;background:var(--code);display:inline-block;vertical-align:middle}
+  .bar>i{position:absolute;left:0;top:0;bottom:0;border-radius:3px}
+  .bnum{font-size:.72rem;color:var(--muted);margin-left:.35rem;font-variant-numeric:tabular-nums}
+  canvas{width:100%;max-width:100%;height:auto;display:block}
+  .legend{display:flex;gap:1.2rem;font-size:.78rem;color:var(--muted);margin-top:.6rem;flex-wrap:wrap}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:.3rem;vertical-align:middle}
+  .foot{margin-top:2rem;padding-top:1rem;border-top:1px solid var(--rule);font-size:.76rem;color:var(--muted)}
+  .foot .mono{color:var(--ever)}
+</style></head><body>
+<header>
+<svg viewBox="0 0 960 200" preserveAspectRatio="none" aria-hidden="true"><g fill="none" stroke="var(--contour)" stroke-width="1.3">
+<path d="M-20,160 C150,110 300,190 480,135 C650,85 790,165 980,115"/>
+<path d="M-20,185 C150,140 300,215 480,160 C660,110 800,190 980,140"/>
+<path d="M-20,130 C160,90 320,160 485,110 C670,60 810,140 980,90"/>
+<path d="M-20,98 C170,68 330,128 490,86 C680,42 820,110 980,62"/>
+<path d="M-20,66 C185,44 345,96 495,60 C700,24 840,84 980,40"/></g></svg>
+<div class="hin">
+  <p class="eyebrow">Corrected replacement release · fastsim (Rust) · NH statewide</p>
+  <h1>Corrected metrics</h1>
+  <p class="lede">Nine routing/MAC algorithms, re-run on the audit-corrected engine. Model-only, uncalibrated. The old animated year viewer is archived — it showed withdrawn pre-audit numbers.</p>
+  <div class="meta"><span id="mProv"></span><span>365 days</span><span>5 seeds (42–46)</span><span>95% CI, t-based</span></div>
+</div>
+</header>
+<div class="wrap">
+  <div class="honest"><b>Read honestly.</b> These are uncalibrated simulator outputs, not field-validated coverage or a proven design. Cross-checked Python↔Rust within pre-registered tolerances at micro-scale. <b>No algorithm is declared best</b> — the three axes (delivery, survival, life-safety SOS) trade off, and the choice is a weighting decision.</div>
+
+  <h2>The tradeoff</h2>
+  <p class="sub">Each dot = one algorithm. X = relay death-events/yr (log — the 24× survival span). Y = packet delivery (PDR). Dot size = SOS delivery rate. Up-and-left is more survivable + higher delivery; nothing reaches the top-left corner.</p>
+  <div class="card"><canvas id="chart" width="900" height="380"></canvas>
+    <div class="legend"><span><span class="dot" style="background:var(--ever)"></span>always-on (no duty cycling)</span><span><span class="dot" style="background:var(--sig)"></span>duty-cycled</span><span>◯ larger = higher SOS delivery</span></div>
+  </div>
+
+  <h2>Per-algorithm (95% CI)</h2>
+  <div class="card"><table><thead><tr><th>Algorithm</th><th>class</th><th>PDR</th><th>Death-events/yr</th><th>SOS</th><th>offered air</th></tr></thead><tbody id="tb"></tbody></table></div>
+
+  <h2>What a SAR planner would ask</h2>
+  <p class="sub">Decision-oriented metrics the raw counts hide — how long a distress call takes at the tail, how much of the network is actually up, and where it's chronically dark. Latency shading: green &le;60&nbsp;s, amber &le;10&nbsp;min, red beyond.</p>
+  <div class="card"><table><thead><tr>
+    <th>Algorithm</th><th>SOS p95 / max latency</th><th>fleet availability</th>
+    <th>site-years dark /yr</th><th>chronic sites &lt;90%</th><th>days &ge;10% fleet depleted</th><th>mWh / delivered pkt</th>
+  </tr></thead><tbody id="tb2"></tbody></table>
+  <p class="flip"><b>What the counts hid:</b> "29,000 death events" understated the always-on problem — those modes leave <b>~46% of solar fleet-time dark</b> (118 chronically dark sites). And "SOS delivered" hid a latency cliff: uniform <span class="mono">duty_sync</span> delivers 94.7% of SOS but with a <b>35-minute p95</b> (retry loops), while <span class="mono">rotate_lb</span> / <span class="mono">selective_duty</span> deliver ~99.4% at <b>33–62 s p95</b> — with ~90% fleet availability. Every mode still shows rare 1–2 h worst-case incidents (the retry ceiling), so the max column is a shared limitation, not a differentiator. Still no single winner: rotate/selective pay ~3× duty_sync's site-dark time. But the operating envelope is now visible.</p>
+  </div>
+
+  <div class="foot">Source: <span class="mono">artifacts/sim/corrected/release_v1/</span> · <span class="mono" id="fProv"></span> · aggregate <span class="mono">corrected_stats.json</span> · reproduce with <span class="mono">scripts/run_corrected_release.sh</span>. Withdrawn pre-audit artifacts: <span class="mono">artifacts/sim/archive_preaudit_2026-07/</span>.</div>
+</div>
+<script>
+const M={"flood":{"pdr":0.91112,"deaths":29234,"oa":0.624,"sd":189.2,"ss":189.2,"cls":"on"},
+"min_hop":{"pdr":0.86244,"deaths":29164,"oa":0.172,"sd":189.2,"ss":189.2,"cls":"on"},
+"etx":{"pdr":0.86634,"deaths":29165,"oa":0.172,"sd":189.2,"ss":189.2,"cls":"on"},
+"energy_aware":{"pdr":0.86578,"deaths":29164,"oa":0.172,"sd":189.2,"ss":189.2,"cls":"on"},
+"lb_energy":{"pdr":0.86586,"deaths":29164,"oa":0.173,"sd":189,"ss":189.2,"cls":"on"},
+"duty_sync":{"pdr":0.7281,"deaths":1217,"oa":0.109,"sd":179.2,"ss":189.2,"cls":"duty"},
+"duty_adaptive":{"pdr":0.75498,"deaths":1737,"oa":0.149,"sd":187.8,"ss":189.2,"cls":"duty"},
+"rotate_lb":{"pdr":0.80884,"deaths":4877,"oa":0.146,"sd":188.2,"ss":189.2,"cls":"duty"},
+"selective_duty":{"pdr":0.81108,"deaths":5311,"oa":0.148,"sd":187.8,"ss":189.2,"cls":"duty"}};
+const prov="git d37172c · engine ed086a2f";
+document.getElementById('mProv').textContent=prov;
+document.getElementById('fProv').textContent=prov;
+const ev=getComputedStyle(document.documentElement).getPropertyValue('--ever').trim();
+const sg=getComputedStyle(document.documentElement).getPropertyValue('--sig').trim();
+const bad=getComputedStyle(document.documentElement).getPropertyValue('--bad').trim();
+const done=getComputedStyle(document.documentElement).getPropertyValue('--done').trim();
+const defer=getComputedStyle(document.documentElement).getPropertyValue('--defer').trim();
+// table
+document.getElementById('tb').innerHTML=Object.entries(M).map(([k,v])=>{
+  const col=v.cls==="on"?ev:sg, sr=100*v.sd/v.ss;
+  const pw=Math.round(v.pdr*100), dw=Math.max(2,Math.round(v.deaths/29234*80)), oaw=Math.round(v.oa*80);
+  return `<tr><td class="m">${k}</td><td><span class="cls ${v.cls}">${v.cls==="on"?"always-on":"duty"}</span></td>
+  <td><span class="bar" style="width:64px"><i style="width:${pw}%;background:${col}"></i></span><span class="bnum">${v.pdr.toFixed(3)}</span></td>
+  <td><span class="bar" style="width:80px"><i style="width:${dw}%;background:${v.cls==="on"?bad:done}"></i></span><span class="bnum">${v.deaths.toLocaleString()}</span></td>
+  <td><span class="bar" style="width:44px"><i style="width:${Math.round(sr)}%;background:${sr>=99?done:defer}"></i></span><span class="bnum">${sr.toFixed(1)}%</span></td>
+  <td class="bnum">${v.oa.toFixed(3)}</td></tr>`;}).join('');
+// meaningful metrics (build_meaningful_metrics.py, mean of 5 seeds)
+const MM={"flood":{p95:31.86,max:4202.95,av:53.47,dark:73.98,chronic:118,winter:355,mwh:1.4432},
+"min_hop":{p95:5.18,max:5101.83,av:53.71,dark:73.6,chronic:118,winter:355,mwh:0.4197},
+"etx":{p95:30.72,max:5101.87,av:53.71,dark:73.6,chronic:118,winter:355,mwh:0.4182},
+"energy_aware":{p95:3.91,max:4802.95,av:53.71,dark:73.6,chronic:118,winter:355,mwh:0.4191},
+"lb_energy":{p95:4.67,max:3900.73,av:53.71,dark:73.6,chronic:118,winter:355,mwh:0.4206},
+"duty_sync":{p95:2100.75,max:7200.75,av:96.45,dark:5.64,chronic:7,winter:61.4,mwh:0.3005},
+"duty_adaptive":{p95:901.84,max:7200.74,av:94.69,dark:8.45,chronic:13,winter:81.8,mwh:0.3975},
+"rotate_lb":{p95:32.88,max:4802.95,av:91.03,dark:14.27,chronic:31,winter:275,mwh:0.3527},
+"selective_duty":{p95:61.84,max:6902.90,av:89.65,dark:16.46,chronic:33,winter:280.8,mwh:0.3581}};
+function lat(v){return v==null?'—':(v>=60?(v/60).toFixed(1)+' min':v.toFixed(1)+' s');}
+document.getElementById('tb2').innerHTML=Object.entries(MM).map(([k,v])=>{
+  const lcol=v.p95<=60?done:(v.p95<=600?defer:bad);
+  const acol=v.av>=90?done:(v.av>=70?defer:bad);
+  return `<tr><td class="m">${k}</td>
+  <td><span style="color:${lcol};font-weight:600">${lat(v.p95)}</span><span class="bnum">/ ${lat(v.max)}</span></td>
+  <td><span class="bar" style="width:64px"><i style="width:${Math.round(v.av)}%;background:${acol}"></i></span><span class="bnum">${v.av.toFixed(1)}%</span></td>
+  <td class="bnum">${v.dark}</td><td class="bnum">${v.chronic}</td><td class="bnum">${v.winter}</td><td class="bnum">${v.mwh.toFixed(3)}</td></tr>`;}).join('');
+// scatter
+const c=document.getElementById('chart'),g=c.getContext('2d');
+function draw(){
+  const dpr=window.devicePixelRatio||1, W=c.clientWidth, H=380;
+  c.width=W*dpr;c.height=H*dpr;g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,W,H);
+  const pad={l:52,r:16,t:14,b:38};
+  const xmin=Math.log10(1000),xmax=Math.log10(35000);
+  const ymin=0.70,ymax=0.93;
+  const X=v=>pad.l+(Math.log10(v)-xmin)/(xmax-xmin)*(W-pad.l-pad.r);
+  const Y=v=>pad.t+(1-(v-ymin)/(ymax-ymin))*(H-pad.t-pad.b);
+  const muted=getComputedStyle(document.documentElement).getPropertyValue('--muted').trim();
+  const rule=getComputedStyle(document.documentElement).getPropertyValue('--rule').trim();
+  g.strokeStyle=rule;g.fillStyle=muted;g.font="11px 'SF Mono',monospace";g.lineWidth=1;
+  // grid + axes
+  [1000,3000,10000,30000].forEach(t=>{g.beginPath();g.moveTo(X(t),pad.t);g.lineTo(X(t),H-pad.b);g.stroke();
+    g.textAlign="center";g.fillText(t.toLocaleString(),X(t),H-pad.b+16);});
+  [0.72,0.78,0.84,0.90].forEach(t=>{g.beginPath();g.moveTo(pad.l,Y(t));g.lineTo(W-pad.r,Y(t));g.stroke();
+    g.textAlign="right";g.fillText(t.toFixed(2),pad.l-8,Y(t)+4);});
+  g.save();g.translate(14,H/2);g.rotate(-Math.PI/2);g.textAlign="center";g.fillText("PDR (delivery)",0,0);g.restore();
+  g.textAlign="center";g.fillText("death-events / yr (log)",W/2,H-6);
+  // points
+  Object.entries(M).forEach(([k,v])=>{
+    const x=X(v.deaths),y=Y(v.pdr),r=4+ (v.sd/v.ss)*8;
+    g.beginPath();g.arc(x,y,r,0,7);g.fillStyle=(v.cls==="on"?ev:sg)+"cc";g.fill();
+    g.lineWidth=1.5;g.strokeStyle=(v.cls==="on"?ev:sg);g.stroke();
+    g.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--ink').trim();
+    g.font="10px 'SF Mono',monospace";g.textAlign="left";
+    g.fillText(k, x+r+3, y+3);
+  });
+}
+draw();window.addEventListener('resize',draw);
+</script>
+</body></html>

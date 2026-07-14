@@ -509,6 +509,47 @@ seed variation is not the dominant uncertainty. The dominant uncertainty remains
 **empirical** (uncalibrated propagation and energy parameters), per §7, not
 statistical.
 
+### 5A.1 Decision-oriented metrics
+
+Raw counts answer "what happened in the simulator"; the following metrics
+(`scripts/build_meaningful_metrics.py` →
+`artifacts/sim/corrected/release_v1/meaningful_metrics.json`) answer the
+questions a SAR planner would ask. Same runs, same caveats (MODEL-ONLY).
+
+| Mode | SOS p95 latency | Fleet availability | Site-years dark/yr | Sites <90% avail | mWh/delivered pkt |
+|---|---|---|---|---|---|
+| flood | 32 s | 53.5% | 74.0 | 118 | 1.44 |
+| min_hop | 5 s | 53.7% | 73.6 | 118 | 0.42 |
+| etx | 31 s | 53.7% | 73.6 | 118 | 0.42 |
+| energy_aware | 4 s | 53.7% | 73.6 | 118 | 0.42 |
+| lb_energy | 5 s | 53.7% | 73.6 | 118 | 0.42 |
+| duty_sync | **35 min** | **96.5%** | **5.6** | **7** | **0.30** |
+| duty_adaptive | 15 min | 94.7% | 8.5 | 13 | 0.40 |
+| rotate_lb | **33 s** | 91.0% | 14.3 | 31 | 0.35 |
+| selective_duty | **62 s** | 89.7% | 16.5 | 33 | 0.36 |
+
+Two things the raw counts hid:
+
+1. **Death-event counts understated the always-on problem.** The always-on
+   modes leave ~46% of solar fleet-time dark (118 of ~159 solar sites are
+   individually available less than 90% of the year). "29,000 death events"
+   reads like churn; "half the solar network is down at any given time"
+   is the operational reality of the uncalibrated model.
+2. **SOS delivery percentage hid a latency cliff.** Uniform `duty_sync`
+   delivers 94.7% of SOS incidents — but at a 35-minute 95th-percentile
+   latency, because deliveries ride the 5-minute retry loop. `rotate_lb` and
+   `selective_duty` deliver ~99.4% at 33–62 s p95 by keeping a relay backbone
+   awake. Every mode retains rare 1–2 hour worst-case incidents (the retry
+   ceiling), so the maximum is a shared protocol limitation rather than a
+   differentiator. For a life-safety network, tail latency — not delivered
+   fraction alone — is the operative SOS metric, and it reorders the duty
+   family: the backbone-awake variants dominate uniform sleep on every SOS
+   measure while conceding availability.
+
+No overall winner is declared for the same reason as above: the three axes
+(delivery, availability, SOS tail latency) still trade off, and the corrected
+model's role is to expose the envelope, not to pick the operating point.
+
 ## 6. Important mistakes and corrected claim categories
 
 The audit found mistakes, not evidence of intentional lying:
