@@ -14,8 +14,10 @@ impl Sim {
     fn sched(&mut self, dt: f64, ev: Ev) -> u64 {
         self.seq += 1;
         let seq = self.seq;
+        let prio = event_rank(&ev);
         self.heap.push(Reverse(Sched {
             t: self.now + dt,
+            prio,
             seq,
             ev,
         }));
@@ -128,6 +130,9 @@ impl Sim {
                             // day key; later stages carry the incident ID.
                             sos_id: day as u64,
                             stage: 0,
+                            // Stage zero selects the sender when it fires, so
+                            // no rental session exists to bind to yet.
+                            generation: 0,
                         },
                     );
                 }
@@ -142,8 +147,9 @@ impl Sim {
                 node,
                 sos_id,
                 stage,
+                generation,
             } => {
-                self.handle_sos(node, sos_id, stage);
+                self.handle_sos(node, sos_id, stage, generation);
             }
             Ev::SosBurst { node, flight } => {
                 let n = &self.nodes[node as usize];
@@ -269,7 +275,7 @@ impl Sim {
         }
     }
 
-    fn handle_sos(&mut self, node: u32, sos_id: u64, stage: u32) {
+    fn handle_sos(&mut self, node: u32, sos_id: u64, stage: u32, generation: u64) {
         if stage == 0 {
             // pick whoever is actually out hiking right now
             let out: Vec<u32> = (self.n_fixed..self.nodes.len())
@@ -284,11 +290,21 @@ impl Sim {
             }
             let sender_u = Rng::keyed_f64(self.p.seed, RNG_INCIDENT_SENDER, sos_id);
             let origin = out[((sender_u * out.len() as f64) as usize).min(out.len() - 1)];
+            let origin_generation = self.nodes[origin as usize].checkout_generation;
             let bytes = self.cfg.traffic.sos_payload_b;
             let mut f = self.new_flight2(origin, Kind::Sos, bytes, Dest::Mqtt, true);
             let sid = f.id;
             f.sos_id = sid;
-            self.sos_incidents.insert(sid, (self.now, 1, false, 0.0));
+            self.sos_incidents.insert(
+                sid,
+                SosIncident {
+                    t0: self.now,
+                    tries: 1,
+                    delivered: false,
+                    latency_s: 0.0,
+                    origin_generation,
+                },
+            );
             self.csma2(origin, f.clone());
             // Three physical copies form one logical initial attempt.  Copies
             // retain the packet ID so normal duplicate suppression applies.
@@ -313,13 +329,28 @@ impl Sim {
                         node: origin,
                         sos_id: sid,
                         stage: 1,
+                        generation: origin_generation,
                     },
                 );
             }
             return;
         }
+        // A retry chain is bound to the rental session that raised the SOS.
+        // If the radio has been returned to a kiosk — or checked out again by
+        // a new renter, changing its generation — the chain is cancelled
+        // outright: no send, no reschedule.  The incident record keeps the
+        // authoritative session; the event carries a copy of it.
+        let Some(incident) = self.sos_incidents.get(&sos_id) else {
+            return;
+        };
+        let session_generation = incident.origin_generation;
         let n = &self.nodes[node as usize];
-        if !n.alive || n.docked || !self.walking(node) {
+        if !n.alive
+            || n.docked
+            || n.checkout_generation != session_generation
+            || n.checkout_generation != generation
+            || !self.walking(node)
+        {
             return;
         }
         // 5-minute retries until ACK, up to 24
@@ -327,7 +358,7 @@ impl Sim {
             return;
         }
         if let Some(inc) = self.sos_incidents.get_mut(&sos_id) {
-            inc.1 += 1;
+            inc.tries += 1;
         }
         let bytes = self.cfg.traffic.sos_payload_b;
         let mut f = self.new_flight2(node, Kind::Sos, bytes, Dest::Mqtt, true);
@@ -339,6 +370,7 @@ impl Sim {
                 node,
                 sos_id,
                 stage: stage + 1,
+                generation,
             },
         );
     }
@@ -440,7 +472,7 @@ impl Sim {
         let air = self.airtime_s2(flight.bytes);
         let horizon = self.p.days * 86400.0;
         let accounted_air = ((self.now + air).min(horizon) - self.now).max(0.0);
-        let etx = {
+        let (etx, incremental_tx_w) = {
             let e = &self.cfg.energy;
             let sender_node = &self.nodes[sender as usize];
             let listen_ma = if sender_node.is_radio && self.p.hiker_rx_ma > 0.0 {
@@ -453,7 +485,8 @@ impl Sim {
             let baseline_ma =
                 sender_node.duty * listen_ma + (1.0 - sender_node.duty) * e.light_sleep_ma;
             let incremental_tx_ma = (e.tx_current_ma - baseline_ma).max(0.0);
-            incremental_tx_ma / 1000.0 * e.battery_v * accounted_air / 3600.0
+            let incremental_tx_w = incremental_tx_ma / 1000.0 * e.battery_v;
+            (incremental_tx_w * accounted_air / 3600.0, incremental_tx_w)
         };
         if !self.nodes[sender as usize].grid && self.nodes[sender as usize].soc_wh < etx {
             let n = &mut self.nodes[sender as usize];
@@ -517,6 +550,7 @@ impl Sim {
                 rssi_at,
                 sender_availability_epoch: self.nodes[sender as usize].availability_epoch,
                 cad_acquired,
+                incremental_tx_w,
                 flight: flight.clone(),
             },
         );
@@ -558,7 +592,11 @@ impl Sim {
         let sender_fixed = !self.nodes[tx.sender as usize].is_radio;
         let sender_continuously_available = self.nodes[tx.sender as usize].alive
             && !self.nodes[tx.sender as usize].docked
-            && self.nodes[tx.sender as usize].availability_epoch == tx.sender_availability_epoch;
+            && self.nodes[tx.sender as usize].availability_epoch == tx.sender_availability_epoch
+            // A frame truncated by a mid-flight sender transition stopped
+            // radiating early; this nominal-end event only retires the
+            // record for interference bookkeeping.
+            && tx.end >= self.now;
         for &(rx, rssi, receiver_epoch) in &tx.rssi_at {
             if !sender_continuously_available
                 || !self.nodes[rx as usize].alive
@@ -669,9 +707,9 @@ impl Sim {
             }
             if first_delivery && k0 == Kind::Sos {
                 if let Some(inc) = self.sos_incidents.get_mut(&flight.sos_id) {
-                    if !inc.2 {
-                        inc.2 = true;
-                        inc.3 = self.now - inc.0;
+                    if !inc.delivered {
+                        inc.delivered = true;
+                        inc.latency_s = self.now - inc.t0;
                     }
                 }
             }
@@ -1076,6 +1114,87 @@ impl Sim {
         }
         n.alive = should_be_alive;
         self.route_tree_t = -1e18;
+        if !should_be_alive {
+            // A sender that loses powered availability mid-frame stops
+            // radiating at this instant; truncate its in-flight footprint.
+            self.truncate_inflight_transmissions(i);
+        }
+    }
+    /// Cut short any transmission the node has in flight at the current time.
+    /// Called on every off-transition (death, forced outage, dock): the radio
+    /// stops radiating, so the frame must stop occupying the channel and stop
+    /// charging airtime/energy beyond this instant.  Delivery was already
+    /// invalidated by the availability epoch, and the TxEnd event still
+    /// scheduled at the nominal end only retires the truncated record.
+    fn truncate_inflight_transmissions(&mut self, node: u32) {
+        let t = self.now;
+        // `tx_until` serializes a radio's own frames, so at most one entry can
+        // match; scan defensively and in deterministic order anyway.
+        let mut in_flight: Vec<u64> = self
+            .active
+            .iter()
+            .filter(|(_, tx)| tx.sender == node && tx.start <= t && t < tx.end)
+            .map(|(&idx, _)| idx)
+            .collect();
+        in_flight.sort_unstable();
+        for idx in in_flight {
+            self.truncate_flight(idx, t);
+        }
+    }
+    fn truncate_flight(&mut self, idx: u64, t: f64) {
+        let (sender, nominal_end, incremental_tx_w, occupied) = {
+            let tx = self
+                .active
+                .get_mut(&idx)
+                .expect("truncating a flight that is active");
+            let nominal_end = tx.end;
+            tx.end = t;
+            let mut occupied: Vec<u32> = tx
+                .rssi_at
+                .iter()
+                .filter(|&&(_, rssi, _)| rssi >= CARRIER_SENSE_DBM)
+                .map(|&(rx, _, _)| rx)
+                .collect();
+            occupied.push(tx.sender);
+            (tx.sender, nominal_end, tx.incremental_tx_w, occupied)
+        };
+        // Occupancy: each affected node's open busy interval was extended
+        // through this frame's nominal end at TxStart.  Every in-flight frame
+        // a node senses is merged into that same open interval (interval
+        // starts are nondecreasing and all precede `t`), so the exact
+        // remaining union end is the latest end among the other frames.
+        for n in occupied {
+            let mut union_end = t;
+            for other in self.active.values() {
+                let senses = other.sender == n
+                    || other
+                        .rssi_at
+                        .iter()
+                        .any(|&(rx, rssi, _)| rx == n && rssi >= CARRIER_SENSE_DBM);
+                if senses {
+                    union_end = union_end.max(other.end);
+                }
+            }
+            self.local_busy[n as usize].truncate_open_to(union_end);
+        }
+        // Charge only the airtime and incremental TX energy actually emitted
+        // (both were accounted for the full nominal frame at TxStart).
+        let horizon = self.p.days * 86400.0;
+        let unspent_air = (nominal_end.min(horizon) - t.min(horizon)).max(0.0);
+        if unspent_air > 0.0 {
+            let refund_wh = incremental_tx_w * unspent_air / 3600.0;
+            self.total_offered_airtime_s -= unspent_air;
+            let n = &mut self.nodes[sender as usize];
+            n.stats.tx_airtime_s -= unspent_air;
+            n.stats.energy_tx_wh -= refund_wh;
+            if !n.grid {
+                n.soc_wh = (n.soc_wh + refund_wh).min(n.cap_wh);
+            }
+        }
+        let n = &mut self.nodes[sender as usize];
+        if n.tx_until > t {
+            n.tx_until = t;
+        }
     }
     fn set_docked(&mut self, i: u32, docked: bool) {
         self.accrue_node_energy_state(i);
@@ -1083,6 +1202,14 @@ impl Sim {
         if node.docked != docked {
             node.docked = docked;
             node.availability_epoch = node.availability_epoch.wrapping_add(1);
+            // Every dock-state change opens or closes a rental session, so
+            // session-bound work (the SOS retry chain) can detect that the
+            // physical radio has moved on.
+            node.checkout_generation = node.checkout_generation.wrapping_add(1);
+            if docked {
+                // A radio returned to its kiosk mid-frame stops radiating now.
+                self.truncate_inflight_transmissions(i);
+            }
         }
     }
     fn airtime_s2(&mut self, bytes: u32) -> f64 {
@@ -1183,8 +1310,9 @@ impl Sim {
     }
 }
 
+// Shared with the crate-root tests (guard validation reuses `test_config`).
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::inputs::{
         BatteryCfg, Config, EnergyCfg, KioskCfg, Link, RadioCfg, Route, RoutesFile, ShadowCfg,
@@ -1204,7 +1332,7 @@ mod tests {
         }
     }
 
-    fn test_config() -> Config {
+    pub(crate) fn test_config() -> Config {
         Config {
             radio: RadioCfg {
                 freq_mhz: 915.0,
@@ -1302,7 +1430,7 @@ mod tests {
         Sim::new(test_config(), topology, routes, weather, test_params(mode))
     }
 
-    fn test_params(mode: Mode) -> Params {
+    pub(crate) fn test_params(mode: Mode) -> Params {
         Params {
             mode,
             days: 1.0,
@@ -2162,9 +2290,10 @@ mod tests {
         sim.nodes[radio as usize].route = Some(0);
         sim.nodes[radio as usize].start_s = 0.0;
 
-        sim.handle_sos(u32::MAX, 0, 0);
+        sim.handle_sos(u32::MAX, 0, 0, 0);
         let (&sos_id, incident) = sim.sos_incidents.iter().next().unwrap();
-        assert_eq!(incident.1, 1);
+        assert_eq!(incident.tries, 1);
+        let generation = incident.origin_generation;
         let mut burst = Vec::new();
         let mut initial_tx_id = None;
         let mut retry_t = None;
@@ -2182,6 +2311,7 @@ mod tests {
                     node,
                     sos_id: sid,
                     stage: 1,
+                    ..
                 } if *node == radio && *sid == sos_id => {
                     retry_t = Some(s.t);
                 }
@@ -2194,7 +2324,7 @@ mod tests {
         assert_eq!(retry_t, Some(300.0));
 
         sim.now = 300.0;
-        sim.handle_sos(radio, sos_id, 1);
+        sim.handle_sos(radio, sos_id, 1, generation);
         let retry_packet_ids: Vec<u64> = sim
             .heap
             .iter()
@@ -2211,7 +2341,7 @@ mod tests {
             })
             .collect();
         assert_eq!(retry_packet_ids.len(), 1);
-        assert_eq!(sim.sos_incidents[&sos_id].1, 2);
+        assert_eq!(sim.sos_incidents[&sos_id].tries, 2);
     }
 
     #[test]
@@ -2221,13 +2351,156 @@ mod tests {
         sim.set_docked(radio, false);
         sim.nodes[radio as usize].route = Some(0);
         sim.nodes[radio as usize].start_s = 0.0;
+        let generation = sim.nodes[radio as usize].checkout_generation;
         sim.now = 3600.0;
-        sim.sos_incidents.insert(99, (0.0, 1, false, 0.0));
+        sim.sos_incidents.insert(
+            99,
+            SosIncident {
+                t0: 0.0,
+                tries: 1,
+                delivered: false,
+                latency_s: 0.0,
+                origin_generation: generation,
+            },
+        );
         let queued_before = sim.heap.len();
 
-        sim.handle_sos(radio, 99, 1);
+        sim.handle_sos(radio, 99, 1, generation);
 
-        assert_eq!(sim.sos_incidents[&99].1, 1);
+        assert_eq!(sim.sos_incidents[&99].tries, 1);
         assert_eq!(sim.heap.len(), queued_before);
+    }
+
+    #[test]
+    fn sender_death_mid_frame_truncates_the_physical_footprint() {
+        let mut sim = test_sim(Mode::Flood);
+        let a = sim.name_to_idx["a"];
+        let b = sim.name_to_idx["b"];
+        let c = sim.name_to_idx["c"];
+        sim.nodes[a as usize].grid = false;
+        let air = sim.airtime_s2(40);
+        let first = sim.new_flight2(a, Kind::Tel, 40, Dest::Mqtt, false);
+        sim.transmit(a, first);
+        let full_frame_energy = sim.nodes[a as usize].stats.energy_tx_wh;
+
+        // Battery death one third of the way through the frame.
+        sim.now = air / 3.0;
+        sim.nodes[a as usize].energy_alive = false;
+        sim.nodes[a as usize].stats.deaths += 1;
+        sim.refresh_node_availability(a);
+
+        assert_eq!(
+            sim.active[&0].end,
+            air / 3.0,
+            "the aborted frame's occupancy ends at the transition time"
+        );
+        assert!((sim.nodes[a as usize].stats.tx_airtime_s - air / 3.0).abs() < 1e-12);
+        assert!((sim.total_offered_airtime_s - air / 3.0).abs() < 1e-12);
+        assert!(
+            (sim.nodes[a as usize].stats.energy_tx_wh - full_frame_energy / 3.0).abs() < 1e-15,
+            "only the emitted third of the incremental TX energy stays charged"
+        );
+        assert!(sim.nodes[a as usize].tx_until <= air / 3.0);
+
+        // A frame starting after the truncation point must not collide with
+        // the aborted frame.
+        sim.now = 2.0 * air / 3.0;
+        let second = sim.new_flight2(b, Kind::Tel, 40, Dest::Mqtt, false);
+        let second_id = second.id;
+        sim.transmit(b, second);
+
+        sim.now = air;
+        sim.handle_tx_end(0); // nominal end of the aborted frame is harmless
+        sim.now = 2.0 * air / 3.0 + air;
+        sim.handle_tx_end(1);
+
+        assert_eq!(sim.nodes[c as usize].stats.collisions, 0);
+        assert_eq!(sim.nodes[c as usize].stats.rx_ok, 1);
+        assert!(sim.pkt_meta[&second_id].delivered);
+        // The receiver's carrier-sense union holds the truncated first frame
+        // plus the whole second frame.
+        let expected_busy_s = air / 3.0 + air;
+        assert!((sim.local_busy[c as usize].total_through(1.0e9) - expected_busy_s).abs() < 1e-12);
+    }
+
+    #[test]
+    fn tx_end_outranks_an_outage_at_the_exact_same_timestamp() {
+        let mut sim = test_sim(Mode::Flood);
+        let sender = sim.name_to_idx["a"];
+        let receiver = sim.name_to_idx["c"];
+        sim.heap.clear();
+        let air = sim.airtime_s2(40);
+        // Scheduled first, so the outage holds the lower seq; only the
+        // explicit rank can order the frame's completion ahead of it.
+        sim.sched(air, Ev::OutageStart { node: sender });
+        let flight = sim.new_flight2(sender, Kind::Tel, 40, Dest::Mqtt, false);
+        let id = flight.id;
+        sim.transmit(sender, flight);
+
+        for _ in 0..2 {
+            let Reverse(s) = sim.heap.pop().expect("scheduled event");
+            sim.now = s.t;
+            sim.handle(s.ev, s.seq);
+        }
+
+        assert_eq!(
+            sim.nodes[receiver as usize].stats.rx_ok, 1,
+            "a frame ending exactly at the outage instant has completed"
+        );
+        assert!(sim.pkt_meta[&id].delivered);
+        assert!(
+            !sim.nodes[sender as usize].alive,
+            "the outage still applies after the frame is resolved"
+        );
+    }
+
+    #[test]
+    fn sos_retry_does_not_follow_a_radio_into_a_new_checkout_session() {
+        let mut sim = rental_test_sim(3600.0, 1.0);
+        sim.p.sos_retry = true;
+        let radio = sim.n_fixed as u32;
+        sim.set_docked(radio, false);
+        sim.nodes[radio as usize].route = Some(0);
+        sim.nodes[radio as usize].start_s = 0.0;
+
+        sim.handle_sos(u32::MAX, 0, 0, 0);
+        let (&sos_id, incident) = sim.sos_incidents.iter().next().unwrap();
+        let scheduled_generation = incident.origin_generation;
+        assert_eq!(
+            scheduled_generation, sim.nodes[radio as usize].checkout_generation,
+            "the incident records the session it was raised under"
+        );
+
+        // The radio is returned to the kiosk and a new renter checks it out
+        // again, all before the 300 s retry fires.
+        sim.now = 120.0;
+        sim.set_docked(radio, true);
+        sim.now = 240.0;
+        sim.set_docked(radio, false);
+        sim.nodes[radio as usize].route = Some(0);
+        sim.nodes[radio as usize].start_s = 240.0;
+
+        sim.now = 300.0;
+        let tries_before = sim.sos_incidents[&sos_id].tries;
+        let queued_before = sim.heap.len();
+        sim.handle_sos(radio, sos_id, 1, scheduled_generation);
+
+        assert_eq!(
+            sim.sos_incidents[&sos_id].tries, tries_before,
+            "a retry must not transmit under the new renter's session"
+        );
+        assert_eq!(
+            sim.heap.len(),
+            queued_before,
+            "the retry chain is cancelled, not rescheduled"
+        );
+        assert!(
+            !sim.heap.iter().any(|Reverse(s)| matches!(
+                &s.ev,
+                Ev::TxAttempt { flight, .. }
+                    if flight.okind == Kind::Sos && flight.sos_id == sos_id && flight.id != sos_id
+            )),
+            "no retry TX may be queued after the generation change"
+        );
     }
 }

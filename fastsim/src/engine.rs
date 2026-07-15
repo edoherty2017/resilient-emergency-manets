@@ -59,6 +59,7 @@ impl Sim {
                 availability_epoch: 0,
                 unavailable_since: (!energy_alive).then_some(0.0),
                 docked: false,
+                checkout_generation: 0,
                 duty: 1.0,
                 is_radio: false,
                 channel: 0,
@@ -247,6 +248,7 @@ impl Sim {
                     availability_epoch: 0,
                     unavailable_since: (!energy_alive).then_some(0.0),
                     docked: true,
+                    checkout_generation: 0,
                     duty: 1.0,
                     is_radio: true,
                     channel: 0,
@@ -340,8 +342,10 @@ impl Sim {
 
     fn push(&mut self, t: f64, ev: Ev) -> u64 {
         self.seq += 1;
+        let prio = event_rank(&ev);
         self.heap.push(Reverse(Sched {
             t,
+            prio,
             seq: self.seq,
             ev,
         }));
@@ -561,8 +565,11 @@ impl Sim {
             if self.nodes[i].mqtt && self.nodes[i].alive {
                 *d = 0.0;
                 seq += 1;
+                // Every Dijkstra entry is a TxEnd payload, so the rank is
+                // uniform and relaxation order stays (cost, seq) as before.
                 pq.push(Reverse(Sched {
                     t: 0.0,
+                    prio: 0,
                     seq,
                     ev: Ev::TxEnd { idx: i as u64 },
                 }));
@@ -591,6 +598,7 @@ impl Sim {
                     seq += 1;
                     pq.push(Reverse(Sched {
                         t: s.t + w,
+                        prio: 0,
                         seq,
                         ev: Ev::TxEnd { idx: v as u64 },
                     }));

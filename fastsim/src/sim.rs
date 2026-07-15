@@ -221,6 +221,12 @@ pub struct Node {
     pub availability_epoch: u64,
     pub unavailable_since: Option<f64>,
     pub docked: bool,
+    /// Rental-session counter: incremented on every dock-state change
+    /// (checkout and return).  Work scheduled on behalf of one renter — the
+    /// SOS retry chain — is cancelled when a pending event's generation no
+    /// longer matches, so a retry cannot follow the physical radio into a
+    /// later renter's session.
+    pub checkout_generation: u64,
     pub duty: f64,
     pub is_radio: bool,
     pub channel: u8,
@@ -263,12 +269,20 @@ impl Node {
 
 pub struct ActiveTx {
     pub start: f64,
+    /// Airtime interval end.  Nominal at TxStart; pulled back to the
+    /// transition instant if the sender dies, docks, or enters a forced
+    /// outage mid-frame, so occupancy/interference snapshots taken after the
+    /// transition see only the airtime actually radiated.
     pub end: f64,
     pub sender: u32,
     pub rssi_at: Vec<(u32, f64, u64)>,
     pub sender_availability_epoch: u64,
     /// Receivers whose awake/CAD window acquired the preamble at TxStart.
     pub cad_acquired: HashSet<u32>,
+    /// Incremental TX draw above the sender's listen/sleep baseline, in
+    /// watts; retained so a mid-frame abort refunds exactly the unemitted
+    /// energy.
+    pub incremental_tx_w: f64,
     pub flight: Flight,
 }
 
@@ -298,11 +312,37 @@ impl BusyUnion {
     pub fn total_through(&self, end_time: f64) -> f64 {
         self.closed_s + self.open.map_or(0.0, |(s, e)| e.min(end_time).max(s) - s)
     }
+
+    /// Shrink the open interval's end when an in-flight transmission is cut
+    /// short.  The caller supplies the exact union end of the intervals that
+    /// remain in flight; those intervals were all merged into the open
+    /// interval when added (starts are nondecreasing and precede the current
+    /// time), so this reproduces the union without the truncated tail.
+    pub fn truncate_open_to(&mut self, new_end: f64) {
+        if let Some((s, e)) = self.open {
+            if new_end < e {
+                self.open = Some((s, new_end.max(s)));
+            }
+        }
+    }
 }
 
 pub struct KioskBank {
     pub soc_wh: f64,
     pub cap_wh: f64,
+}
+
+/// One logical SOS incident: the initial three-copy burst plus its retry
+/// chain.
+pub struct SosIncident {
+    pub t0: f64,
+    pub tries: u32,
+    pub delivered: bool,
+    pub latency_s: f64,
+    /// `checkout_generation` of the originating radio when the incident was
+    /// raised.  A retry firing under any other generation belongs to a
+    /// returned or re-rented radio and is cancelled.
+    pub origin_generation: u64,
 }
 
 pub struct Walker {
@@ -336,6 +376,9 @@ pub enum Ev {
         node: u32,
         sos_id: u64,
         stage: u32,
+        /// Originating radio's `checkout_generation` for retry stages; zero
+        /// for stage 0, which selects the sender when it fires.
+        generation: u64,
     },
     SosBurst {
         node: u32,
@@ -375,13 +418,26 @@ pub enum Ev {
 
 pub struct Sched {
     pub t: f64,
+    /// Explicit same-timestamp rank.  A frame whose airtime ends exactly when
+    /// an outage/availability transition occurs has already completed, so
+    /// `TxEnd` must sort ahead of every other event at an equal timestamp.
+    /// Within a rank, events keep their scheduling order (stable by `seq`).
+    pub prio: u8,
     pub seq: u64,
     pub ev: Ev,
 }
 
+/// Same-timestamp ordering rank for `Sched` (lower fires first).
+pub fn event_rank(ev: &Ev) -> u8 {
+    match ev {
+        Ev::TxEnd { .. } => 0,
+        _ => 1,
+    }
+}
+
 impl PartialEq for Sched {
     fn eq(&self, o: &Self) -> bool {
-        self.t == o.t && self.seq == o.seq
+        self.t == o.t && self.prio == o.prio && self.seq == o.seq
     }
 }
 impl Eq for Sched {}
@@ -392,7 +448,10 @@ impl PartialOrd for Sched {
 }
 impl Ord for Sched {
     fn cmp(&self, o: &Self) -> std::cmp::Ordering {
-        self.t.total_cmp(&o.t).then(self.seq.cmp(&o.seq))
+        self.t
+            .total_cmp(&o.t)
+            .then(self.prio.cmp(&o.prio))
+            .then(self.seq.cmp(&o.seq))
     }
 }
 
@@ -463,7 +522,7 @@ pub struct Sim {
     pub pkt_seq: u64,
     pub pkt_meta: HashMap<u64, PktMeta>,
     pub agg: HashMap<u32, OriginAgg>,
-    pub sos_incidents: HashMap<u64, (f64, u32, bool, f64)>, // t0, tries, delivered, lat
+    pub sos_incidents: HashMap<u64, SosIncident>,
     pub sos_acked: HashSet<u64>,
 
     pub route_next: Vec<Option<u32>>,
@@ -588,6 +647,25 @@ mod tests {
         busy.add(5.0, 6.0);
         assert_eq!(busy.total_through(10.0), 4.0);
         assert_eq!(busy.total_through(5.5), 3.5);
+    }
+
+    #[test]
+    fn busy_union_truncation_keeps_the_surviving_frames_exact() {
+        let mut busy = BusyUnion::default();
+        busy.add(0.0, 10.0);
+        busy.add(2.0, 12.0);
+        // The 2..12 frame aborts at t=4; the 0..10 frame is still in flight.
+        busy.truncate_open_to(10.0);
+        assert_eq!(busy.total_through(20.0), 10.0);
+        // The 0..10 frame aborts at t=5 with nothing else in flight.
+        busy.truncate_open_to(5.0);
+        assert_eq!(busy.total_through(20.0), 5.0);
+        // Truncation can never extend the union.
+        busy.truncate_open_to(9.0);
+        assert_eq!(busy.total_through(20.0), 5.0);
+        // A later disjoint frame opens a new interval past the truncated one.
+        busy.add(6.0, 8.0);
+        assert_eq!(busy.total_through(20.0), 7.0);
     }
 
     #[test]

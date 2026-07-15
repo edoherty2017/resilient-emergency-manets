@@ -188,9 +188,16 @@ fn validate_params(params: &Params, cfg: &Config, routes: &RoutesFile) -> Result
         .kiosk
         .demand_tier_a
         .max(cfg.kiosk.demand_tier_b)
-        .max(cfg.kiosk.demand_tier_c) as u64;
-    let worst_case_walkers =
-        routes.routes.len() as u64 * max_tier * params.renters_per_route as u64 / 2;
+        .max(cfg.kiosk.demand_tier_c);
+    // Extreme-but-valid u32 tiers can wrap this product in a narrower type
+    // and slip past the limit; checked u128 arithmetic fails closed instead.
+    let worst_case_walkers = (routes.routes.len() as u128)
+        .checked_mul(max_tier as u128)
+        .and_then(|walkers| walkers.checked_mul(params.renters_per_route as u128))
+        .map(|walkers| walkers / 2)
+        .ok_or_else(|| {
+            "routes x demand tier x renters-per-route overflows the walker guard".to_string()
+        })?;
     if worst_case_walkers > 100_000 {
         return Err(format!(
             "--renters-per-route would create up to {worst_case_walkers} walkers; limit is 100000"
@@ -492,11 +499,15 @@ fn main() {
     let mut sos_lats: Vec<f64> = sim
         .sos_incidents
         .values()
-        .filter(|i| i.2)
-        .map(|i| i.3)
+        .filter(|i| i.delivered)
+        .map(|i| i.latency_s)
         .collect();
     sos_lats.sort_by(f64::total_cmp);
-    let mean_tries = sim.sos_incidents.values().map(|i| i.1 as f64).sum::<f64>()
+    let mean_tries = sim
+        .sos_incidents
+        .values()
+        .map(|i| i.tries as f64)
+        .sum::<f64>()
         / sim.sos_incidents.len().max(1) as f64;
 
     let offered_ratio = sim.total_offered_airtime_s / dur.max(f64::EPSILON);
@@ -574,9 +585,9 @@ fn main() {
         } else { serde_json::Value::Null },
         "sos": {
             "sent": sim.sos_incidents.len(),
-            "delivered": sim.sos_incidents.values().filter(|i| i.2).count(),
+            "delivered": sim.sos_incidents.values().filter(|i| i.delivered).count(),
             "latencies_s": sos_lats.iter().map(|l| round2(*l)).collect::<Vec<f64>>(),
-            "mean_tries": round2(mean_tries),
+            "mean_tries": cohort_stat(!sim.sos_incidents.is_empty(), mean_tries, round2),
             "level": "incident",
         },
         "rental": {
@@ -590,22 +601,25 @@ fn main() {
             "minimum_checkout_soc_fraction": sim.cfg.kiosk.min_checkout_soc,
             "availability": round4(sim.rental.served as f64
                 / sim.rental.walker_days.max(1) as f64),
-            "mean_checkout_soc": round4(sim.rental.checkout_soc_sum
-                / sim.rental.served.max(1) as f64),
+            "mean_checkout_soc": cohort_stat(
+                sim.rental.served > 0,
+                sim.rental.checkout_soc_sum / sim.rental.served.max(1) as f64,
+                round4,
+            ),
         },
         "fleet_energy": {
-            "mean_duty": round4(mean_duty),
-            "final_soc_std": round4(soc_std),
-            "final_soc_min": if socs.is_empty() {
-                serde_json::Value::Null
-            } else {
-                json!(round4(socs.iter().copied().fold(f64::INFINITY, f64::min)))
-            },
+            "mean_duty": cohort_stat(!solar_nodes.is_empty(), mean_duty, round4),
+            "final_soc_std": cohort_stat(!solar_nodes.is_empty(), soc_std, round4),
+            "final_soc_min": cohort_stat(
+                !socs.is_empty(),
+                socs.iter().copied().fold(f64::INFINITY, f64::min),
+                round4,
+            ),
             "deaths_total": deaths_total,
             "death_events_total": deaths_total,
             "unique_nodes_died": unique_nodes_died,
             "dead_time_s_total": round2(dead_time_s_total),
-            "availability": round5(fleet_availability),
+            "availability": cohort_stat(!solar_nodes.is_empty(), fleet_availability, round5),
             "relay_energy_gini": gini,
             "soc_series_6h": soc_series,
         },
@@ -634,4 +648,84 @@ fn round4(x: f64) -> f64 {
 }
 fn round5(x: f64) -> f64 {
     (x * 100000.0).round() / 100000.0
+}
+
+/// Cohort statistics serialize as JSON null when the cohort is empty, so an
+/// absent population (no solar nodes, no SOS incidents, no served checkouts)
+/// is distinguishable from a measured zero — the same convention the
+/// relay-energy Gini and latency quantiles already follow.
+fn cohort_stat(populated: bool, value: f64, digits: fn(f64) -> f64) -> serde_json::Value {
+    if populated {
+        json!(digits(value))
+    } else {
+        serde_json::Value::Null
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::engine2::tests::{test_config, test_params};
+
+    fn guard_routes(count: usize) -> RoutesFile {
+        let route = Route {
+            kiosk: "kiosk".to_string(),
+            return_kiosk: "kiosk".to_string(),
+            duration_s: 3600.0,
+            t_s: vec![0.0, 3600.0],
+            lat: vec![44.0, 44.1],
+            lon: vec![-71.0, -71.0],
+            loss_t_s: vec![0.0, 3600.0],
+            loss_db_q50: HashMap::new(),
+        };
+        RoutesFile {
+            routes: (0..count)
+                .map(|i| (format!("r{i}"), route.clone()))
+                .collect(),
+        }
+    }
+
+    #[test]
+    fn extreme_demand_tiers_fail_closed_without_overflow() {
+        // A maximal but valid tier must produce a clean guard error.
+        let mut cfg = test_config();
+        cfg.kiosk.demand_tier_a = u32::MAX;
+        let params = test_params(Mode::MinHop);
+        let error = validate_params(&params, &cfg, &guard_routes(1)).unwrap_err();
+        assert!(
+            error.contains("limit is 100000"),
+            "unexpected error: {error}"
+        );
+
+        // 4 routes x 2^31 x 2^31 / 2 wrapped a u64 product to exactly zero,
+        // silently passing the old guard; the checked u128 guard rejects it.
+        let mut cfg = test_config();
+        cfg.kiosk.demand_tier_a = 1 << 31;
+        let mut params = test_params(Mode::MinHop);
+        params.renters_per_route = 1 << 31;
+        let error = validate_params(&params, &cfg, &guard_routes(4)).unwrap_err();
+        assert!(
+            error.contains("limit is 100000"),
+            "unexpected error: {error}"
+        );
+    }
+
+    #[test]
+    fn empty_cohort_statistics_serialize_as_null_not_zero() {
+        // Zero SOS incidents (mean_tries) and zero served checkouts
+        // (mean_checkout_soc) both degenerate to a numeric 0.0 mean.
+        assert_eq!(cohort_stat(false, 0.0, round2), serde_json::Value::Null);
+        assert_eq!(cohort_stat(false, 0.0, round4), serde_json::Value::Null);
+        // An empty solar cohort degenerates to availability 1.0 and duty/std
+        // 0.0; none of these may masquerade as measurements.
+        assert_eq!(cohort_stat(false, 1.0, round5), serde_json::Value::Null);
+        assert_eq!(
+            cohort_stat(false, f64::INFINITY, round4),
+            serde_json::Value::Null,
+            "final_soc_min's empty fold must not leak"
+        );
+        // Populated cohorts keep the existing rounded numeric encoding.
+        assert_eq!(cohort_stat(true, 0.123449, round4), json!(0.1234));
+        assert_eq!(cohort_stat(true, 0.0, round2), json!(0.0));
+    }
 }
