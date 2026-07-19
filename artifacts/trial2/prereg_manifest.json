@@ -1,8 +1,8 @@
 {
-  "build_timestamp_utc": "2026-07-13T18:30:00+00:00",
+  "build_timestamp_utc": "2026-07-19T14:24:55+00:00",
   "generated_by": "scripts/freeze_trial2_prereg.py",
-  "git_head": "d39ee27448dcdc542b6a09e0dabe8abd537035f7",
-  "git_worktree_dirty": true,
+  "git_head": "3d15a5733909193380b4486ceebe55f6f8daae91",
+  "git_worktree_dirty": false,
   "input_count": 12,
   "inputs": {
     "analysis_code": {
