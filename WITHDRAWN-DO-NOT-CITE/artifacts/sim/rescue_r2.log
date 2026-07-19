@@ -1,0 +1,99 @@
+pass 1: 10 stranded: ['imp_shelter', 'cabot_summit', 'shaw_summit', 'smarts_mtn', 'kearsarge_north', 'magalloway_tower', 'north_carter', 'mt_hight', 'lambert_ridge', 'black_cap']
+  imp_shelter <-> south_carter 2.37 km fine-DEM q90  -144.5 dBm -> dead
+  imp_shelter <-> carter_dome 4.00 km fine-DEM q90  -138.7 dBm -> dead
+  imp_shelter <-> moriah_summit 5.12 km fine-DEM q90  -153.9 dBm -> dead
+  imp_shelter <-> pulpit_rock 5.32 km fine-DEM q90  -153.5 dBm -> dead
+  imp_shelter <-> carter_notch_hut 5.43 km fine-DEM q90  -155.7 dBm -> dead
+  imp_shelter <-> glen_house 5.45 km fine-DEM q90  -157.3 dBm -> dead
+    fine-DEM fetch failed for rescue_imp_shelter_wildcat_a: cbe315"
+  }
+}
+sanity: max elevation within ~30m of summit coords = 561.6 m (expect ~1916)
+WARNING: summit elevation check failed — inspect the export before use
+    fine-DEM fetch failed for rescue_imp_shelter_wildcat_d: 5eb887"
+  }
+}
+sanity: max elevation within ~30m of summit coords = 675.3 m (expect ~1916)
+WARNING: summit elevation check failed — inspect the export before use
+  cabot_summit <-> the_bulge 0.78 km fine-DEM q90  -136.2 dBm -> dead
+  cabot_summit <-> the_horn 2.01 km fine-DEM q90  -142.9 dBm -> dead
+  cabot_summit <-> kilkenny_lookout 2.37 km fine-DEM q90  -139.9 dBm -> dead
+  cabot_summit <-> unknown_pond 3.86 km fine-DEM q90  -148.2 dBm -> dead
+  cabot_summit <-> percy_peaks 7.76 km fine-DEM q90  -156.9 dBm -> dead
+  cabot_summit <-> waumbek_summit 9.00 km fine-DEM q90  -174.9 dBm -> dead
+  shaw_summit <-> turtleback_mtn 3.69 km fine-DEM q90  -145.4 dBm -> dead
+  shaw_summit <-> castle_clouds 6.04 km fine-DEM q90  -154.4 dBm -> dead
+  smarts_mtn <-> holts_ledge 4.33 km fine-DEM q90  -148.8 dBm -> dead
+  smarts_mtn <-> lyme_dorchester_th 4.70 km fine-DEM q90  -146.3 dBm -> dead
+  smarts_mtn <-> dartmouth_skiway 6.39 km fine-DEM q90  -151.8 dBm -> dead
+  smarts_mtn <-> lambert_ridge 2.24 km fine-DEM q90  -139.5 dBm -> dead
+  kearsarge_north <-> cranmore_top 2.96 km fine-DEM q90  -139.4 dBm -> dead
+  magalloway_tower <-> second_lake_dam 7.34 km fine-DEM q90  -149.7 dBm -> dead
+  north_carter <-> south_carter 2.66 km fine-DEM q90  -148.1 dBm -> dead
+  north_carter <-> carter_dome 4.31 km fine-DEM q90  -143.1 dBm -> dead
+  north_carter <-> moriah_summit 4.80 km fine-DEM q90  -153.3 dBm -> dead
+  north_carter <-> pulpit_rock 5.69 km fine-DEM q90  -161.0 dBm -> dead
+  north_carter <-> carter_notch_hut 5.78 km fine-DEM q90  -161.9 dBm -> dead
+  north_carter <-> glen_house 5.86 km fine-DEM q90  -168.0 dBm -> dead
+    fine-DEM fetch failed for rescue_north_carter_wildcat_a: b3948c"
+  }
+}
+sanity: max elevation within ~30m of summit coords = 562.2 m (expect ~1916)
+WARNING: summit elevation check failed — inspect the export before use
+    fine-DEM fetch failed for rescue_north_carter_wildcat_d: 6d1d3c"
+  }
+}
+sanity: max elevation within ~30m of summit coords = 675.3 m (expect ~1916)
+WARNING: summit elevation check failed — inspect the export before use
+  mt_hight <-> carter_dome 0.57 km fine-DEM q90  -128.9 dBm -> USABLE
+  lambert_ridge <-> holts_ledge 2.09 km fine-DEM q90  -136.5 dBm -> dead
+  lambert_ridge <-> lyme_dorchester_th 2.71 km fine-DEM q90  -134.1 dBm -> dead
+  lambert_ridge <-> dartmouth_skiway 4.17 km fine-DEM q90  -141.5 dBm -> dead
+  lambert_ridge <-> smarts_mtn 2.24 km fine-DEM q90  -139.5 dBm -> dead
+  black_cap <-> cranmore_top 1.87 km fine-DEM q90  -139.7 dBm -> dead
+pass 2: 9 stranded: ['imp_shelter', 'cabot_summit', 'shaw_summit', 'smarts_mtn', 'kearsarge_north', 'magalloway_tower', 'north_carter', 'lambert_ridge', 'black_cap']
+  imp_shelter <-> south_carter 2.37 km fine-DEM q90  -144.5 dBm -> dead
+    fine-DEM fetch failed for rescue_imp_shelter_mt_hight: b26e0"
+  }
+}
+sanity: max elevation within ~30m of summit coords = 1221.7 m (expect ~1916)
+WARNING: summit elevation check failed — inspect the export before use
+  imp_shelter <-> carter_dome 4.00 km fine-DEM q90  -138.7 dBm -> dead
+  imp_shelter <-> moriah_summit 5.12 km fine-DEM q90  -153.9 dBm -> dead
+  imp_shelter <-> pulpit_rock 5.32 km fine-DEM q90  -153.5 dBm -> dead
+  imp_shelter <-> carter_notch_hut 5.43 km fine-DEM q90  -155.7 dBm -> dead
+  imp_shelter <-> glen_house 5.45 km fine-DEM q90  -157.3 dBm -> dead
+  imp_shelter <-> wildcat_a 6.25 km fine-DEM q90  -154.9 dBm -> dead
+  cabot_summit <-> the_bulge 0.78 km fine-DEM q90  -136.2 dBm -> dead
+  cabot_summit <-> the_horn 2.01 km fine-DEM q90  -142.9 dBm -> dead
+  cabot_summit <-> kilkenny_lookout 2.37 km fine-DEM q90  -139.9 dBm -> dead
+  cabot_summit <-> unknown_pond 3.86 km fine-DEM q90  -148.2 dBm -> dead
+  cabot_summit <-> percy_peaks 7.76 km fine-DEM q90  -156.9 dBm -> dead
+  cabot_summit <-> waumbek_summit 9.00 km fine-DEM q90  -174.9 dBm -> dead
+  shaw_summit <-> turtleback_mtn 3.69 km fine-DEM q90  -145.4 dBm -> dead
+  shaw_summit <-> castle_clouds 6.04 km fine-DEM q90  -154.4 dBm -> dead
+  smarts_mtn <-> holts_ledge 4.33 km fine-DEM q90  -148.8 dBm -> dead
+  smarts_mtn <-> lyme_dorchester_th 4.70 km fine-DEM q90  -146.3 dBm -> dead
+  smarts_mtn <-> dartmouth_skiway 6.39 km fine-DEM q90  -151.8 dBm -> dead
+  smarts_mtn <-> lambert_ridge 2.24 km fine-DEM q90  -139.5 dBm -> dead
+  kearsarge_north <-> cranmore_top 2.96 km fine-DEM q90  -139.4 dBm -> dead
+  magalloway_tower <-> second_lake_dam 7.34 km fine-DEM q90  -149.7 dBm -> dead
+  north_carter <-> south_carter 2.66 km fine-DEM q90  -148.1 dBm -> dead
+    fine-DEM fetch failed for rescue_mt_hight_north_carter: b24b1"
+  }
+}
+sanity: max elevation within ~30m of summit coords = 1222.7 m (expect ~1916)
+WARNING: summit elevation check failed — inspect the export before use
+  north_carter <-> carter_dome 4.31 km fine-DEM q90  -143.1 dBm -> dead
+  north_carter <-> moriah_summit 4.80 km fine-DEM q90  -153.3 dBm -> dead
+  north_carter <-> pulpit_rock 5.69 km fine-DEM q90  -161.0 dBm -> dead
+  north_carter <-> carter_notch_hut 5.78 km fine-DEM q90  -161.9 dBm -> dead
+  north_carter <-> glen_house 5.86 km fine-DEM q90  -168.0 dBm -> dead
+  north_carter <-> wildcat_a 6.65 km fine-DEM q90  -163.8 dBm -> dead
+  lambert_ridge <-> holts_ledge 2.09 km fine-DEM q90  -136.5 dBm -> dead
+  lambert_ridge <-> lyme_dorchester_th 2.71 km fine-DEM q90  -134.1 dBm -> dead
+  lambert_ridge <-> dartmouth_skiway 4.17 km fine-DEM q90  -141.5 dBm -> dead
+  lambert_ridge <-> smarts_mtn 2.24 km fine-DEM q90  -139.5 dBm -> dead
+  black_cap <-> cranmore_top 1.87 km fine-DEM q90  -139.7 dBm -> dead
+
+admitted 1 fine-DEM links; still stranded: ['imp_shelter', 'cabot_summit', 'shaw_summit', 'smarts_mtn', 'kearsarge_north', 'magalloway_tower', 'north_carter', 'lambert_ridge', 'black_cap']

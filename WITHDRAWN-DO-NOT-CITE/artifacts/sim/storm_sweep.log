@@ -1,0 +1,35 @@
+load grid (hop_limit=3):
+  hikers=  0 interval= 300s  PDR_hiker 1.000  util 0.027  col 0.103
+  hikers=  0 interval= 120s  PDR_hiker 1.000  util 0.040  col 0.117
+  hikers=  0 interval=  60s  PDR_hiker 1.000  util 0.067  col 0.108
+  hikers=  0 interval=  30s  PDR_hiker 1.000  util 0.116  col 0.116
+  hikers=  5 interval= 300s  PDR_hiker 1.000  util 0.079  col 0.138
+  hikers=  5 interval= 120s  PDR_hiker 1.000  util 0.171  col 0.162
+  hikers=  5 interval=  60s  PDR_hiker 1.000  util 0.322  col 0.186
+  hikers=  5 interval=  30s  PDR_hiker 0.999  util 0.632  col 0.215
+  hikers= 10 interval= 300s  PDR_hiker 1.000  util 0.130  col 0.160
+  hikers= 10 interval= 120s  PDR_hiker 1.000  util 0.300  col 0.196
+  hikers= 10 interval=  60s  PDR_hiker 0.998  util 0.592  col 0.247
+  hikers= 10 interval=  30s  PDR_hiker 0.995  util 1.183  col 0.323
+  hikers= 20 interval= 300s  PDR_hiker 0.999  util 0.234  col 0.182
+  hikers= 20 interval= 120s  PDR_hiker 0.998  util 0.577  col 0.259
+  hikers= 20 interval=  60s  PDR_hiker 0.978  util 1.139  col 0.352
+  hikers= 20 interval=  30s  PDR_hiker 0.827  util 1.872  col 0.499
+  hikers= 40 interval= 300s  PDR_hiker 0.999  util 0.448  col 0.242
+  hikers= 40 interval= 120s  PDR_hiker 0.965  util 1.109  col 0.361
+  hikers= 40 interval=  60s  PDR_hiker 0.809  util 1.854  col 0.505
+  hikers= 40 interval=  30s  PDR_hiker 0.546  util 2.283  col 0.599
+hop-limit sweep @ {'extra_hikers': 20, 'beacon_interval_s': 60}:
+  hop_limit=1  PDR_hiker 0.983  util 0.958  col 0.336
+  hop_limit=2  PDR_hiker 0.975  util 1.101  col 0.352
+  hop_limit=3  PDR_hiker 0.978  util 1.139  col 0.352
+  hop_limit=5  PDR_hiker 0.976  util 1.131  col 0.350
+  hop_limit=7  PDR_hiker 0.976  util 1.131  col 0.350
+{
+  "beacons_per_hour": 2460.0,
+  "extra_hikers": 40,
+  "beacon_interval_s": 60,
+  "pdr_hiker": 0.809,
+  "channel_utilization": 1.85371
+}
+wrote /Users/ethandoherty/MANNET/resilient-emergency-manets/artifacts/sim/storm_sweep.csv, storm_sweep.png, storm_summary.json

@@ -1,0 +1,17 @@
+scripts/run_mega8_parallel.sh: line 25: PIDS: bad array subscript
+launched duty_adaptive pid 
+scripts/run_mega8_parallel.sh: line 25: PIDS: bad array subscript
+launched duty_sync pid 
+scripts/run_mega8_parallel.sh: line 25: PIDS: bad array subscript
+launched lb_energy_r pid 
+scripts/run_mega8_parallel.sh: line 25: PIDS: bad array subscript
+launched lb_energy pid 
+scripts/run_mega8_parallel.sh: line 25: PIDS: bad array subscript
+launched energy_aware pid 
+scripts/run_mega8_parallel.sh: line 25: PIDS: bad array subscript
+launched etx pid 
+scripts/run_mega8_parallel.sh: line 25: PIDS: bad array subscript
+launched min_hop pid 
+scripts/run_mega8_parallel.sh: line 25: PIDS: bad array subscript
+launched flood pid 
+MEGA8P-ALL-OK

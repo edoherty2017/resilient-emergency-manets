@@ -1,0 +1,44 @@
+Traceback (most recent call last):
+  File [35m"/Users/ethandoherty/MANET/resilient-emergency-manets/scripts/mesh_sim.py"[0m, line [35m726[0m, in [35mgen_hiker[0m
+    yield from self.csma_send(node, pkt)
+  File [35m"/Users/ethandoherty/MANET/resilient-emergency-manets/scripts/mesh_sim.py"[0m, line [35m514[0m, in [35mcsma_send[0m
+    yield from self.transmit(node, pkt)
+  File [35m"/Users/ethandoherty/MANET/resilient-emergency-manets/scripts/mesh_sim.py"[0m, line [35m384[0m, in [35mtransmit[0m
+    [31mself.deliver[0m[1;31m(tx)[0m
+    [31m~~~~~~~~~~~~[0m[1;31m^^^^[0m
+  File [35m"/Users/ethandoherty/MANET/resilient-emergency-manets/scripts/mesh_sim.py"[0m, line [35m422[0m, in [35mdeliver[0m
+    [31mself.emit[0m[1;31m(ev="rx", n=name, pkt=tx["pkt"]["id"], rssi=round(rssi, 1),[0m
+    [31m~~~~~~~~~[0m[1;31m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+              [1;31m**{"from": tx["sender"]})[0m
+              [1;31m^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  File [35m"/Users/ethandoherty/MANET/resilient-emergency-manets/scripts/mesh_sim.py"[0m, line [35m274[0m, in [35memit[0m
+    [31mself.trace_fh.write[0m[1;31m(json.dumps(kv) + "\n")[0m
+    [31m~~~~~~~~~~~~~~~~~~~[0m[1;31m^^^^^^^^^^^^^^^^^^^^^^^[0m
+[1;35mOSError[0m: [35m[Errno 5] Input/output error[0m
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File [35m"/Users/ethandoherty/MANET/resilient-emergency-manets/scripts/mesh_sim.py"[0m, line [35m1256[0m, in [35m<module>[0m
+    raise SystemExit([31mmain[0m[1;31m()[0m)
+                     [31m~~~~[0m[1;31m^^[0m
+  File [35m"/Users/ethandoherty/MANET/resilient-emergency-manets/scripts/mesh_sim.py"[0m, line [35m1223[0m, in [35mmain[0m
+    s = run_sim(mode=args.mode, days=args.days, seed=args.seed,
+                extra_hikers=args.extra_hikers,
+    ...<9 lines>...
+                kiosk_pool=args.kiosk_pool,
+                trace_path=ROOT / args.trace if args.trace else None)
+  File [35m"/Users/ethandoherty/MANET/resilient-emergency-manets/scripts/mesh_sim.py"[0m, line [35m1188[0m, in [35mrun_sim[0m
+    return [31msim.run[0m[1;31m()[0m
+           [31m~~~~~~~[0m[1;31m^^[0m
+  File [35m"/Users/ethandoherty/MANET/resilient-emergency-manets/scripts/mesh_sim.py"[0m, line [35m1035[0m, in [35mrun[0m
+    [31mself.env.run[0m[1;31m(until=self.days * 86400)[0m
+    [31m~~~~~~~~~~~~[0m[1;31m^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  File [35m"/Users/ethandoherty/MANET/resilient-emergency-manets/.venv/lib/python3.14/site-packages/simpy/core.py"[0m, line [35m254[0m, in [35mrun[0m
+    [31mself.step[0m[1;31m()[0m
+    [31m~~~~~~~~~[0m[1;31m^^[0m
+  File [35m"/Users/ethandoherty/MANET/resilient-emergency-manets/.venv/lib/python3.14/site-packages/simpy/core.py"[0m, line [35m212[0m, in [35mstep[0m
+    raise exc
+[1;35mOSError[0m: [35m[Errno 5] Input/output error[0m
+Exception ignored while finalizing file <_io.TextIOWrapper name='/Users/ethandoherty/MANET/resilient-emergency-manets/artifacts/sim/year_trace_flood.jsonl' mode='w' encoding='UTF-8'>:
+OSError: [Errno 5] Input/output error

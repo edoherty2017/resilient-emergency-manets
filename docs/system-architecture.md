@@ -97,7 +97,7 @@ real risks for a Pi + LoRa + Starlink stack carried in a pack.
   most one line.
 - **Beacon node hypothesis.** Static beacons can disable GPS after survey, but the
   board-level current reduction, 10 Ah runtime, and small-solar multi-day endurance
-  have not been bench established (see `docs/brenta-trial-plan.md`).
+  have not been bench established (see `WITHDRAWN-DO-NOT-CITE/docs/brenta-trial-plan.md`; Brenta itself is descoped).
 - **Thermal.** Cold conditions derate lithium capacity. The current 70%-of-rated-Wh
   factor is a planning assumption, not a tested cell/pack curve; verify the exact
   bank's discharge and charging limits at the intended temperatures.
@@ -124,4 +124,4 @@ real risks for a Pi + LoRa + Starlink stack carried in a pack.
   and an 868 MHz antenna still does not establish authorization: verify the exact
   device's EU declaration of conformity/RED scope, Italian implementation,
   frequency, ERP, aggregate airtime (including retries/relays), and permissions.
-  See `docs/brenta-trial-plan.md`.
+  See `WITHDRAWN-DO-NOT-CITE/docs/brenta-trial-plan.md` (Brenta descoped; retained for hardware notes only).

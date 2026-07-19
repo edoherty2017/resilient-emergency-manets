@@ -119,9 +119,10 @@ harder fully in-network.
 | winter SOS availability | worst | poor | poor | better | **best** |
 
 If lb_energy does NOT win the fairness metrics, the penalty design is wrong —
-that is a falsifiable claim, not a hope. All numbers land in
-`artifacts/sim/algo_year/` with `build_algo_comparison.py` producing the
-table and SOC-dispersion figure.
+that is a falsifiable claim, not a hope. Historical outputs are withdrawn
+(quarantined at `../WITHDRAWN-DO-NOT-CITE/artifacts/sim/archive_preaudit_2026-07/algo_year/`);
+fresh corrected-engine runs will repopulate `artifacts/sim/algo_year/`, with
+`build_algo_comparison.py` producing the table and SOC-dispersion figure.
 
 ## Traffic model (v2 — realistic message classes)
 

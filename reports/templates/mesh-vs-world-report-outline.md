@@ -31,7 +31,7 @@ lists its evidence source so the report is assembled from artifacts, not memory.
 - Trial 2 (prospective pack; freeze required): controlled beacon, PDR, hop filtering. Source: report §
   "Plans Going Forward".
 - Brenta extension (reduced-canopy, cross-site transfer test; residual confounds). Source:
-  `docs/brenta-trial-plan.md`, `artifacts/itm/brenta_*`.
+  `WITHDRAWN-DO-NOT-CITE/docs/brenta-trial-plan.md` (DESCOPED), `artifacts/itm/brenta_*`.
 
 ## 5. Predictive Model Setup
 - DEM ingestion (real 3DEP / Copernicus). Source: `scripts/dem_3dep.py`,

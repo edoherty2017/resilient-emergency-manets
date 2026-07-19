@@ -1,0 +1,62 @@
+{
+  "generated_at_utc": "2026-07-07T18:14:21.259852+00:00",
+  "table": [
+    {
+      "mode": "min_hop",
+      "days": 365.0,
+      "pdr": 0.8834,
+      "sos": "191/197",
+      "sos_rate": 0.9695,
+      "channel_util": 0.03753,
+      "tx_total": 1960945,
+      "tx_energy_wh": 215.28,
+      "relay_gini": 0.4554,
+      "final_soc_std": 0.4221,
+      "final_soc_min": 0.0466,
+      "solar_deaths": 28631
+    },
+    {
+      "mode": "etx",
+      "days": 365.0,
+      "pdr": 0.8874,
+      "sos": "193/196",
+      "sos_rate": 0.9847,
+      "channel_util": 0.03768,
+      "tx_total": 1968945,
+      "tx_energy_wh": 216.16,
+      "relay_gini": 0.4547,
+      "final_soc_std": 0.4221,
+      "final_soc_min": 0.0466,
+      "solar_deaths": 28632
+    },
+    {
+      "mode": "energy_aware",
+      "days": 365.0,
+      "pdr": 0.8877,
+      "sos": "170/177",
+      "sos_rate": 0.9605,
+      "channel_util": 0.03786,
+      "tx_total": 1979265,
+      "tx_energy_wh": 217.2,
+      "relay_gini": 0.4627,
+      "final_soc_std": 0.4221,
+      "final_soc_min": 0.0466,
+      "solar_deaths": 28632
+    },
+    {
+      "mode": "lb_energy",
+      "days": 365.0,
+      "pdr": 0.8872,
+      "sos": "164/167",
+      "sos_rate": 0.982,
+      "channel_util": 0.03787,
+      "tx_total": 1979501,
+      "tx_energy_wh": 217.24,
+      "relay_gini": 0.46,
+      "final_soc_std": 0.4221,
+      "final_soc_min": 0.0466,
+      "solar_deaths": 28632
+    }
+  ],
+  "expectations_doc": "docs/routing-algorithms.md"
+}

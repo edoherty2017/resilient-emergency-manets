@@ -13,7 +13,7 @@ feasibility, permission, or legal authorization.
 
 ## 1. Ground truth (highest scientific value per hour)
 
-- **Brenta opportunity** — execute `docs/brenta-trial-plan.md` only after the
+- **Brenta opportunity** — execute `WITHDRAWN-DO-NOT-CITE/docs/brenta-trial-plan.md` (since fully DESCOPED — Brenta is out of scope; retained note only) only after the
   exact radio-conformity, national-rule, land-permission, and safety gates close.
   The collection becomes calibration-grade only if its preregistered provenance,
   direct-link, receiver-health, and denominator gates pass; a trip by itself is

@@ -1,0 +1,1 @@
+PRE-AUDIT WITHDRAWN ARTIFACTS — do not cite. Superseded by artifacts/sim/corrected/release_v1/ (corrected engine, hash-locked, in-tolerance parity). Kept for audit traceability; safe to delete for disk space.

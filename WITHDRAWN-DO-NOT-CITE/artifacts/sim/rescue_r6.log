@@ -1,0 +1,70 @@
+pass 1: 8 stranded: ['stinson_summit', 'rattlesnake_rumney', 'rumney_cliff_top', 'iron_mtn', 'mt_cube', 'pillsbury_sp', 'kilburn_th', 'deer_mtn_pittsburg']
+    fine-DEM fetch failed for rescue_rumney_village_stinson_summit: ef1aed"
+  }
+}
+sanity: max elevation within ~30m of summit coords = 493.6 m (expect ~1916)
+WARNING: summit elevation check failed — inspect the export before use
+    fine-DEM fetch failed for rescue_rattlesnake_rumney_stinson_summit: c8fc23"
+  }
+}
+sanity: max elevation within ~30m of summit coords = 443.1 m (expect ~1916)
+WARNING: summit elevation check failed — inspect the export before use
+    fine-DEM fetch failed for rescue_rumney_cliff_top_stinson_summit: 875e67"
+  }
+}
+sanity: max elevation within ~30m of summit coords = 407.2 m (expect ~1916)
+WARNING: summit elevation check failed — inspect the export before use
+    fine-DEM fetch failed for rescue_rattlesnake_rumney_rumney_village: debe58"
+  }
+}
+sanity: max elevation within ~30m of summit coords = 281.1 m (expect ~1916)
+WARNING: summit elevation check failed — inspect the export before use
+  rattlesnake_rumney <-> stinson_summit 5.12 km fine-DEM q90  -160.9 dBm -> dead
+    fine-DEM fetch failed for rescue_rumney_cliff_top_rumney_village: 9f827d"
+  }
+}
+sanity: max elevation within ~30m of summit coords = 359.3 m (expect ~1916)
+WARNING: summit elevation check failed — inspect the export before use
+  rumney_cliff_top <-> stinson_summit 5.75 km fine-DEM q90  -158.9 dBm -> dead
+    fine-DEM fetch failed for rescue_iron_mtn_jackson_village: 00ef55"
+  }
+}
+sanity: max elevation within ~30m of summit coords = 608.3 m (expect ~1916)
+WARNING: summit elevation check failed — inspect the export before use
+    fine-DEM fetch failed for rescue_mt_cube_smarts_mtn: 8f20ac"
+  }
+}
+sanity: max elevation within ~30m of summit coords = 382.1 m (expect ~1916)
+WARNING: summit elevation check failed — inspect the export before use
+    fine-DEM fetch failed for rescue_mt_cube_smarts_ranger_ledge: e1b87e"
+  }
+}
+sanity: max elevation within ~30m of summit coords = 382.2 m (expect ~1916)
+WARNING: summit elevation check failed — inspect the export before use
+    fine-DEM fetch failed for rescue_pillsbury_sp_washington_town: b55367"
+  }
+}
+sanity: max elevation within ~30m of summit coords = 613.7 m (expect ~1916)
+WARNING: summit elevation check failed — inspect the export before use
+    fine-DEM fetch failed for rescue_lovewell_mtn_pillsbury_sp: e02b1c"
+  }
+}
+sanity: max elevation within ~30m of summit coords = 347.9 m (expect ~1916)
+WARNING: summit elevation check failed — inspect the export before use
+    fine-DEM fetch failed for rescue_kilburn_th_pisgah_ridge: f7e0d2"
+  }
+}
+sanity: max elevation within ~30m of summit coords = 256.5 m (expect ~1916)
+WARNING: summit elevation check failed — inspect the export before use
+    fine-DEM fetch failed for rescue_kilburn_th_pisgah_hq: 0762b2"
+  }
+}
+sanity: max elevation within ~30m of summit coords = 298.1 m (expect ~1916)
+WARNING: summit elevation check failed — inspect the export before use
+    fine-DEM fetch failed for rescue_deer_mtn_pittsburg_first_lake_dam: 06e482"
+  }
+}
+sanity: max elevation within ~30m of summit coords = 453.1 m (expect ~1916)
+WARNING: summit elevation check failed — inspect the export before use
+
+admitted 0 fine-DEM links; still stranded: ['stinson_summit', 'rattlesnake_rumney', 'rumney_cliff_top', 'iron_mtn', 'mt_cube', 'pillsbury_sp', 'kilburn_th', 'deer_mtn_pittsburg']

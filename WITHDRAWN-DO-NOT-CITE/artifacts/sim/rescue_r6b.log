@@ -1,0 +1,18 @@
+pass 1: 8 stranded: ['stinson_summit', 'rattlesnake_rumney', 'rumney_cliff_top', 'iron_mtn', 'mt_cube', 'pillsbury_sp', 'kilburn_th', 'deer_mtn_pittsburg']
+  stinson_summit <-> rumney_village 4.49 km fine-DEM q90  -157.3 dBm -> dead
+  stinson_summit <-> rattlesnake_rumney 5.12 km fine-DEM q90  -160.9 dBm -> dead
+  stinson_summit <-> rumney_cliff_top 5.75 km fine-DEM q90  -158.9 dBm -> dead
+  rattlesnake_rumney <-> rumney_village 4.40 km fine-DEM q90  -141.1 dBm -> dead
+  rattlesnake_rumney <-> stinson_summit 5.12 km fine-DEM q90  -160.9 dBm -> dead
+  rumney_cliff_top <-> rumney_village 6.96 km fine-DEM q90  -140.2 dBm -> dead
+  rumney_cliff_top <-> stinson_summit 5.75 km fine-DEM q90  -158.9 dBm -> dead
+  iron_mtn <-> jackson_village 6.19 km fine-DEM q90  -145.6 dBm -> dead
+  mt_cube <-> smarts_mtn 7.78 km fine-DEM q90  -163.3 dBm -> dead
+  mt_cube <-> smarts_ranger_ledge 8.69 km fine-DEM q90  -160.8 dBm -> dead
+  pillsbury_sp <-> washington_town 6.67 km fine-DEM q90  -148.0 dBm -> dead
+  pillsbury_sp <-> lovewell_mtn 8.88 km fine-DEM q90  -145.3 dBm -> dead
+  kilburn_th <-> pisgah_ridge 2.68 km fine-DEM q90  -133.9 dBm -> dead
+  kilburn_th <-> pisgah_hq 4.28 km fine-DEM q90  -132.7 dBm -> dead
+  deer_mtn_pittsburg <-> first_lake_dam 7.19 km fine-DEM q90  -145.5 dBm -> dead
+
+admitted 0 fine-DEM links; still stranded: ['stinson_summit', 'rattlesnake_rumney', 'rumney_cliff_top', 'iron_mtn', 'mt_cube', 'pillsbury_sp', 'kilburn_th', 'deer_mtn_pittsburg']

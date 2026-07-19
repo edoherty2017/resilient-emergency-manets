@@ -25,7 +25,7 @@ complete simulation phase built on top of the Trial 1 field pipeline.
    **Regional channels rejected** (cost SOS for ~3 pt utilization).
 
 ## Where things are
-- `docs/experiment-results-2026-07.md` — the 7-experiment suite + engine
+- `WITHDRAWN-DO-NOT-CITE/docs/experiment-results-2026-07.md` (quarantined 2026-07-17) — the 7-experiment suite + engine
   cross-validation (start here)
 - `docs/trial2-preregistration.md` + `docs/trial2-runbook.md` — the field
   test this simulation must survive
@@ -43,7 +43,7 @@ complete simulation phase built on top of the Trial 1 field pipeline.
   the 52 edges from simulation too; the builder requires an explicit opt-in to
   restore them. Trail estimates are q50 model outputs, not field coverage or q90
   reliability.
-- `artifacts/sim/sweep*/`, `artifacts/sim/experiments/` — all run outputs
+- `WITHDRAWN-DO-NOT-CITE/artifacts/sim/{sweep_hw,sweep_mixed}/`, `WITHDRAWN-DO-NOT-CITE/artifacts/sim/archive_preaudit_2026-07/experiments/` — all run outputs (quarantined 2026-07-17)
 - Viewers (large HTML, regenerable): THE_YEAR_LITE.html (flood vs lb_energy
   vs duty_sync, one year, algorithm switcher)
 

@@ -375,7 +375,7 @@ firmware testing, ns-3-level protocol studies, or field evidence.
 ### 4.2 Historical cross-engine results—retained but withdrawn
 
 The old nine-pair comparison used the retained
-[Rust xval artifacts](../artifacts/sim/xval/) and
+[Rust xval artifacts](../WITHDRAWN-DO-NOT-CITE/artifacts/sim/xval/) and
 [Python kiosk summaries](../artifacts/sim/). Its mode set predated
 selective_duty and included lb_energy_r. The following maxima were recomputed
 from those files; they describe old engine agreement only:

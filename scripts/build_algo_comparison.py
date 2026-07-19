@@ -61,6 +61,7 @@ def main() -> int:
 
     import pandas as pd
     df = pd.DataFrame(rows)
+    d.mkdir(parents=True, exist_ok=True)
     df.to_csv(d / "algo_comparison.csv", index=False)
     print(df.to_string(index=False))
 

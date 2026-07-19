@@ -1,0 +1,5 @@
+pass 1: 1 stranded: ['moose_mtn_at']
+  moose_mtn_at <-> dartmouth_skiway 7.45 km fine-DEM q90  -166.7 dBm -> dead
+  moose_mtn_at <-> lyme_dorchester_th 8.97 km fine-DEM q90  -154.9 dBm -> dead
+
+admitted 0 fine-DEM links; still stranded: ['moose_mtn_at']

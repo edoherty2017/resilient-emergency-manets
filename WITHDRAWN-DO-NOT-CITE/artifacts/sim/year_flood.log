@@ -1,0 +1,42 @@
+Traceback (most recent call last):
+  File "/Users/ethandoherty/MANET/resilient-emergency-manets/scripts/mesh_sim.py", line 747, in gen_hiker_family
+    self.rental_stats["served"] += 1
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ethandoherty/MANET/resilient-emergency-manets/scripts/mesh_sim.py", line 484, in csma_send
+    slots = 2 + snr_norm * 6
+  File "/Users/ethandoherty/MANET/resilient-emergency-manets/scripts/mesh_sim.py", line 354, in transmit
+    if name == sender.name or not node.alive or node.docked:
+    ^^^^^^^^^^^^
+  File "/Users/ethandoherty/MANET/resilient-emergency-manets/scripts/mesh_sim.py", line 392, in deliver
+    lh["ok"] += int(got_it)
+            ^^^^^^^^^^^^^^^
+    lh["margin_sum"] += rssi - self.radio["rx_sensitivity_dbm"]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ethandoherty/MANET/resilient-emergency-manets/scripts/mesh_sim.py", line 244, in emit
+    # static fixed-site adjacency (margin dB) for the routed modes
+OSError: [Errno 28] No space left on device
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/ethandoherty/MANET/resilient-emergency-manets/scripts/mesh_sim.py", line 1135, in <module>
+    if i["first_latency"] is not None],
+    
+  File "/Users/ethandoherty/MANET/resilient-emergency-manets/scripts/mesh_sim.py", line 1103, in main
+        "soc_series_6h": self.fleet_soc_series,
+    ...<10 lines>...
+                    "mean_checkout_soc": (round(float(np.mean(
+  File "/Users/ethandoherty/MANET/resilient-emergency-manets/scripts/mesh_sim.py", line 1071, in run_sim
+    for n, nd in self.nodes.items()}
+    
+  File "/Users/ethandoherty/MANET/resilient-emergency-manets/scripts/mesh_sim.py", line 928, in run
+    self.route_tree_t = -1e9      # force tree rebuild
+    ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ethandoherty/MANET/resilient-emergency-manets/.venv/lib/python3.14/site-packages/simpy/core.py", line 254, in run
+    self.step()
+    ~~~~~~~~~^^
+  File "/Users/ethandoherty/MANET/resilient-emergency-manets/.venv/lib/python3.14/site-packages/simpy/core.py", line 212, in step
+    raise exc
+OSError: [Errno 28] No space left on device
+Exception ignored while finalizing file <_io.TextIOWrapper name='/Users/ethandoherty/MANET/resilient-emergency-manets/artifacts/sim/year_trace_flood.jsonl' mode='w' encoding='UTF-8'>:
+OSError: [Errno 28] No space left on device

@@ -1,5 +1,16 @@
 # Simulation artifact contract
 
+**Quarantine note (2026-07-17):** the withdrawn pre-audit result sets that
+previously lived here (archive_preaudit_2026-07/, attic/, xval/, sweep_hw/,
+sweep_mixed/, statewide_sizing/, pre-fix summaries/sizing/storm outputs,
+pre-provenance weather_20xx.json inputs, withdrawn traces, and run
+transcripts) have been moved to `../../WITHDRAWN-DO-NOT-CITE/artifacts/sim/`
+— see its README for the item-by-item manifest. Two withdrawn files remain
+here because they are the literal default inputs of `render_sim_viewer.py`:
+`summary.json` and `trace.jsonl` (pre-fix outputs — do not cite their
+numbers). Inside `corrected/`, only `release_v1/` and the dated 2026-07-17
+evidence files are current; see `corrected/README-STALE-WARNING.md`.
+
 The topology, route, and weather files in this directory are compact simulation
 inputs required for clean-clone tests and reproduction. Large traces, caches,
 viewers, and exploratory outputs remain ignored.

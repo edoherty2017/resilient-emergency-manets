@@ -1,0 +1,60 @@
+sites 197  components 39  stranded 8  routes-under-threshold 0
+  [OK  ]  86 sites  gw=13  ammo_relay, appalachia_th, baldface_s, berlin_gateway, bondcliff…
+  [OK  ]  20 sites  gw=4  champney_th, chocorua_summit, dickey_ledges, ferncroft_th, flat_mtn_pond…
+  [OK  ]  10 sites  gw=1  cabot_summit, kilkenny_lookout, nash_stream_th, percy_peaks, stark_village…
+  [OK  ]   8 sites  gw=1  bald_knob_ossipee, black_snout, castle_clouds, faraway_ledge, mt_roberts…
+  [OK  ]   6 sites  gw=1  blue_ridge_ledge, glencliff_th, kinsman_notch, moosilauke_s_peak, moosilauke_summit…
+  [OK  ]   6 sites  gw=1  dartmouth_skiway, holts_ledge, lambert_ridge, lyme_dorchester_th, smarts_mtn…
+  [OK  ]   5 sites  gw=1  black_cap, cranmore_ledge, cranmore_top, hurricane_col, kearsarge_north
+  [OK  ]   4 sites  gw=1  belknap_summit, gunstock_top, major_summit, piper_mtn_belknap
+  [OK  ]   4 sites  gw=1  morgan_percival, rattlesnake_west, red_hill_tower, rockywold_camps
+  [OK  ]   3 sites  gw=1  greeley_ponds, kanc_pass, lincoln_woods_th
+  [OK  ]   3 sites  gw=1  dublin_th, monadnock_hq, monadnock_summit
+  [OK  ]   3 sites  gw=1  miller_hq, pack_monadnock, temple_mtn_ledges
+  [OK  ]   2 sites  gw=1  cardigan_lodge, cardigan_summit
+  [OK  ]   2 sites  gw=1  ragged_mtn, ragged_ski_base
+  [OK  ]   2 sites  gw=1  kearsarge_summit, winslow_hq
+  [OK  ]   2 sites  gw=1  pawtuckaway_hq, pawtuckaway_tower
+  [OK  ]   2 sites  gw=1  pisgah_hq, pisgah_ridge
+  [OK  ]   2 sites  gw=1  balsams_gateway, table_rock
+  [OK  ]   2 sites  gw=2  first_lake_dam, second_lake_dam
+  [DEAD]   2 sites  gw=0  rattlesnake_rumney, rumney_cliff_top
+  [OK  ]   2 sites  gw=1  doublehead_n, jackson_village
+  [OK  ]   2 sites  gw=1  bear_brook_hq, bear_brook_tower
+  [OK  ]   2 sites  gw=1  crotched_base, crotched_summit
+  [OK  ]   2 sites  gw=1  lovewell_mtn, washington_town
+  [OK  ]   1 sites  gw=1  sunapee_summit
+  [OK  ]   1 sites  gw=1  uncanoonuc_s
+  [OK  ]   1 sites  gw=1  blue_job
+  [OK  ]   1 sites  gw=1  pittsburg_village
+  [OK  ]   1 sites  gw=1  magalloway_tower
+  [OK  ]   1 sites  gw=1  newbury_station
+  [OK  ]   1 sites  gw=1  rumney_village
+  [DEAD]   1 sites  gw=0  stinson_summit
+  [DEAD]   1 sites  gw=0  iron_mtn
+  [DEAD]   1 sites  gw=0  mt_cube
+  [OK  ]   1 sites  gw=1  green_mtn_effingham
+  [DEAD]   1 sites  gw=0  pillsbury_sp
+  [DEAD]   1 sites  gw=0  kilburn_th
+  [OK  ]   1 sites  gw=1  milan_hill
+  [DEAD]   1 sites  gw=0  deer_mtn_pittsburg
+trail coverage (worst first):
+  OK  belknap_range_walk          90.0%  [osm]
+  OK  ammo_jewell_loop           100.0%  [osm]
+  OK  tuckerman_loop             100.0%  [osm]
+  OK  crawford_traverse          100.0%  [osm]
+  OK  valley_way_madison         100.0%  [osm]
+  OK  carter_wildcat             100.0%  [osm]
+  OK  great_gulf_osgood          100.0%  [osm]
+  OK  franconia_ridge_loop       100.0%  [osm]
+  OK  lonesome_lake_family       100.0%  [chord]
+  OK  pemi_bonds_long            100.0%  [osm]
+  OK  moosilauke_gorge_brook     100.0%  [osm]
+  OK  osceola_greeley            100.0%  [chord]
+  OK  chocorua_piper             100.0%  [osm]
+  OK  carrigain_signal_ridge     100.0%  [chord]
+  OK  monadnock_white_dot        100.0%  [osm]
+  OK  cardigan_west_ridge        100.0%  [osm]
+  OK  kearsarge_winslow          100.0%  [osm]
+  OK  pack_monadnock_loop        100.0%  [osm]
+VERDICT: FAIL

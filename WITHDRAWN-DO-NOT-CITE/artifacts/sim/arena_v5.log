@@ -1,0 +1,5 @@
+  lb_energy: 10000 edges, 102017 log, PDR 0.8872
+  energy_aware: 10000 edges, 65629 log, PDR 0.8877
+  etx: 10000 edges, 65509 log, PDR 0.8874
+  min_hop: 10000 edges, 65426 log, PDR 0.8834
+compare viewer: /Users/ethandoherty/MANET/resilient-emergency-manets/artifacts/sim/ARENA_v5.html (30.3 MB, 4 algorithms)

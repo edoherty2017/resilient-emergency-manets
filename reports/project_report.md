@@ -28,6 +28,14 @@ does not establish transmitter position or RF-link ground truth.
 
 The primary deliverable for sharing. Open in any browser — no server required, fully standalone.
 
+> **Version note (2026-07-17):** the file currently on disk is the 2026-07-13
+> relabeled rebuild. It carries a "GARMIN TRACK ONLY — NO 2026-05-23 RECEIVER
+> RECORDS IN SOURCE" banner, the FSPL layer is renamed "SUPERSEDED — historical
+> FSPL coverage screen", and the "PROPOSED" framing and AIRMap residual-overlay
+> button described below were removed or renamed in that rebuild. The
+> description below documents the historical build for provenance; where they
+> differ, the on-disk relabeled build is the honest one.
+
 What it shows:
 - Full GPS route (08:06–18:40 EDT) color-coded by 5-min RSSI window
 - Gray segment: Ammo ascent before collector came online
@@ -121,24 +129,26 @@ under its own filters.
 
 ---
 
-### DEM / Terrain Features — ⚠ SYNTHETIC, pipeline-validation only
+### DEM / Terrain Features — real 3DEP since 2026-06-12; geology still placeholder
 **`artifacts/dem/`**
 
-**These artifacts are NOT derived from real elevation data.** `dem_transformer.py`
-currently generates a deterministic synthetic pseudo-DEM (see
-`feature_provenance_manifest.json`: `"source": "synthetic-dem-deterministic"`), and the
-generation window was polluted by far-field GPS coordinates from ambient mesh packets.
-The slope/terrain-class/geology features derived from it must not be cited as terrain
-analysis. Real USGS 3DEP ingestion is a pending work item (see
-`docs/academic-rigor-review-2026-06-12.md`, P2 item 11).
+**Status correction (2026-07-17):** the topography features here were regenerated on
+2026-06-12 from a real USGS 3DEP tile (`feature_provenance_manifest.json`:
+`"source": "usgs-3dep-imageserver"`, recipe `dem-topography-v3`, Mt Washington AOI,
+SHA-256 checksums binding `route_topography_features.*` and the cached tile
+`cache/dem_tile_08be8e0e868cbdcd.npz`). The earlier deterministic synthetic
+pseudo-DEM era is over for these files; any citation of DEM-derived features
+generated **before 2026-06-12** remains invalid (that generation window was also
+polluted by far-field GPS coordinates). The leftover synthetic tile has been
+quarantined to `WITHDRAWN-DO-NOT-CITE/artifacts/dem-cache/dem_tile_bde46df9d7ebdabd.npz`.
 
 | File | Contents |
 |---|---|
-| `route_topography_features.parquet/.csv` | SYNTHETIC elevation/slope/terrain class per GPS point |
-| `geology_loss_features.parquet/.csv` | Material attenuation priors — uncited engineering placeholders, not used by the prediction model |
+| `route_topography_features.parquet/.csv` | Elevation/slope/terrain class per GPS point from real 3DEP (2026-06-12 regeneration, checksum-bound) |
+| `geology_loss_features.parquet/.csv` | Material attenuation priors — **still uncited engineering placeholders**, not used by the prediction model |
 | `geology_loss_summary.json` | Summary of the placeholder loss factors |
-| `feature_provenance_manifest.json` | Provenance (correctly labels the synthetic source) |
-| `cache/dem_tile_bde46df9d7ebdabd.npz` | Cached synthetic pseudo-DEM tile (not USGS data) |
+| `feature_provenance_manifest.json` | Provenance (declares the 3DEP source and binds checksums) |
+| `cache/usgs_3dep_*.npz` | Real USGS 3DEP tiles (Mt Washington, Presidentials-wide, NH statewide) with fetch manifests |
 
 Topography classes used throughout the pipeline: alpine_ridge (≥1500m), sub_alpine (1200–1500m), valley_forest (<1200m) — assigned from observed GPS elevation, not from the DEM.
 

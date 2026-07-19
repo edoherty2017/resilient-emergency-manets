@@ -5,7 +5,7 @@
 cd "$(dirname "$0")/.." || exit 1
 SIM="artifacts/sim"
 ARCHIVE="$SIM/archive/pre_mega8_parallel_$(date -u '+%Y%m%dT%H%M%SZ')"
-mkdir -p "$ARCHIVE"
+mkdir -p "$ARCHIVE" "$SIM/algo_year"
 # Preserve prior outputs outside the active filenames. A failed arm then has
 # no stale summary that can be silently included in the new comparison.
 for OLD in "$SIM"/kiosk_summary_*.json "$SIM"/kiosk_trace_*.jsonl \

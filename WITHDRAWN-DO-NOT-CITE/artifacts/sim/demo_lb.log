@@ -1,0 +1,503 @@
+{
+  "mode": "lb_energy",
+  "days": 7.0,
+  "hop_limit": 3,
+  "n_renters": 50,
+  "fleet_energy": {
+    "final_soc_std": 0.39,
+    "final_soc_min": 0.0,
+    "deaths_total": 89,
+    "relay_energy_gini": 0.2979,
+    "soc_series_6h": [
+      [
+        0.25,
+        0.952,
+        0.952,
+        0.952,
+        0.0001
+      ],
+      [
+        0.5,
+        0.904,
+        0.905,
+        0.91,
+        0.0021
+      ],
+      [
+        0.75,
+        0.888,
+        0.889,
+        1.0,
+        0.0502
+      ],
+      [
+        1.0,
+        0.852,
+        0.855,
+        0.981,
+        0.0566
+      ],
+      [
+        1.25,
+        0.803,
+        0.807,
+        0.933,
+        0.0566
+      ],
+      [
+        1.5,
+        0.756,
+        0.759,
+        0.888,
+        0.058
+      ],
+      [
+        1.75,
+        0.735,
+        0.739,
+        1.0,
+        0.118
+      ],
+      [
+        2.0,
+        0.696,
+        0.702,
+        0.98,
+        0.1255
+      ],
+      [
+        2.25,
+        0.648,
+        0.654,
+        0.932,
+        0.1255
+      ],
+      [
+        2.5,
+        0.602,
+        0.607,
+        0.892,
+        0.1282
+      ],
+      [
+        2.75,
+        0.602,
+        0.609,
+        1.0,
+        0.1775
+      ],
+      [
+        3.0,
+        0.57,
+        0.582,
+        0.981,
+        0.1805
+      ],
+      [
+        3.25,
+        0.522,
+        0.534,
+        0.933,
+        0.1805
+      ],
+      [
+        3.5,
+        0.475,
+        0.487,
+        0.892,
+        0.183
+      ],
+      [
+        3.75,
+        0.475,
+        0.488,
+        1.0,
+        0.2329
+      ],
+      [
+        4.0,
+        0.443,
+        0.461,
+        0.981,
+        0.236
+      ],
+      [
+        4.25,
+        0.395,
+        0.413,
+        0.933,
+        0.236
+      ],
+      [
+        4.5,
+        0.348,
+        0.366,
+        0.891,
+        0.2384
+      ],
+      [
+        4.75,
+        0.347,
+        0.366,
+        1.0,
+        0.2885
+      ],
+      [
+        5.0,
+        0.315,
+        0.339,
+        0.981,
+        0.2916
+      ],
+      [
+        5.25,
+        0.267,
+        0.291,
+        0.933,
+        0.2916
+      ],
+      [
+        5.5,
+        0.219,
+        0.243,
+        0.885,
+        0.2918
+      ],
+      [
+        5.75,
+        0.175,
+        0.2,
+        0.869,
+        0.304
+      ],
+      [
+        6.0,
+        0.129,
+        0.154,
+        0.834,
+        0.3088
+      ],
+      [
+        6.25,
+        0.081,
+        0.106,
+        0.785,
+        0.3087
+      ],
+      [
+        6.5,
+        0.033,
+        0.058,
+        0.739,
+        0.3098
+      ],
+      [
+        6.75,
+        0.017,
+        0.036,
+        0.861,
+        0.3712
+      ]
+    ]
+  },
+  "beacon_interval_s": 300,
+  "n_nodes": 267,
+  "daily_kt": [],
+  "channel_utilization": 0.19299,
+  "start_date": "2025-10-15",
+  "weather_driven": true,
+  "packets_originated": 128042,
+  "pdr_overall": 0.9093,
+  "sos": {
+    "sent": 4,
+    "delivered": 4,
+    "latencies_s": [
+      1.81,
+      0.75,
+      1.83,
+      0.73
+    ]
+  }
+}
+struggling links (308 of 610 active):
+        jackson_summit <-> lion_head            PRR 0.05  margin  -13.7 dB  (2221 tries)
+         great_gulf_th <-> pinkham_notch_vc     PRR 0.05  margin  -12.7 dB  (990 tries)
+        grayknob_cabin <-> pulpit_rock          PRR 0.05  margin  -13.5 dB  (2673 tries)
+             crag_camp <-> madison_hut          PRR 0.05  margin  -13.7 dB  (3627 tries)
+            dolly_copp <-> gorham_info          PRR 0.05  margin  -13.2 dB  (850 tries)
+       garfield_summit <-> hancock_th           PRR 0.05  margin  -13.2 dB  (4061 tries)
+       chocorua_summit <-> whiteface_summit     PRR 0.06  margin  -13.5 dB  (2492 tries)
+             lion_head <-> madison_hut          PRR 0.06  margin  -12.9 dB  (3913 tries)
+             kinsman_n <-> lafayette_place      PRR 0.06  margin  -12.2 dB  (759 tries)
+            glen_ellis <-> madison_hut          PRR 0.06  margin  -12.7 dB  (3362 tries)
+     waterville_valley <-> whiteface_summit     PRR 0.06  margin  -12.0 dB  (1877 tries)
+            baldface_s <-> mt_hight             PRR 0.06  margin  -12.3 dB  (1553 tries)
+per-node:
+  summit_shermanadams    tx   188  rx  28680  col 2443  dup-  150  E_tx   0.025 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  gateway_marshfield     tx   162  rx  10334  col  267  dup-  105  E_tx   0.021 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  pinkham_notch_vc       tx   143  rx   8628  col   99  dup-  104  E_tx   0.019 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  highland_center        tx   178  rx   3715  col   50  dup-   70  E_tx   0.023 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  lakes_hut              tx   868  rx   9966  col  347  dup-  109  E_tx   0.093 Wh  solar   71.58 Wh  SOC 88.4%  deaths 0  [solar]
+  madison_hut            tx  2617  rx   6594  col  105  dup-   65  E_tx   0.273 Wh  solar   65.32 Wh  SOC 85.6%  deaths 0  [solar]
+  mizpah_hut             tx   844  rx   6767  col  157  dup-  124  E_tx   0.091 Wh  solar   72.51 Wh  SOC 88.7%  deaths 0  [solar]
+  carter_notch_hut       tx   769  rx   3241  col   62  dup-    6  E_tx   0.082 Wh  solar    9.64 Wh  SOC  0.7%  deaths 1  [solar]
+  grayknob_cabin         tx   854  rx   7791  col  160  dup-  104  E_tx   0.092 Wh  solar   69.54 Wh  SOC 87.2%  deaths 0  [solar]
+  hermit_lake            tx   845  rx   8012  col   80  dup-   96  E_tx   0.091 Wh  solar   63.08 Wh  SOC 85.1%  deaths 0  [solar]
+  crag_camp              tx  1088  rx  10258  col  379  dup-  132  E_tx   0.116 Wh  solar   71.98 Wh  SOC 88.4%  deaths 0  [solar]
+  dolly_copp             tx   844  rx   6193  col  138  dup-   83  E_tx   0.090 Wh  solar    9.97 Wh  SOC  0.1%  deaths 1  [solar]
+  ammo_relay             tx   854  rx   6207  col  138  dup-   70  E_tx   0.092 Wh  solar   61.35 Wh  SOC 85.6%  deaths 0  [solar]
+  jewell_relay           tx  1155  rx  11158  col  473  dup-  111  E_tx   0.123 Wh  solar   66.49 Wh  SOC 87.0%  deaths 0  [solar]
+  clay_relay             tx  1685  rx  10808  col  542  dup-  105  E_tx   0.177 Wh  solar   66.79 Wh  SOC 87.0%  deaths 0  [solar]
+  monroe_flank           tx   914  rx  17101  col 1084  dup-   97  E_tx   0.100 Wh  solar   72.43 Wh  SOC 88.6%  deaths 0  [solar]
+  lion_head              tx  1372  rx  13119  col  636  dup-  118  E_tx   0.145 Wh  solar   70.99 Wh  SOC 87.7%  deaths 0  [solar]
+  boott_spur             tx  1191  rx  10913  col  311  dup-  120  E_tx   0.126 Wh  solar   49.95 Wh  SOC 81.3%  deaths 0  [solar]
+  jefferson_lawn         tx  1135  rx  15586  col  975  dup-  152  E_tx   0.121 Wh  solar   72.35 Wh  SOC 88.6%  deaths 0  [solar]
+  thunderstorm_jct       tx  1188  rx  15427  col  797  dup-  149  E_tx   0.126 Wh  solar   72.32 Wh  SOC 88.5%  deaths 0  [solar]
+  eisenhower_relay       tx   878  rx  13651  col  814  dup-  127  E_tx   0.095 Wh  solar   72.47 Wh  SOC 88.6%  deaths 0  [solar]
+  pierce_relay           tx  1024  rx   7967  col  459  dup-   85  E_tx   0.111 Wh  solar   10.30 Wh  SOC  0.0%  deaths 1  [solar]
+  wildcat_d              tx   959  rx  15180  col  823  dup-  137  E_tx   0.102 Wh  solar   10.39 Wh  SOC  0.0%  deaths 1  [solar]
+  nelson_crag            tx  1085  rx  19996  col 1149  dup-  119  E_tx   0.116 Wh  solar   67.79 Wh  SOC 86.7%  deaths 0  [solar]
+  appalachia_th          tx   912  rx   3989  col    8  dup-   10  E_tx   0.096 Wh  solar   10.83 Wh  SOC  0.0%  deaths 1  [solar]
+  caps_ridge_th          tx   836  rx  11210  col  464  dup-  136  E_tx   0.090 Wh  solar   10.42 Wh  SOC  0.0%  deaths 1  [solar]
+  glen_ellis             tx   879  rx   7115  col  192  dup-   65  E_tx   0.095 Wh  solar    9.91 Wh  SOC  0.2%  deaths 1  [solar]
+  great_gulf_th          tx   909  rx   7777  col  171  dup-   66  E_tx   0.098 Wh  solar   10.71 Wh  SOC  0.0%  deaths 1  [solar]
+  glen_house             tx   933  rx  12243  col  536  dup-  136  E_tx   0.099 Wh  solar   10.07 Wh  SOC  0.1%  deaths 1  [solar]
+  jackson_summit         tx   889  rx  10322  col  571  dup-  141  E_tx   0.097 Wh  solar   72.53 Wh  SOC 88.7%  deaths 0  [solar]
+  webster_cliff          tx   846  rx   6134  col  239  dup-  119  E_tx   0.091 Wh  solar   10.43 Wh  SOC  0.0%  deaths 1  [solar]
+  cog_skyline            tx   847  rx   9927  col  319  dup-   99  E_tx   0.091 Wh  solar   69.44 Wh  SOC 87.8%  deaths 0  [solar]
+  wildcat_a              tx   918  rx  13765  col  697  dup-  130  E_tx   0.098 Wh  solar    9.63 Wh  SOC  1.6%  deaths 1  [solar]
+  madison_summit         tx  1124  rx  13783  col  606  dup-  145  E_tx   0.119 Wh  solar   72.30 Wh  SOC 88.5%  deaths 0  [solar]
+  durand_ridge           tx   906  rx   4743  col   41  dup-   38  E_tx   0.096 Wh  solar   10.75 Wh  SOC  0.0%  deaths 1  [solar]
+  cannon_tram_top        tx    67  rx  11409  col  272  dup-   54  E_tx   0.009 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  lafayette_place        tx    78  rx   5452  col   37  dup-   18  E_tx   0.010 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  flume_vc               tx    68  rx   5645  col   31  dup-   42  E_tx   0.009 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  greenleaf_hut          tx   739  rx   6531  col   51  dup-   41  E_tx   0.077 Wh  solar   71.46 Wh  SOC 88.4%  deaths 0  [solar]
+  lonesome_lake_hut      tx   736  rx   6957  col   96  dup-   44  E_tx   0.077 Wh  solar   10.72 Wh  SOC  0.0%  deaths 1  [solar]
+  lafayette_summit       tx  3246  rx  10063  col  350  dup-   37  E_tx   0.334 Wh  solar   72.61 Wh  SOC 88.5%  deaths 0  [solar]
+  little_haystack        tx   736  rx   4734  col   97  dup-   23  E_tx   0.076 Wh  solar   65.07 Wh  SOC 86.9%  deaths 0  [solar]
+  liberty_summit         tx   736  rx   4916  col  129  dup-   24  E_tx   0.077 Wh  solar   67.02 Wh  SOC 87.3%  deaths 0  [solar]
+  kinsman_n              tx   743  rx   5652  col   19  dup-   32  E_tx   0.078 Wh  solar   70.82 Wh  SOC 88.2%  deaths 0  [solar]
+  kinsman_pond           tx   733  rx   6780  col   54  dup-   40  E_tx   0.077 Wh  solar   10.44 Wh  SOC  0.0%  deaths 1  [solar]
+  lincoln_woods_th       tx    61  rx   2678  col   10  dup-    7  E_tx   0.008 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  garfield_summit        tx  3109  rx   5475  col   70  dup-   24  E_tx   0.321 Wh  solar   72.57 Wh  SOC 88.5%  deaths 0  [solar]
+  galehead_hut           tx  1845  rx   5398  col   47  dup-   14  E_tx   0.192 Wh  solar   69.85 Wh  SOC 87.7%  deaths 0  [solar]
+  south_twin             tx  1186  rx   5357  col   77  dup-   15  E_tx   0.125 Wh  solar   71.91 Wh  SOC 88.2%  deaths 0  [solar]
+  guyot_summit           tx   980  rx   8211  col   46  dup-   39  E_tx   0.103 Wh  solar   67.91 Wh  SOC 86.8%  deaths 0  [solar]
+  bondcliff              tx  1269  rx   8099  col   71  dup-   33  E_tx   0.132 Wh  solar   55.56 Wh  SOC 84.0%  deaths 0  [solar]
+  zealand_hut            tx  1380  rx   9293  col   83  dup-   26  E_tx   0.145 Wh  solar   10.34 Wh  SOC  0.0%  deaths 1  [solar]
+  zeacliff               tx   872  rx   8050  col   48  dup-   30  E_tx   0.092 Wh  solar    8.94 Wh  SOC  3.1%  deaths 1  [solar]
+  hancock_th             tx  1038  rx   5889  col   39  dup-   20  E_tx   0.109 Wh  solar   10.02 Wh  SOC  0.3%  deaths 1  [solar]
+  carrigain_summit       tx  5845  rx   6731  col  208  dup-   48  E_tx   0.601 Wh  solar   72.56 Wh  SOC 88.2%  deaths 0  [solar]
+  willey_summit          tx   933  rx   9189  col   70  dup-   20  E_tx   0.099 Wh  solar   10.81 Wh  SOC  0.0%  deaths 1  [solar]
+  sawyer_river_th        tx   846  rx   2827  col   12  dup-    6  E_tx   0.088 Wh  solar   10.82 Wh  SOC  0.0%  deaths 1  [solar]
+  waterville_valley      tx    37  rx   4036  col   17  dup-   20  E_tx   0.005 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  kanc_pass              tx   732  rx   2020  col    6  dup-    7  E_tx   0.076 Wh  solar   10.71 Wh  SOC  0.0%  deaths 1  [solar]
+  osceola_summit         tx   711  rx   4373  col   40  dup-   18  E_tx   0.074 Wh  solar   10.72 Wh  SOC  0.0%  deaths 1  [solar]
+  greeley_ponds          tx  1262  rx   3622  col   22  dup-    5  E_tx   0.131 Wh  solar    9.29 Wh  SOC  2.6%  deaths 1  [solar]
+  tripyramid_n           tx  1012  rx   1996  col    4  dup-   11  E_tx   0.105 Wh  solar    9.22 Wh  SOC  3.1%  deaths 1  [solar]
+  sandwich_dome          tx   685  rx   2303  col    5  dup-    4  E_tx   0.070 Wh  solar   10.90 Wh  SOC  0.1%  deaths 0  [solar]
+  whiteface_summit       tx  1846  rx   3081  col   24  dup-   11  E_tx   0.189 Wh  solar   68.99 Wh  SOC 87.7%  deaths 0  [solar]
+  passaconaway           tx  2921  rx   7445  col  126  dup-    3  E_tx   0.298 Wh  solar   73.00 Wh  SOC 88.7%  deaths 0  [solar]
+  ferncroft_th           tx  2742  rx   3505  col    7  dup-    1  E_tx   0.280 Wh  solar   10.75 Wh  SOC  0.0%  deaths 1  [solar]
+  welch_dickey_th        tx   684  rx    878  col    0  dup-    1  E_tx   0.070 Wh  solar   10.76 Wh  SOC  0.0%  deaths 1  [solar]
+  chocorua_summit        tx   672  rx   3225  col   10  dup-    0  E_tx   0.069 Wh  solar   10.37 Wh  SOC  0.0%  deaths 1  [solar]
+  piper_th               tx  1328  rx   3755  col   15  dup-    1  E_tx   0.135 Wh  solar   10.24 Wh  SOC  0.0%  deaths 1  [solar]
+  ravine_lodge           tx    13  rx   3310  col    3  dup-    7  E_tx   0.002 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  moosilauke_summit      tx   687  rx   4665  col   14  dup-    7  E_tx   0.070 Wh  solar   72.86 Wh  SOC 88.9%  deaths 0  [solar]
+  kinsman_notch          tx   667  rx    702  col    0  dup-    0  E_tx   0.068 Wh  solar   10.03 Wh  SOC  0.0%  deaths 1  [solar]
+  glencliff_th           tx   684  rx   3240  col    5  dup-    3  E_tx   0.070 Wh  solar   10.72 Wh  SOC  0.0%  deaths 1  [solar]
+  gorham_info            tx    26  rx    689  col    4  dup-    0  E_tx   0.003 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  carter_dome            tx  2715  rx  12287  col  983  dup-   86  E_tx   0.283 Wh  solar   72.39 Wh  SOC 88.3%  deaths 0  [solar]
+  imp_shelter            tx  1034  rx   4886  col  104  dup-   37  E_tx   0.109 Wh  solar   69.40 Wh  SOC 87.1%  deaths 0  [solar]
+  moriah_summit          tx  1326  rx   1412  col    4  dup-    4  E_tx   0.137 Wh  solar   64.55 Wh  SOC 85.5%  deaths 0  [solar]
+  baldface_s             tx   802  rx   3690  col   22  dup-   12  E_tx   0.086 Wh  solar   10.41 Wh  SOC  0.0%  deaths 1  [solar]
+  mt_hayes               tx   686  rx   1409  col    0  dup-    0  E_tx   0.070 Wh  solar   10.76 Wh  SOC  0.0%  deaths 1  [solar]
+  gentian_pond           tx   691  rx   2200  col    4  dup-    2  E_tx   0.071 Wh  solar   10.61 Wh  SOC  0.0%  deaths 1  [solar]
+  success_summit         tx   745  rx   1244  col    5  dup-    0  E_tx   0.076 Wh  solar   10.81 Wh  SOC  0.0%  deaths 1  [solar]
+  berlin_gateway         tx     0  rx    566  col    0  dup-    0  E_tx   0.000 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  cabot_summit           tx   673  rx   1970  col    0  dup-    0  E_tx   0.068 Wh  solar   71.55 Wh  SOC 88.3%  deaths 0  [solar]
+  unknown_pond           tx   671  rx   5586  col    4  dup-    0  E_tx   0.068 Wh  solar   10.72 Wh  SOC  0.0%  deaths 1  [solar]
+  percy_peaks            tx   661  rx   3386  col    4  dup-    0  E_tx   0.067 Wh  solar   10.14 Wh  SOC  0.0%  deaths 1  [solar]
+  nash_stream_th         tx   629  rx   1293  col    0  dup-    0  E_tx   0.064 Wh  solar    9.07 Wh  SOC  3.0%  deaths 1  [solar]
+  waumbek_summit         tx   709  rx   1183  col    1  dup-    0  E_tx   0.073 Wh  solar   10.43 Wh  SOC  0.0%  deaths 1  [solar]
+  cherry_mtn             tx  1361  rx   3784  col   15  dup-   18  E_tx   0.143 Wh  solar   10.61 Wh  SOC  0.0%  deaths 1  [solar]
+  cardigan_lodge         tx     3  rx   1052  col    0  dup-    1  E_tx   0.000 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  cardigan_summit        tx   676  rx    379  col    0  dup-    0  E_tx   0.069 Wh  solar   11.04 Wh  SOC  0.5%  deaths 0  [solar]
+  sunapee_summit         tx     0  rx      0  col    0  dup-    0  E_tx   0.000 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  ragged_mtn             tx   673  rx      0  col    0  dup-    0  E_tx   0.068 Wh  solar   10.84 Wh  SOC  0.0%  deaths 1  [solar]
+  gunstock_top           tx    11  rx   2654  col    4  dup-    8  E_tx   0.001 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  major_summit           tx   682  rx   1893  col    0  dup-    9  E_tx   0.070 Wh  solar   10.76 Wh  SOC  0.0%  deaths 1  [solar]
+  shaw_summit            tx   662  rx   1683  col   23  dup-    0  E_tx   0.067 Wh  solar   10.34 Wh  SOC  0.0%  deaths 1  [solar]
+  monadnock_hq           tx     5  rx   1685  col    3  dup-    0  E_tx   0.001 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  monadnock_summit       tx   677  rx    773  col    0  dup-    0  E_tx   0.069 Wh  solar   11.26 Wh  SOC  1.2%  deaths 0  [solar]
+  dublin_th              tx   673  rx    731  col    0  dup-    1  E_tx   0.069 Wh  solar   11.12 Wh  SOC  0.7%  deaths 0  [solar]
+  miller_hq              tx     0  rx   1528  col    0  dup-    0  E_tx   0.000 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  pack_monadnock         tx  1366  rx    834  col    0  dup-    0  E_tx   0.139 Wh  solar   11.26 Wh  SOC  1.0%  deaths 0  [solar]
+  smarts_mtn             tx   660  rx   2052  col    2  dup-    0  E_tx   0.067 Wh  solar   10.26 Wh  SOC  0.0%  deaths 1  [solar]
+  lyme_dorchester_th     tx  2606  rx   2817  col    4  dup-    0  E_tx   0.265 Wh  solar   10.75 Wh  SOC  0.0%  deaths 1  [solar]
+  winslow_hq             tx     0  rx    865  col    0  dup-    0  E_tx   0.000 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  kearsarge_summit       tx   682  rx    196  col    0  dup-    0  E_tx   0.069 Wh  solar   11.11 Wh  SOC  0.7%  deaths 0  [solar]
+  cranmore_top           tx     0  rx   3334  col   19  dup-    0  E_tx   0.000 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  kearsarge_north        tx   669  rx   3370  col   90  dup-    0  E_tx   0.068 Wh  solar   10.91 Wh  SOC  0.1%  deaths 0  [solar]
+  pawtuckaway_hq         tx     0  rx    669  col    0  dup-    0  E_tx   0.000 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  pawtuckaway_tower      tx   670  rx      0  col    0  dup-    0  E_tx   0.068 Wh  solar   11.20 Wh  SOC  1.0%  deaths 0  [solar]
+  pisgah_hq              tx     0  rx   2794  col    3  dup-    0  E_tx   0.000 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  pisgah_ridge           tx   671  rx   2135  col    3  dup-    0  E_tx   0.068 Wh  solar   11.08 Wh  SOC  0.6%  deaths 0  [solar]
+  uncanoonuc_s           tx     0  rx      0  col    0  dup-    0  E_tx   0.000 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  blue_job               tx     0  rx      0  col    0  dup-    0  E_tx   0.000 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  balsams_gateway        tx     0  rx    624  col    0  dup-    0  E_tx   0.000 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  table_rock             tx   624  rx      0  col    0  dup-    0  E_tx   0.063 Wh  solar    8.98 Wh  SOC  3.1%  deaths 1  [solar]
+  pittsburg_village      tx     0  rx     24  col    0  dup-    0  E_tx   0.000 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  magalloway_tower       tx     0  rx      0  col    0  dup-    0  E_tx   0.000 Wh  solar    9.95 Wh  SOC  0.0%  deaths 1  [solar]
+  pulpit_rock            tx  1909  rx   5044  col   64  dup-   18  E_tx   0.200 Wh  solar   50.08 Wh  SOC 81.9%  deaths 0  [solar]
+  tremont_summit         tx   771  rx   1484  col    2  dup-    8  E_tx   0.080 Wh  solar   10.57 Wh  SOC  0.0%  deaths 1  [solar]
+  noon_peak              tx   665  rx   2224  col    3  dup-   17  E_tx   0.069 Wh  solar    9.19 Wh  SOC  2.7%  deaths 1  [solar]
+  dickey_ledges          tx   688  rx    908  col    0  dup-    2  E_tx   0.071 Wh  solar   10.36 Wh  SOC  0.0%  deaths 1  [solar]
+  tecumseh_ski_top       tx    45  rx   4531  col   15  dup-   13  E_tx   0.006 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  blue_ridge_ledge       tx   683  rx   1339  col    1  dup-    0  E_tx   0.070 Wh  solar   67.98 Wh  SOC 86.8%  deaths 0  [solar]
+  north_carter           tx   732  rx   2803  col   16  dup-   34  E_tx   0.077 Wh  solar    9.84 Wh  SOC  0.1%  deaths 1  [solar]
+  the_horn               tx  3783  rx   3637  col    3  dup-    0  E_tx   0.385 Wh  solar   59.65 Wh  SOC 83.9%  deaths 0  [solar]
+  victor_head            tx   664  rx   3742  col    5  dup-    0  E_tx   0.068 Wh  solar   10.43 Wh  SOC  0.0%  deaths 1  [solar]
+  ragged_ski_base        tx     0  rx    673  col    0  dup-    0  E_tx   0.000 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  castle_clouds          tx     0  rx   4983  col   15  dup-    0  E_tx   0.000 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  dartmouth_skiway       tx     0  rx   2491  col    3  dup-    0  E_tx   0.000 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  holts_ledge            tx   673  rx   2917  col    3  dup-    0  E_tx   0.068 Wh  solar   10.87 Wh  SOC  0.0%  deaths 1  [solar]
+  first_lake_dam         tx     0  rx     81  col    0  dup-    0  E_tx   0.000 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  moosilauke_s_peak      tx  2715  rx   2662  col   12  dup-    4  E_tx   0.277 Wh  solar   72.88 Wh  SOC 88.7%  deaths 0  [solar]
+  belknap_summit         tx   684  rx   1579  col    0  dup-    5  E_tx   0.070 Wh  solar   11.04 Wh  SOC  0.5%  deaths 0  [solar]
+  newbury_station        tx     0  rx     15  col    0  dup-    0  E_tx   0.000 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  kilkenny_lookout       tx   663  rx   4403  col    3  dup-    0  E_tx   0.067 Wh  solar   10.23 Wh  SOC  0.0%  deaths 1  [solar]
+  stark_village          tx     0  rx   5914  col   10  dup-    0  E_tx   0.000 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  signal_ridge           tx   854  rx   8672  col   43  dup-   30  E_tx   0.090 Wh  solar   65.77 Wh  SOC 87.0%  deaths 0  [solar]
+  white_ledge_cg         tx     8  rx   5319  col   13  dup-    0  E_tx   0.001 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  notchland_inn          tx    90  rx   8100  col   50  dup-   19  E_tx   0.012 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  mt_hight               tx   871  rx   4704  col   35  dup-   34  E_tx   0.094 Wh  solar   61.76 Wh  SOC 84.8%  deaths 0  [solar]
+  south_carter           tx  1323  rx   7353  col  337  dup-  106  E_tx   0.139 Wh  solar   37.60 Wh  SOC 71.8%  deaths 0  [solar]
+  piper_mtn_belknap      tx   679  rx   1658  col    0  dup-    9  E_tx   0.069 Wh  solar   10.83 Wh  SOC  0.0%  deaths 1  [solar]
+  jennings_peak          tx  1251  rx   7049  col   44  dup-    4  E_tx   0.128 Wh  solar   10.51 Wh  SOC  0.0%  deaths 1  [solar]
+  welch_ledges           tx   696  rx   1416  col    1  dup-    2  E_tx   0.072 Wh  solar   10.89 Wh  SOC  0.0%  deaths 1  [solar]
+  the_bulge              tx  1311  rx   5078  col    8  dup-    0  E_tx   0.133 Wh  solar   10.01 Wh  SOC  0.1%  deaths 1  [solar]
+  turtleback_mtn         tx  1450  rx   5620  col    9  dup-    0  E_tx   0.147 Wh  solar   10.71 Wh  SOC  0.0%  deaths 1  [solar]
+  lambert_ridge          tx   668  rx   3049  col   16  dup-    0  E_tx   0.068 Wh  solar   10.61 Wh  SOC  0.0%  deaths 1  [solar]
+  black_cap              tx  1994  rx   4130  col  220  dup-    0  E_tx   0.203 Wh  solar   10.78 Wh  SOC  0.0%  deaths 1  [solar]
+  second_lake_dam        tx     0  rx      0  col    0  dup-    0  E_tx   0.000 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  middle_carter          tx   775  rx   5532  col   95  dup-   33  E_tx   0.082 Wh  solar   10.41 Wh  SOC  0.0%  deaths 1  [solar]
+  zeta_pass              tx   729  rx   2943  col   22  dup-   39  E_tx   0.077 Wh  solar    9.60 Wh  SOC  0.9%  deaths 1  [solar]
+  smarts_ranger_ledge    tx  1996  rx   3895  col    8  dup-    0  E_tx   0.203 Wh  solar   10.91 Wh  SOC  0.0%  deaths 1  [solar]
+  hurricane_col          tx  1326  rx   3962  col    3  dup-    0  E_tx   0.135 Wh  solar   10.52 Wh  SOC  0.0%  deaths 1  [solar]
+  cranmore_ledge         tx  2654  rx   3831  col    1  dup-    0  E_tx   0.270 Wh  solar   10.69 Wh  SOC  0.0%  deaths 1  [solar]
+  bald_knob_ossipee      tx  2639  rx   5163  col   26  dup-    0  E_tx   0.268 Wh  solar   10.58 Wh  SOC  0.0%  deaths 1  [solar]
+  mt_roberts             tx  3262  rx   6716  col   77  dup-    0  E_tx   0.332 Wh  solar   10.81 Wh  SOC  0.0%  deaths 1  [solar]
+  faraway_ledge          tx   673  rx   6563  col   58  dup-    0  E_tx   0.068 Wh  solar   10.66 Wh  SOC  0.0%  deaths 1  [solar]
+  ossipee_saddle         tx  1989  rx   5699  col   32  dup-    0  E_tx   0.202 Wh  solar   10.55 Wh  SOC  0.0%  deaths 1  [solar]
+  black_snout            tx  1327  rx   3380  col   13  dup-    0  E_tx   0.135 Wh  solar   10.46 Wh  SOC  0.0%  deaths 1  [solar]
+  rockywold_camps        tx     4  rx   2943  col    3  dup-    1  E_tx   0.001 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  morgan_percival        tx   720  rx   2254  col    2  dup-    0  E_tx   0.073 Wh  solar   10.78 Wh  SOC  0.0%  deaths 1  [solar]
+  rattlesnake_west       tx  1272  rx   2955  col    9  dup-    1  E_tx   0.129 Wh  solar   10.91 Wh  SOC  0.0%  deaths 1  [solar]
+  red_hill_tower         tx  2076  rx   1905  col    3  dup-    0  E_tx   0.212 Wh  solar   10.84 Wh  SOC  0.0%  deaths 1  [solar]
+  rumney_village         tx     7  rx    456  col    0  dup-    0  E_tx   0.001 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  stinson_summit         tx   670  rx      2  col    0  dup-    0  E_tx   0.068 Wh  solar   10.57 Wh  SOC  0.0%  deaths 1  [solar]
+  rattlesnake_rumney     tx   771  rx    849  col    1  dup-    0  E_tx   0.079 Wh  solar   10.95 Wh  SOC  0.2%  deaths 0  [solar]
+  rumney_cliff_top       tx   675  rx    867  col    2  dup-    1  E_tx   0.069 Wh  solar   10.98 Wh  SOC  0.3%  deaths 0  [solar]
+  loon_summit            tx    47  rx   1389  col    1  dup-    0  E_tx   0.006 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  owls_head_slide        tx   621  rx   5001  col   20  dup-   12  E_tx   0.065 Wh  solar    0.00 Wh  SOC  0.0%  deaths 1  [battery]
+  thirteen_falls         tx   559  rx   3267  col   20  dup-    7  E_tx   0.059 Wh  solar    0.00 Wh  SOC  0.0%  deaths 1  [battery]
+  mt_hale                tx   954  rx   3662  col   31  dup-   15  E_tx   0.103 Wh  solar   68.07 Wh  SOC 86.7%  deaths 0  [solar]
+  twin_mountain_village  tx    87  rx   4109  col   25  dup-    5  E_tx   0.011 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  sugarloaf_middle       tx   785  rx   1794  col   12  dup-    1  E_tx   0.084 Wh  solar    9.77 Wh  SOC  0.3%  deaths 1  [solar]
+  isolation_davis        tx   647  rx   3745  col   52  dup-   59  E_tx   0.070 Wh  solar    0.00 Wh  SOC  0.0%  deaths 1  [battery]
+  wild_river_cg          tx   157  rx   9548  col  196  dup-   55  E_tx   0.021 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  wild_river_blue_brook  tx   623  rx   5180  col   89  dup-   33  E_tx   0.067 Wh  solar    0.00 Wh  SOC  0.0%  deaths 1  [battery]
+  north_baldface         tx   714  rx   1335  col    2  dup-    6  E_tx   0.074 Wh  solar    9.92 Wh  SOC  0.1%  deaths 1  [solar]
+  jackson_village        tx     1  rx   1170  col    2  dup-    0  E_tx   0.000 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  doublehead_n           tx   674  rx    458  col    0  dup-    0  E_tx   0.069 Wh  solar   10.83 Wh  SOC  0.0%  deaths 1  [solar]
+  iron_mtn               tx   663  rx   1506  col    1  dup-    0  E_tx   0.067 Wh  solar   10.42 Wh  SOC  0.0%  deaths 1  [solar]
+  mt_cube                tx   668  rx    667  col    0  dup-    0  E_tx   0.068 Wh  solar   10.59 Wh  SOC  0.0%  deaths 1  [solar]
+  mead_base              tx     8  rx   2573  col    6  dup-    2  E_tx   0.001 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  mt_israel              tx   703  rx   4022  col   22  dup-    3  E_tx   0.072 Wh  solar   10.97 Wh  SOC  0.3%  deaths 0  [solar]
+  flat_mtn_pond          tx   804  rx   4543  col   15  dup-    3  E_tx   0.082 Wh  solar    0.00 Wh  SOC  0.0%  deaths 1  [battery]
+  green_mtn_effingham    tx     0  rx      0  col    0  dup-    0  E_tx   0.000 Wh  solar   10.13 Wh  SOC  0.0%  deaths 1  [solar]
+  bear_brook_hq          tx     1  rx    844  col    0  dup-    0  E_tx   0.000 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  bear_brook_tower       tx   670  rx    175  col    0  dup-    0  E_tx   0.068 Wh  solar   11.07 Wh  SOC  0.6%  deaths 0  [solar]
+  crotched_base          tx     0  rx    672  col    0  dup-    0  E_tx   0.000 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  crotched_summit        tx   672  rx      0  col    0  dup-    0  E_tx   0.068 Wh  solar   10.87 Wh  SOC  0.0%  deaths 1  [solar]
+  temple_mtn_ledges      tx   674  rx   1391  col    0  dup-    0  E_tx   0.069 Wh  solar   11.22 Wh  SOC  1.1%  deaths 0  [solar]
+  washington_town        tx     0  rx   6648  col   63  dup-    0  E_tx   0.000 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  lovewell_mtn           tx  1707  rx   5987  col   35  dup-    0  E_tx   0.174 Wh  solar   11.12 Wh  SOC  0.4%  deaths 0  [solar]
+  pillsbury_sp           tx   672  rx   2457  col   17  dup-    0  E_tx   0.068 Wh  solar   11.10 Wh  SOC  0.7%  deaths 0  [solar]
+  kilburn_th             tx   672  rx   1885  col    3  dup-    0  E_tx   0.068 Wh  solar   11.24 Wh  SOC  1.1%  deaths 0  [solar]
+  milan_hill             tx     0  rx      0  col    0  dup-    0  E_tx   0.000 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  sugarloaf_nash         tx   668  rx   1368  col    0  dup-    0  E_tx   0.068 Wh  solar   10.71 Wh  SOC  0.0%  deaths 1  [solar]
+  deer_mtn_pittsburg     tx   667  rx      0  col    0  dup-    0  E_tx   0.068 Wh  solar   10.60 Wh  SOC  0.0%  deaths 1  [solar]
+  champney_th            tx   677  rx   2311  col    2  dup-    1  E_tx   0.069 Wh  solar   10.88 Wh  SOC  0.0%  deaths 1  [solar]
+  buffalo_rd_lot         tx     6  rx   1483  col    0  dup-    0  E_tx   0.001 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  stinson_lake_gw        tx     1  rx    674  col    0  dup-    0  E_tx   0.000 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  attitash_base          tx     1  rx   2259  col    6  dup-    0  E_tx   0.000 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  iron_s_ledge           tx  1305  rx   2688  col    6  dup-    0  E_tx   0.133 Wh  solar    9.90 Wh  SOC  0.4%  deaths 1  [solar]
+  rocky_branch_knoll     tx  1974  rx   2575  col    5  dup-    0  E_tx   0.201 Wh  solar   10.90 Wh  SOC  0.0%  deaths 1  [solar]
+  mt_cube_farm           tx     0  rx   1333  col    0  dup-    0  E_tx   0.000 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  cube_s_ledge           tx   664  rx    665  col    0  dup-    0  E_tx   0.068 Wh  solar   10.39 Wh  SOC  0.0%  deaths 1  [solar]
+  deer_mtn_cg            tx     0  rx    667  col    0  dup-    0  E_tx   0.000 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  millen_pond            tx  2912  rx   5064  col   42  dup-    0  E_tx   0.296 Wh  solar   11.16 Wh  SOC  0.1%  deaths 0  [solar]
+  faxon_hill             tx  1592  rx   7909  col   45  dup-    0  E_tx   0.162 Wh  solar   11.09 Wh  SOC  0.4%  deaths 0  [solar]
+  greenway_mid           tx  1725  rx   7998  col  100  dup-    0  E_tx   0.175 Wh  solar   10.89 Wh  SOC  0.0%  deaths 1  [solar]
+  kittredge_hill         tx   675  rx   7085  col   76  dup-    0  E_tx   0.069 Wh  solar   11.08 Wh  SOC  0.6%  deaths 0  [solar]
+  bryant_ledge           tx  1342  rx   6163  col   62  dup-    0  E_tx   0.136 Wh  solar   11.09 Wh  SOC  0.5%  deaths 0  [solar]
+  pisgah_w_knoll         tx   670  rx   2278  col    3  dup-    0  E_tx   0.068 Wh  solar   10.96 Wh  SOC  0.2%  deaths 0  [solar]
+  kilburn_ridge          tx  1344  rx   1924  col    0  dup-    0  E_tx   0.137 Wh  solar   11.17 Wh  SOC  0.7%  deaths 0  [solar]
+  moose_mtn_at           tx   673  rx   1348  col    0  dup-    0  E_tx   0.068 Wh  solar   10.84 Wh  SOC  0.0%  deaths 1  [solar]
+  black_mtn_benton       tx   680  rx   3459  col    5  dup-    9  E_tx   0.069 Wh  solar   10.88 Wh  SOC  0.0%  deaths 1  [solar]
+  prospect_weeks         tx     0  rx      0  col    0  dup-    0  E_tx   0.000 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  moose_mtn_lodge        tx     0  rx   1489  col    0  dup-    0  E_tx   0.000 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [grid]
+  moose_s_ledge          tx  1343  rx    718  col    0  dup-    0  E_tx   0.137 Wh  solar   11.01 Wh  SOC  0.2%  deaths 0  [solar]
+  rent_ammo_jewell_loop_0 tx   696  rx   6184  col  540  dup-    0  E_tx   0.073 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_ammo_jewell_loop_1 tx   695  rx   6194  col  491  dup-    0  E_tx   0.073 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_tuckerman_loop_0  tx   499  rx   4735  col  288  dup-    0  E_tx   0.052 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_tuckerman_loop_1  tx   496  rx   5243  col  296  dup-    0  E_tx   0.052 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_crawford_traverse_0 tx   599  rx   5189  col  456  dup-    0  E_tx   0.063 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_crawford_traverse_1 tx   598  rx   4895  col  445  dup-    0  E_tx   0.063 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_valley_way_madison_0 tx   424  rx   2428  col   73  dup-    0  E_tx   0.044 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_valley_way_madison_1 tx   422  rx   2324  col   25  dup-    0  E_tx   0.044 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_carter_wildcat_0  tx   441  rx   2916  col  188  dup-    0  E_tx   0.046 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_carter_wildcat_1  tx   446  rx   2953  col  254  dup-    0  E_tx   0.047 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_great_gulf_osgood_0 tx   286  rx   2266  col  125  dup-    0  E_tx   0.030 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_great_gulf_osgood_1 tx   286  rx   2760  col  222  dup-    0  E_tx   0.030 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_franconia_ridge_loop_0 tx   450  rx   2416  col  110  dup-    0  E_tx   0.047 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_franconia_ridge_loop_1 tx   448  rx   2493  col  133  dup-    0  E_tx   0.047 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_lonesome_lake_family_0 tx   136  rx    480  col    1  dup-    0  E_tx   0.014 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_lonesome_lake_family_1 tx   136  rx    814  col   36  dup-    0  E_tx   0.014 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_pemi_bonds_long_0 tx   817  rx   4058  col   84  dup-    0  E_tx   0.086 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_pemi_bonds_long_1 tx   813  rx   4129  col   71  dup-    0  E_tx   0.085 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_moosilauke_gorge_brook_0 tx   319  rx    651  col    5  dup-    0  E_tx   0.034 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_moosilauke_gorge_brook_1 tx   313  rx    663  col    5  dup-    0  E_tx   0.033 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_osceola_greeley_0 tx   955  rx   1824  col   30  dup-    0  E_tx   0.100 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_osceola_greeley_1 tx   952  rx   1818  col   28  dup-    0  E_tx   0.100 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_chocorua_piper_0  tx   180  rx    713  col    3  dup-    0  E_tx   0.019 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_chocorua_piper_1  tx   182  rx    691  col    9  dup-    0  E_tx   0.019 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_carrigain_signal_ridge_0 tx   362  rx   1482  col   16  dup-    0  E_tx   0.038 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_carrigain_signal_ridge_1 tx   362  rx   1712  col   15  dup-    0  E_tx   0.038 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_monadnock_white_dot_0 tx   193  rx    159  col    1  dup-    0  E_tx   0.020 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_monadnock_white_dot_1 tx   188  rx    166  col    1  dup-    0  E_tx   0.020 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_cardigan_west_ridge_0 tx   189  rx    125  col    0  dup-    0  E_tx   0.020 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_cardigan_west_ridge_1 tx   192  rx    120  col    0  dup-    0  E_tx   0.020 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_belknap_range_walk_0 tx   353  rx    509  col    1  dup-    0  E_tx   0.037 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_belknap_range_walk_1 tx   351  rx    490  col    2  dup-    0  E_tx   0.037 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_kearsarge_winslow_0 tx    97  rx     36  col    0  dup-    0  E_tx   0.010 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_kearsarge_winslow_1 tx    99  rx     36  col    0  dup-    0  E_tx   0.010 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_pack_monadnock_loop_0 tx    81  rx     61  col    0  dup-    0  E_tx   0.008 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_pack_monadnock_loop_1 tx    79  rx     65  col    0  dup-    0  E_tx   0.008 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_squam_morgan_percival_0 tx   182  rx    451  col   10  dup-    0  E_tx   0.019 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_squam_morgan_percival_1 tx   176  rx    438  col    6  dup-    0  E_tx   0.018 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_rumney_rattlesnake_0 tx   202  rx    208  col    1  dup-    0  E_tx   0.021 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_rumney_rattlesnake_1 tx   206  rx    208  col    1  dup-    0  E_tx   0.021 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_owls_head_marathon_0 tx   426  rx   1443  col   27  dup-    0  E_tx   0.045 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_owls_head_marathon_1 tx   423  rx   1410  col   37  dup-    0  E_tx   0.044 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_isolation_glen_boulder_0 tx   835  rx   6421  col  415  dup-    0  E_tx   0.088 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_isolation_glen_boulder_1 tx   833  rx   5955  col  382  dup-    0  E_tx   0.087 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_hale_zealand_loop_0 tx   992  rx   2926  col   81  dup-    0  E_tx   0.104 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_hale_zealand_loop_1 tx   994  rx   2691  col   71  dup-    0  E_tx   0.104 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_baldface_wild_river_0 tx   688  rx   2032  col  127  dup-    0  E_tx   0.072 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_baldface_wild_river_1 tx   683  rx   1948  col   91  dup-    0  E_tx   0.072 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_bear_brook_loop_0 tx    86  rx     27  col    0  dup-    0  E_tx   0.009 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+  rent_bear_brook_loop_1 tx    88  rx     29  col    0  dup-    0  E_tx   0.009 Wh  solar    0.00 Wh  SOC 100.0%  deaths 0  [battery]
+wrote artifacts/sim/trace_demo_lb.jsonl, artifacts/sim/summary_demo_lb.json

@@ -1,0 +1,174 @@
+lakes_hut              open   worst m10  1.05 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+madison_hut            open   worst m10  1.04 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+mizpah_hut             open   worst m10  1.08 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+carter_notch_hut       forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+grayknob_cabin         open   worst m10  1.04 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+hermit_lake            open   worst m10  1.00 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+crag_camp              open   worst m10  1.11 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+dolly_copp             forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+ammo_relay             open   worst m10  0.98 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+jewell_relay           open   worst m10  1.08 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+clay_relay             open   worst m10  1.04 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+monroe_flank           open   worst m10  1.06 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+lion_head              open   worst m10  1.02 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+boott_spur             open   worst m10  0.92 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+jefferson_lawn         open   worst m10  1.13 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+thunderstorm_jct       open   worst m10  1.15 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+eisenhower_relay       open   worst m10  1.13 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+pierce_relay           forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+wildcat_d              forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+nelson_crag            open   worst m10  1.12 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+appalachia_th          forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+caps_ridge_th          forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+glen_ellis             forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+great_gulf_th          forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+glen_house             forest worst m10  0.15 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+jackson_summit         open   worst m10  1.10 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+webster_cliff          forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+cog_skyline            open   worst m10  1.10 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+wildcat_a              forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+madison_summit         open   worst m10  1.12 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+durand_ridge           forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+greenleaf_hut          open   worst m10  1.11 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+lonesome_lake_hut      forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+lafayette_summit       open   worst m10  1.14 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+little_haystack        open   worst m10  1.04 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+liberty_summit         open   worst m10  1.09 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+kinsman_n              open   worst m10  1.13 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+kinsman_pond           forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+garfield_summit        open   worst m10  1.07 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+galehead_hut           open   worst m10  1.06 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+south_twin             open   worst m10  1.08 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+guyot_summit           open   worst m10  1.06 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+bondcliff              open   worst m10  0.98 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+zealand_hut            forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+zeacliff               forest worst m10  0.15 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+hancock_th             forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+carrigain_summit       open   worst m10  1.10 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+willey_summit          forest worst m10  0.18 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+sawyer_river_th        forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+kanc_pass              forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+osceola_summit         forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+greeley_ponds          forest worst m10  0.15 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+tripyramid_n           forest worst m10  0.15 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+sandwich_dome          forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+whiteface_summit       open   worst m10  1.08 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+passaconaway           open   worst m10  1.11 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+ferncroft_th           forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+welch_dickey_th        forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+chocorua_summit        forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+piper_th               forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+moosilauke_summit      open   worst m10  1.09 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+kinsman_notch          forest worst m10  0.15 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+glencliff_th           forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+carter_dome            open   worst m10  1.10 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+imp_shelter            open   worst m10  1.13 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+moriah_summit          open   worst m10  1.04 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+baldface_s             forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+mt_hayes               forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+gentian_pond           forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+success_summit         forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+cabot_summit           open   worst m10  1.09 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+unknown_pond           forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+percy_peaks            forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+nash_stream_th         forest worst m10  0.15 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+waumbek_summit         forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+cherry_mtn             forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+cardigan_summit        forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+ragged_mtn             forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+major_summit           forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+shaw_summit            forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+monadnock_summit       forest worst m10  0.18 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+dublin_th              forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+pack_monadnock         forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+smarts_mtn             forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+lyme_dorchester_th     forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+kearsarge_summit       forest worst m10  0.18 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)
+kearsarge_north        forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+pawtuckaway_tower      forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+pisgah_ridge           forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+table_rock             forest worst m10  0.15 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+magalloway_tower       forest worst m10  0.15 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+pulpit_rock            open   worst m10  0.93 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+tremont_summit         forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+noon_peak              forest worst m10  0.15 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+dickey_ledges          forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+blue_ridge_ledge       open   worst m10  1.10 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+north_carter           forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+the_horn               open   worst m10  1.01 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+victor_head            forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+holts_ledge            forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+moosilauke_s_peak      open   worst m10  1.15 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+belknap_summit         forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+kilkenny_lookout       forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+signal_ridge           open   worst m10  1.05 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+mt_hight               open   worst m10  0.97 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+south_carter           open   worst m10  0.91 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+piper_mtn_belknap      forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+jennings_peak          forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+welch_ledges           forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+the_bulge              forest worst m10  0.15 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+turtleback_mtn         forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+lambert_ridge          forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+black_cap              forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+middle_carter          forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+zeta_pass              forest worst m10  0.15 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+smarts_ranger_ledge    forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+hurricane_col          forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+cranmore_ledge         forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+bald_knob_ossipee      forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+mt_roberts             forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+faraway_ledge          forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+ossipee_saddle         forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+black_snout            forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+morgan_percival        forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+rattlesnake_west       forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+red_hill_tower         forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+stinson_summit         forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+rattlesnake_rumney     forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+rumney_cliff_top       forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+owls_head_slide        forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+thirteen_falls         forest worst m10  0.15 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+mt_hale                open   worst m10  1.07 Wh/W  -> panel  10 W  battery   18.5 Wh (  5000 mAh)
+sugarloaf_middle       forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+isolation_davis        forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+wild_river_blue_brook  forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+north_baldface         forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+doublehead_n           forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+iron_mtn               forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+mt_cube                forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+mt_israel              forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+flat_mtn_pond          forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+green_mtn_effingham    forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+bear_brook_tower       forest worst m10  0.18 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+crotched_summit        forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+temple_mtn_ledges      forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+lovewell_mtn           forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+pillsbury_sp           forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+kilburn_th             forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+sugarloaf_nash         forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+deer_mtn_pittsburg     forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+champney_th            forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+iron_s_ledge           forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+rocky_branch_knoll     forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+cube_s_ledge           forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+millen_pond            forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+faxon_hill             forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+greenway_mid           forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+kittredge_hill         forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+bryant_ledge           forest worst m10  0.16 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+pisgah_w_knoll         forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+kilburn_ridge          forest worst m10  0.17 Wh/W  -> panel  50 W  battery   18.5 Wh (  5000 mAh)  !! PANEL CAP HIT
+{
+  "open_sites": {
+    "n": 45,
+    "max_panel_w": 10,
+    "max_battery_wh": 18.5
+  },
+  "forest_sites": {
+    "n": 116,
+    "max_panel_w": 50,
+    "max_battery_wh": 18.5
+  }
+}
+wrote /Users/ethandoherty/MANNET/resilient-emergency-manets/artifacts/sim/statewide_sizing/sizing.csv, sizing.png, sizing_summary.json

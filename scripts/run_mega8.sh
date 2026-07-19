@@ -6,7 +6,7 @@
 cd "$(dirname "$0")/.." || exit 1
 SIM="artifacts/sim"
 ARCHIVE="$SIM/archive/pre_mega8_$(date -u '+%Y%m%dT%H%M%SZ')"
-mkdir -p "$ARCHIVE"
+mkdir -p "$ARCHIVE" "$SIM/algo_year"
 # Preserve prior outputs, but move them out of the active filenames so a
 # failed arm can never be mistaken for a result from this invocation.
 for OLD in "$SIM"/kiosk_summary_*.json "$SIM"/kiosk_trace_*.jsonl \

@@ -1,0 +1,49 @@
+{
+  "generated_at_utc": "2026-07-03T12:08:00.163728+00:00",
+  "pdr_threshold": 0.9,
+  "storm_knee": {
+    "beacons_per_hour": 2460.0,
+    "extra_hikers": 40,
+    "beacon_interval_s": 60,
+    "pdr_hiker": 0.809,
+    "channel_utilization": 1.85371
+  },
+  "hop_limit_sweep": [
+    {
+      "hop_limit": 1,
+      "pdr_hiker": 0.9827,
+      "pdr": 0.9741,
+      "channel_utilization": 0.95785,
+      "collision_fraction": 0.3363
+    },
+    {
+      "hop_limit": 2,
+      "pdr_hiker": 0.9754,
+      "pdr": 0.9664,
+      "channel_utilization": 1.10063,
+      "collision_fraction": 0.3519
+    },
+    {
+      "hop_limit": 3,
+      "pdr_hiker": 0.9778,
+      "pdr": 0.9692,
+      "channel_utilization": 1.13907,
+      "collision_fraction": 0.3524
+    },
+    {
+      "hop_limit": 5,
+      "pdr_hiker": 0.9755,
+      "pdr": 0.9675,
+      "channel_utilization": 1.13099,
+      "collision_fraction": 0.3497
+    },
+    {
+      "hop_limit": 7,
+      "pdr_hiker": 0.9755,
+      "pdr": 0.9675,
+      "channel_utilization": 1.13099,
+      "collision_fraction": 0.3497
+    }
+  ],
+  "note": "6 simulated hours per cell, seed fixed; extras beacon continuously (worst case). Knee = lowest offered load with hiker-origin PDR < threshold."
+}

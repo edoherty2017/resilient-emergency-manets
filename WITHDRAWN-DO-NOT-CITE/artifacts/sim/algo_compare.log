@@ -1,0 +1,6 @@
+  lb_energy: 10000 edges, 102081 log, PDR 0.8875
+  energy_aware: 10000 edges, 65629 log, PDR 0.8877
+  etx: 10000 edges, 65509 log, PDR 0.8874
+  min_hop: 10000 edges, 65426 log, PDR 0.8834
+  (flood: missing trace/summary — skipped)
+compare viewer: /Users/ethandoherty/MANET/resilient-emergency-manets/artifacts/sim/algo_compare_year.html (36.6 MB, 4 algorithms)
