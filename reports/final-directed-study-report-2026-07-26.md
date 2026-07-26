@@ -12,7 +12,7 @@ One provenance note specific to this version: Trial 2 registrations made
 after 2026-07-19 rest on SHA-256 digests recorded in dated documents
 (`docs/trial2-monadnock-siting-20260723.md`,
 `docs/trial2-packmonadnock-siting-20260726.md` and its addendum) and were
-git-timestamped by commit `db06384` (branch `trial2-field-campaign-2026-07`,
+git-timestamped by commit `1229309` (branch `trial2-field-campaign-2026-07`,
 2026-07-26) together with the registration artifacts themselves; the digests
 were re-verified against the artifacts the same day.
 
@@ -530,7 +530,7 @@ dictionary.
   (release_v2) is incomplete (5 of 9 modes, no manifest) and **not citable**.
   The §5.2 numbers are bound to the archived release_v1 artifacts.
 - Post-2026-07-19 Trial 2 registrations were committed 2026-07-26
-  (`db06384`); their pre-commit provenance was in-doc SHA-256 digests, as
+  (`1229309`); their pre-commit provenance was in-doc SHA-256 digests, as
   disclosed in the header note.
 - Authorization for a production fixed-relay deployment remains an open
   question (`docs/fcc-part15-compliance-memo.md`); field-day operation used

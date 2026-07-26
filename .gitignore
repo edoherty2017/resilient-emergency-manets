@@ -94,3 +94,8 @@ artifacts/sim/corrected/release_v1/*
 !artifacts/sim/corrected/release_v1/release_manifest.json
 !artifacts/sim/corrected/release_v1/meaningful_metrics.json
 !artifacts/sim/corrected/corrected_metrics.html
+
+# giant withdrawn sim traces — bound by WITHDRAWN manifest, never committed (GitHub 100MB limit)
+WITHDRAWN-DO-NOT-CITE/artifacts/sim/real_trace_*.jsonl
+WITHDRAWN-DO-NOT-CITE/artifacts/sim/archive_preaudit_2026-07/kiosk_trace_*.jsonl
+WITHDRAWN-DO-NOT-CITE/artifacts/sim/archive_preaudit_2026-07/THE_YEAR.html
