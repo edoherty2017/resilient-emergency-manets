@@ -53,9 +53,11 @@ such. Withdrawn pre-audit statistics are not cited here; they are quarantined
 under \path{WITHDRAWN-DO-NOT-CITE/} with a manifest explaining each
 withdrawal. The authoritative defect index is
 \path{docs/audit-correction-ledger-2026-07-13.md}. Trial~2 registrations made
-after 2026-07-19 rest on SHA-256 digests recorded in dated documents pending
-the repository commit that will git-timestamp them; all digests were
-re-verified against the artifacts on 2026-07-26. Scope is New Hampshire only.
+after 2026-07-19 rest on SHA-256 digests recorded in dated documents and were
+git-timestamped by commit \code{db06384} (branch
+\code{trial2-field-campaign-2026-07}, 2026-07-26) together with the
+registration artifacts themselves; all digests were re-verified against the
+artifacts the same day. Scope is New Hampshire only.
 
 \section{Original objectives and what changed}\label{sec:objectives}
 
@@ -473,9 +475,7 @@ worktree (its manifest records this) and carries a disclosed manifest
 inconsistency (git \code{d37172c} vs \code{f5e83f0}; the four locked input
 hashes agree in both); regeneration (release\_v2) is incomplete (5 of 9
 modes, no manifest) and \textbf{not citable} --- the \S\ref{sec:yearscale}
-numbers are bound to the archived release\_v1 artifacts. Post-2026-07-19
-Trial~2 registrations rest on SHA-256 digests in dated documents pending the
-repository commit. Authorization for a production fixed-relay deployment
+numbers are bound to the archived release\_v1 artifacts. Post-2026-07-19 Trial~2 registrations were committed 2026-07-26 (\code{db06384}); their pre-commit provenance was in-doc SHA-256 digests, as disclosed in the claim-policy note. Authorization for a production fixed-relay deployment
 remains an open question (\path{docs/fcc-part15-compliance-memo.md});
 field-day operation used certified consumer hardware as marketed
 (\S\ref{sec:packday}). Passing tests bound, but do not prove, the absence of
