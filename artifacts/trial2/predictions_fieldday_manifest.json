@@ -1,0 +1,59 @@
+{
+  "generator": "scripts/trial2_predictions_field.py",
+  "git_commit": "2225c26f172cce7fe56c6cb6d907a4b7f8d84d60",
+  "git_worktree_dirty": true,
+  "beacon_hg_m": 1.2,
+  "hiker_hg_m": 1.5,
+  "sigma_db_placeholder": 8.0,
+  "treeline_m": 1100.0,
+  "rx_power_reference_dbm": 26.299999999999997,
+  "mount": "no-mast: boulder top or strapped trekking pole, measured in field",
+  "days": [
+    {
+      "day": "2026-07-19",
+      "route": "moosilauke_gorge_brook",
+      "dem": "artifacts/dem/cache/usgs_3dep_moosilauke.npz",
+      "beacon_name": "moosilauke_treeline_beacon",
+      "beacon_rule_target_elev_m": 1300.0,
+      "trial_id": "trial2-moosilauke-20260719",
+      "beacon_lat": 44.017079,
+      "beacon_lon": -71.837774,
+      "beacon_dem_elev_m": 1352.5,
+      "beacon_sample_index": 18,
+      "dem_sha256": "9195f027652dfe04e6645da2ead4d41688a6fc84c7d187949b561f16232f06e6",
+      "route_samples": 51,
+      "route_walk_time_h_tobler": 2.72
+    },
+    {
+      "day": "deferred-future-field-day",
+      "route": "kearsarge_winslow",
+      "dem": "artifacts/dem/cache/usgs_3dep_kearsarge.npz",
+      "beacon_name": "kearsarge_midslope_beacon",
+      "beacon_rule_target_elev_m": 750.0,
+      "trial_id": "trial2-kearsarge-20260719",
+      "beacon_lat": 43.38735,
+      "beacon_lon": -71.8597,
+      "beacon_dem_elev_m": 771.0,
+      "beacon_sample_index": 3,
+      "dem_sha256": "ea719ef699652f855ae8da43c83fc973f756e5e749b43765f1b9704f99439543",
+      "route_samples": 13,
+      "route_walk_time_h_tobler": 1.08
+    },
+    {
+      "day": "2026-07-24",
+      "route": "monadnock_white_dot",
+      "dem": "artifacts/dem/cache/usgs_3dep_monadnock.npz",
+      "beacon_name": "monadnock_ledge_beacon",
+      "beacon_rule_target_elev_m": 850.0,
+      "trial_id": "trial2-monadnock-20260724",
+      "beacon_lat": 42.8601,
+      "beacon_lon": -72.106825,
+      "beacon_dem_elev_m": 908.9,
+      "beacon_sample_index": 15,
+      "dem_sha256": "57936e6b2f6364ae8434b81fd455e574c3dc1208f2d7b23e8975a4215e0379b3",
+      "route_samples": 33,
+      "route_walk_time_h_tobler": 1.99
+    }
+  ],
+  "note": "Prospective MODEL-ONLY predictions. Freeze via commit + freeze_trial2_prereg.py before collection; record the field-measured beacon height/coords as-built."
+}

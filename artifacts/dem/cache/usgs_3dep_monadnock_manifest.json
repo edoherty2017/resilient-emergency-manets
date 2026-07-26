@@ -1,0 +1,31 @@
+{
+  "generated_at_utc": "2026-07-24T03:04:12.445376+00:00",
+  "source": "usgs-3dep-imageserver",
+  "service_url": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage",
+  "request_params": {
+    "bbox": "-72.13,42.83,-72.06,42.88",
+    "bboxSR": "4326",
+    "imageSR": "4326",
+    "size": "1800,1754",
+    "format": "tiff",
+    "pixelType": "F32",
+    "noDataInterpretation": "esriNoDataMatchAny",
+    "interpolation": "RSP_BilinearInterpolation"
+  },
+  "crs": "EPSG:4326",
+  "vertical_datum": "NAVD88 (3DEP native)",
+  "resolution_m_approx": 3.17,
+  "elev_range_m": [
+    315.92999267578125,
+    965.9713134765625
+  ],
+  "nan_fraction": 0.0,
+  "outputs": {
+    "geotiff": "artifacts/dem/cache/usgs_3dep_monadnock.tif",
+    "npz": "artifacts/dem/cache/usgs_3dep_monadnock.npz"
+  },
+  "checksums_sha256": {
+    "artifacts/dem/cache/usgs_3dep_monadnock.tif": "192ca1402a55e1d77c3cef39fcca215053c2247855bd25b3bc4d9acc1aee56c3",
+    "artifacts/dem/cache/usgs_3dep_monadnock.npz": "57936e6b2f6364ae8434b81fd455e574c3dc1208f2d7b23e8975a4215e0379b3"
+  }
+}

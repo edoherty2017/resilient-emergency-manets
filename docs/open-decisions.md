@@ -19,16 +19,29 @@ be played against each other at the defense.
 for Basagni's sign-off.
 **My rec:** yes, draft it.
 
-### A2 ⬜🔜 FCC compliance basis (see `docs/fcc-part15-compliance-memo.md`)
-The stated LongFast configuration does not meet the memo's Part 15 engineering screens,
-but the repository does not record the exact FCC IDs/grants needed for a final
-authorization conclusion. A nominal 500 kHz preset is not automatic §15.247 compliance,
-and a Technician license alone does not make third-party SOS traffic, automatic mesh
-retransmission, unattended control, identification, or employer/agency use compliant
-with Part 97. Part 5 experimental authority is another candidate for controlled research.
-**Need from you:** photograph/inventory the exact radio labels and authorize a
-configuration-specific TCB/FCC-counsel review before any Trial 2 transmission. Select
-hardware/config only after that review; do not reduce this to “pick A or B.”
+### A2 ✅ FCC compliance basis — DECIDED 2026-07-21: Part 97 amateur (for Trial 2 field ops)
+Ethan selected Part 97 amateur operation as the authorization basis for the Trial 2
+field days (decision made 2026-07-21, ahead of the 2026-07-22 Moosilauke retry).
+Trial-day mitigations that make this specific operation defensible under Part 97:
+encryption OFF (Meshtastic ham mode), callsign as station ID in node broadcasts,
+only the trial team's own traffic (two nodes, no third-party/SOS relaying), stock
+TX power (far below Part 97 limits), beacon placed and retrieved the same day.
+**Residual caveats (recorded, not resolved):** the beacon transmits under automatic
+control while the team walks the route — Part 97 rules on automatically controlled
+data stations/beacons (§97.203, §97.221) are not fully analyzed here; and this
+basis covers the *trial*, not a deployed unattended relay network. The memo's
+conclusion that a production fixed-relay system needs a real authorization review
+(TCB/FCC counsel or Part 5 experimental) still stands as a report limitation.
+**Still needed:** Ethan's callsign recorded in the repo + photographs/inventory of
+the exact radio hardware labels (also required by advisor acceptance criterion 5).
+**UPDATE 2026-07-23 — basis switched to device certification as marketed.** No
+valid FCC callsign was provided ("MeshVworld" is not a valid callsign format and
+was never programmed into a radio), so per the recorded fallback the field-day
+basis is the Heltec V3's FCC device certification operating exactly as marketed:
+stock firmware, stock TX power, default public LongFast channel (the 2026-07-24
+Monadnock day uses the public channel by design — see
+`docs/trial2-monadnock-siting-20260723.md`). Part 97/ham mode flips back on in
+~5 min if a valid callsign is ever provided. Hardware label photos still needed.
 
 ### A3 ⬜ Geology priors — cite or delete
 `scripts/geology_loss.py` priors are uncited placeholders and aren't used by the
@@ -125,11 +138,17 @@ should see a single coherent update.
 
 ## E. Housekeeping
 
-### E1 ✅ Commit / push — RESOLVED (2026-07-07)
+### E1 ✅ Commit / push — RESOLVED (2026-07-07); EXTENDED + EXECUTED 2026-07-26
 The cited simulation-phase commits were pushed to branch **simulation-phase-2026-07**
 (a68e3e4, 248d76d, 69e9fe5), but “everything committed” was only a historical status.
 The current audit worktree is dirty; new results require a clean, immutable commit and
 run manifest before citation.
+**2026-07-26 (Ethan: "commit it"):** the Trial 2 field-campaign registrations,
+siting docs, evidence checksums, and the final report were committed on branch
+**trial2-field-campaign-2026-07** (registration artifacts under `artifacts/trial2/`
+required `git add -f` past the gitignore; bulk raw JSONL/dataset files are bound by
+their committed SHA256SUMS/manifests rather than committed wholesale). Not pushed —
+push remains Ethan's call.
 
 ### E2 ⬜ Defaults I chose (revisit only if you disagree — non-blocking)
 - Planning threshold **−100 dBm** (sensitivity + ~31 dB fade margin)

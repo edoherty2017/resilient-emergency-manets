@@ -1,0 +1,186 @@
+{
+  "release_version": "evidence-2026-07-26",
+  "generated_at_utc": "2026-07-26T19:22:34.851834+00:00",
+  "git_commit": "2225c26f172cce7fe56c6cb6d907a4b7f8d84d60",
+  "trial_id": "trial2-packmonadnock-20260726",
+  "source_predictions": "artifacts/airmap/live_trial/predictions_postcalibration.parquet",
+  "schema_version": 2,
+  "row_counts": {
+    "all_observations": 128721,
+    "calibration_grade": 0,
+    "proposal_target_calibration_grade": 2500
+  },
+  "pipeline_provenance": {
+    "model_name": "fspl_baseline",
+    "model_version": "1.0.0",
+    "model_hash": "cfbfb162025dbe815381cb3db71f0f41883ec6da0201758c79a610d0e1936dee",
+    "calibration_version": "v1.0.0",
+    "baseline_predictor": "fspl",
+    "feature_recipe_version": "v1.0.0",
+    "git_commit": "4f7ef9cb18a4d15a0abc6095881972d2604e4ad2"
+  },
+  "files": {
+    "artifacts/dataset_release/evidence-2026-07-26/rf_dataset_all.csv": {
+      "rows": 128721,
+      "sha256": "79dd6d0d7730d69e3dcbaa6d9262ab2bf240a9380f25a6fdd93186822a82fa2c"
+    },
+    "artifacts/dataset_release/evidence-2026-07-26/rf_dataset_all.jsonl": {
+      "rows": 128721,
+      "sha256": "ea60483129b73008ca8b7d0fd386e37c07e1132dd81bd5c3ec70db8ad9c8ab58"
+    },
+    "artifacts/dataset_release/evidence-2026-07-26/rf_dataset_calibration_grade.csv": {
+      "rows": 0,
+      "sha256": "f3a166eaf214ddfe06817d065f65b1689f86ba9086ee38426627ebe12ecef733"
+    },
+    "artifacts/dataset_release/evidence-2026-07-26/DATA_DICTIONARY.md": {
+      "sha256": "7e29be9ea6ac332e4f6d513a88592d61dd84313683e4eb7c7968649ead757009"
+    }
+  },
+  "columns": [
+    {
+      "name": "timestamp_utc",
+      "unit": "ISO-8601 UTC",
+      "description": "Observation timestamp"
+    },
+    {
+      "name": "trial_id",
+      "unit": "id",
+      "description": "Trial/run grouping"
+    },
+    {
+      "name": "node_id",
+      "unit": "id",
+      "description": "Receiving node"
+    },
+    {
+      "name": "head_id",
+      "unit": "id",
+      "description": "Head aggregation target"
+    },
+    {
+      "name": "from_mesh_id",
+      "unit": "id",
+      "description": "Source mesh node of the packet"
+    },
+    {
+      "name": "segment_id",
+      "unit": "id",
+      "description": "Deterministic per-row segment key"
+    },
+    {
+      "name": "lat",
+      "unit": "deg",
+      "description": "HEAD latitude (decimal degrees)"
+    },
+    {
+      "name": "lon",
+      "unit": "deg",
+      "description": "HEAD longitude (decimal degrees)"
+    },
+    {
+      "name": "src_lat",
+      "unit": "deg",
+      "description": "Source node latitude"
+    },
+    {
+      "name": "src_lon",
+      "unit": "deg",
+      "description": "Source node longitude"
+    },
+    {
+      "name": "distance_m",
+      "unit": "m",
+      "description": "3D slant link distance (source\u2192head)"
+    },
+    {
+      "name": "distance_source",
+      "unit": "enum",
+      "description": "How distance was derived (source_to_head_gps is calibration-grade)"
+    },
+    {
+      "name": "hops_away",
+      "unit": "count",
+      "description": "Mesh relay hops (0 = direct link)"
+    },
+    {
+      "name": "rssi_dbm",
+      "unit": "dBm",
+      "description": "Received signal strength (last hop)"
+    },
+    {
+      "name": "snr_db",
+      "unit": "dB",
+      "description": "Signal-to-noise ratio"
+    },
+    {
+      "name": "obs_esp_dbm",
+      "unit": "dBm",
+      "description": "Effective signal power = RSSI+SNR\u221210log10(1+10^(SNR/10))"
+    },
+    {
+      "name": "obs_target_dbm",
+      "unit": "dBm",
+      "description": "Calibration observable (ESP when available, else RSSI)"
+    },
+    {
+      "name": "obs_target_source",
+      "unit": "enum",
+      "description": "Which metric obs_target_dbm came from"
+    },
+    {
+      "name": "pred_path_loss_fspl_db",
+      "unit": "dB",
+      "description": "Free-space path loss baseline"
+    },
+    {
+      "name": "pred_path_loss_itm_db",
+      "unit": "dB",
+      "description": "Longley-Rice ITM path loss over real DEM (when computed)"
+    },
+    {
+      "name": "pred_rssi_dbm",
+      "unit": "dBm",
+      "description": "Predicted RSSI from the selected baseline model"
+    },
+    {
+      "name": "predictor",
+      "unit": "enum",
+      "description": "Baseline predictor used (fspl|itm)"
+    },
+    {
+      "name": "topography_class",
+      "unit": "enum",
+      "description": "alpine_ridge | sub_alpine | valley_forest"
+    },
+    {
+      "name": "distance_bin",
+      "unit": "enum",
+      "description": "Distance stratum"
+    },
+    {
+      "name": "weather_tag",
+      "unit": "enum",
+      "description": "Weather state (from weather feed or field log)"
+    },
+    {
+      "name": "satellite_link_status",
+      "unit": "enum",
+      "description": "Starlink link state when available"
+    },
+    {
+      "name": "time_bin",
+      "unit": "enum",
+      "description": "Local-time bin (America/New_York)"
+    },
+    {
+      "name": "calibration_eligible",
+      "unit": "bool",
+      "description": "Passed the calibration eligibility gate"
+    },
+    {
+      "name": "src_pos_staleness_s",
+      "unit": "s",
+      "description": "Age of the source position fix used for distance"
+    }
+  ]
+}

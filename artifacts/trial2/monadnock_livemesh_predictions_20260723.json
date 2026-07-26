@@ -1,0 +1,154 @@
+{
+ "generated_utc": "2026-07-24T03:10:00+00:00",
+ "purpose": "PROSPECTIVE public-mesh contact predictions for the 2026-07-24 Monadnock field day, registered before collection. NON-calibration-grade: public node TX EIRP, antenna height, and uptime are unknown/uncontrolled; node heights below are assumptions. Contact = own-node packets heard by / heard from these stations on the default public LongFast channel.",
+ "dem": "artifacts/dem/cache/usgs_3dep_nh_statewide.npz",
+ "eirp_reference_dbm": 26.3,
+ "planning_threshold_dbm": -100.0,
+ "source_snapshot": "artifacts/trial2/nhmesh_live_snapshot_20260723/",
+ "links": [
+  {
+   "from": "monadnock_ledge_beacon_909m",
+   "to": "NewMikeshire_Keene",
+   "distance_km": 16.2,
+   "path_type": "line_of_sight",
+   "itm_loss_db_q50": 191.2,
+   "pred_rx_dbm_q50_at_reference_eirp": -164.9,
+   "node_meta": {
+    "pos": [
+     42.9326336,
+     -72.2796544
+    ],
+    "hg_assumed_m": 3.0,
+    "last_seen_h": 0.2,
+    "active_last_60min": true
+   },
+   "verdict": "NO_CONTACT_PREDICTED"
+  },
+  {
+   "from": "monadnock_ledge_beacon_909m",
+   "to": "Keene_CourtSt_Rooftop",
+   "distance_km": 14.8,
+   "path_type": "line_of_sight",
+   "itm_loss_db_q50": 193.5,
+   "pred_rx_dbm_q50_at_reference_eirp": -167.2,
+   "node_meta": {
+    "pos": [
+     42.9129728,
+     -72.2731008
+    ],
+    "hg_assumed_m": 8.0,
+    "last_seen_h": 0.4,
+    "active_last_60min": true
+   },
+   "verdict": "NO_CONTACT_PREDICTED"
+  },
+  {
+   "from": "monadnock_ledge_beacon_909m",
+   "to": "NHMesh_WeMo_Hopkinton",
+   "distance_km": 46.1,
+   "path_type": "line_of_sight",
+   "itm_loss_db_q50": 144.9,
+   "pred_rx_dbm_q50_at_reference_eirp": -118.6,
+   "node_meta": {
+    "pos": [
+     43.1357952,
+     -71.6832768
+    ],
+    "hg_assumed_m": 3.0,
+    "last_seen_h": 13.0,
+    "active_last_60min": false
+   },
+   "verdict": "MARGINAL"
+  },
+  {
+   "from": "monadnock_ledge_beacon_909m",
+   "to": "HH10_Washington_Beacon",
+   "distance_km": 33.8,
+   "path_type": "double_horizon",
+   "itm_loss_db_q50": 199.0,
+   "pred_rx_dbm_q50_at_reference_eirp": -172.7,
+   "node_meta": {
+    "pos": [
+     43.1620096,
+     -72.155136
+    ],
+    "hg_assumed_m": 3.0,
+    "last_seen_h": 23.0,
+    "active_last_60min": false
+   },
+   "verdict": "NO_CONTACT_PREDICTED"
+  },
+  {
+   "from": "monadnock_summit_receiver",
+   "to": "NewMikeshire_Keene",
+   "distance_km": 16.1,
+   "path_type": "line_of_sight",
+   "itm_loss_db_q50": 138.2,
+   "pred_rx_dbm_q50_at_reference_eirp": -111.9,
+   "node_meta": {
+    "pos": [
+     42.9326336,
+     -72.2796544
+    ],
+    "hg_assumed_m": 3.0,
+    "last_seen_h": 0.2,
+    "active_last_60min": true
+   },
+   "verdict": "MARGINAL"
+  },
+  {
+   "from": "monadnock_summit_receiver",
+   "to": "Keene_CourtSt_Rooftop",
+   "distance_km": 14.6,
+   "path_type": "line_of_sight",
+   "itm_loss_db_q50": 115.0,
+   "pred_rx_dbm_q50_at_reference_eirp": -88.7,
+   "node_meta": {
+    "pos": [
+     42.9129728,
+     -72.2731008
+    ],
+    "hg_assumed_m": 8.0,
+    "last_seen_h": 0.4,
+    "active_last_60min": true
+   },
+   "verdict": "CONTACT_PREDICTED"
+  },
+  {
+   "from": "monadnock_summit_receiver",
+   "to": "NHMesh_WeMo_Hopkinton",
+   "distance_km": 46.1,
+   "path_type": "line_of_sight",
+   "itm_loss_db_q50": 142.9,
+   "pred_rx_dbm_q50_at_reference_eirp": -116.6,
+   "node_meta": {
+    "pos": [
+     43.1357952,
+     -71.6832768
+    ],
+    "hg_assumed_m": 3.0,
+    "last_seen_h": 13.0,
+    "active_last_60min": false
+   },
+   "verdict": "MARGINAL"
+  },
+  {
+   "from": "monadnock_summit_receiver",
+   "to": "HH10_Washington_Beacon",
+   "distance_km": 33.7,
+   "path_type": "line_of_sight",
+   "itm_loss_db_q50": 161.3,
+   "pred_rx_dbm_q50_at_reference_eirp": -135.0,
+   "node_meta": {
+    "pos": [
+     43.1620096,
+     -72.155136
+    ],
+    "hg_assumed_m": 3.0,
+    "last_seen_h": 23.0,
+    "active_last_60min": false
+   },
+   "verdict": "NO_CONTACT_PREDICTED"
+  }
+ ]
+}

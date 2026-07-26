@@ -1,0 +1,69 @@
+{
+ "generated_utc": "2026-07-26T10:3x pre-departure",
+ "route": "pack_monadnock_loop (OSM)",
+ "trial_id": "trial2-packmonadnock-20260726",
+ "eirp_reference_dbm": 26.3,
+ "purpose": "PROSPECTIVE public-mesh contact predictions, registered before collection. NON-calibration-grade (station TX EIRP/antennas unknown/ASSUMED).",
+ "links": [
+  {
+   "to": "SNHM_New_Ipswich",
+   "meta": "RAK4631, seen 1.0h",
+   "node_pos": [
+    42.7688,
+    -71.893
+   ],
+   "hg_assumed_m": 3.0,
+   "best_rx_dbm_q50_along_route": -126.8,
+   "at_route_index": 54,
+   "verdict": "MARGINAL"
+  },
+  {
+   "to": "Greenville",
+   "meta": "RAK4631, seen 0.5h",
+   "node_pos": [
+    42.7557,
+    -71.8012
+   ],
+   "hg_assumed_m": 3.0,
+   "best_rx_dbm_q50_along_route": -87.9,
+   "at_route_index": 92,
+   "verdict": "CONTACT_PREDICTED"
+  },
+  {
+   "to": "603-CM",
+   "meta": "Heltec V3, seen 1.7h",
+   "node_pos": [
+    42.8605,
+    -71.6964
+   ],
+   "hg_assumed_m": 3.0,
+   "best_rx_dbm_q50_along_route": -120.9,
+   "at_route_index": 66,
+   "verdict": "MARGINAL"
+  },
+  {
+   "to": "SNHM_Mason2",
+   "meta": "Heltec WSL V3, seen 1.3h",
+   "node_pos": [
+    42.7557,
+    -71.7488
+   ],
+   "hg_assumed_m": 3.0,
+   "best_rx_dbm_q50_along_route": -124.5,
+   "at_route_index": 74,
+   "verdict": "MARGINAL"
+  },
+  {
+   "to": "Keene_CourtSt_Rooftop",
+   "meta": "T-Beam S3, prior registered set",
+   "node_pos": [
+    42.913,
+    -72.2731
+   ],
+   "hg_assumed_m": 8.0,
+   "best_rx_dbm_q50_along_route": -144.4,
+   "at_route_index": 64,
+   "verdict": "NO_CONTACT_PREDICTED"
+  }
+ ]
+}

@@ -1,0 +1,4 @@
+source: https://nhmesh.live/ (api: /api/dashboard-data-optimized, /api/node-activity, /api/beacon/status)
+fetched_utc: 2026-07-24T02:52-03:05Z
+purpose: siting the 2026-07-24 field day inside the live Meshtastic region; opportunistic-node position reference for airmap validation (NON-calibration-grade sources)
+note: nhmesh.live only shows nodes heard by NHMesh collectors (MQTT-gated); absence on this map is not proof of RF absence

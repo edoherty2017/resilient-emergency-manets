@@ -1,0 +1,4 @@
+source: https://nhmesh.live/api/node-activity (60-min window generated 2026-07-26T15:02:52Z) and /api/dashboard-data-optimized (fetched 2026-07-26 ~12:20Z at the trailhead)
+archived: 2026-07-26 later the same day, from the working session fetch cache (files unmodified since fetch)
+purpose: station transmit-cadence evidence for the Pack Monadnock contact-miss censoring analysis; dashboard positions provide the nodeId->name mapping
+mapping note: activity nodeIds are decimal; Meshtastic hex ids = !%08x of nodeId & 0xFFFFFFFF

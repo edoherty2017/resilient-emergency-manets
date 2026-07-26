@@ -71,6 +71,14 @@ FIELD_DAYS = [
         "beacon_name": "kearsarge_midslope_beacon",
         "trial_id": "trial2-kearsarge-20260719",
     },
+    {
+        "day": "2026-07-24",
+        "route": "monadnock_white_dot",
+        "dem": "artifacts/dem/cache/usgs_3dep_monadnock.npz",
+        "beacon_rule_target_elev_m": 850.0,
+        "beacon_name": "monadnock_ledge_beacon",
+        "trial_id": "trial2-monadnock-20260724",
+    },
 ]
 
 

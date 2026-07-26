@@ -1,0 +1,102 @@
+{
+ "generated_utc": "2026-07-26T12:25Z trailhead, pre-walk",
+ "supplement_to": "packmonadnock_livemesh_predictions_20260726.json",
+ "links": [
+  {
+   "to": "Meshtastic cf3c",
+   "hw": "HELTEC_WIRELESS_TRACKER",
+   "pos": [
+    42.7032576,
+    -71.9060992
+   ],
+   "km": 17.8,
+   "summit_rx_dbm_q50": -135.9,
+   "verdict": "NO_CONTACT_PREDICTED",
+   "hg_assumed_m": 3.0
+  },
+  {
+   "to": "Meshtastic f7fc",
+   "hw": "HELTEC_V3",
+   "pos": [
+    42.860544,
+    -71.6439552
+   ],
+   "km": 19.1,
+   "summit_rx_dbm_q50": -91.0,
+   "verdict": "CONTACT_PREDICTED",
+   "hg_assumed_m": 3.0
+  },
+  {
+   "to": "SNHM MASON 1",
+   "hw": "HELTEC_WSL_V3",
+   "pos": [
+    42.7032576,
+    -71.7488128
+   ],
+   "km": 20.5,
+   "summit_rx_dbm_q50": -111.9,
+   "verdict": "MARGINAL",
+   "hg_assumed_m": 3.0
+  },
+  {
+   "to": "NewBostonNH T3",
+   "hw": "TRACKER_T1000_E",
+   "pos": [
+    42.9129728,
+    -71.6439552
+   ],
+   "km": 19.9,
+   "summit_rx_dbm_q50": -139.6,
+   "verdict": "NO_CONTACT_PREDICTED",
+   "hg_assumed_m": 3.0
+  },
+  {
+   "to": "N1CMD-Home",
+   "hw": "HELTEC_V3",
+   "pos": [
+    43.0178304,
+    -71.9060992
+   ],
+   "km": 17.5,
+   "summit_rx_dbm_q50": -90.2,
+   "verdict": "CONTACT_PREDICTED",
+   "hg_assumed_m": 3.0
+  },
+  {
+   "to": "NewBostonNH T4",
+   "hw": "TRACKER_T1000_E",
+   "pos": [
+    42.92608,
+    -71.6570624
+   ],
+   "km": 19.4,
+   "summit_rx_dbm_q50": -91.1,
+   "verdict": "CONTACT_PREDICTED",
+   "hg_assumed_m": 3.0
+  },
+  {
+   "to": "NewBostonNH_2",
+   "hw": "RAK4631",
+   "pos": [
+    42.9129728,
+    -71.6439552
+   ],
+   "km": 19.9,
+   "summit_rx_dbm_q50": -139.6,
+   "verdict": "NO_CONTACT_PREDICTED",
+   "hg_assumed_m": 3.0
+  },
+  {
+   "to": "NewBostonNH Base",
+   "hw": "RAK4631",
+   "pos": [
+    42.9129728,
+    -71.6439552
+   ],
+   "km": 19.9,
+   "summit_rx_dbm_q50": -139.6,
+   "verdict": "NO_CONTACT_PREDICTED",
+   "hg_assumed_m": 3.0
+  }
+ ]
+}

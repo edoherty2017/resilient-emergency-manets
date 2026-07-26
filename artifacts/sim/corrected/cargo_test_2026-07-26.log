@@ -1,0 +1,70 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.03s
+     Running unittests src/main.rs (target/debug/deps/fastsim-b9d7fe02b0a94b5a)
+
+running 47 tests
+test engine2::tests::duty_mode_is_initialized_before_the_first_event ... ok
+test engine2::tests::availability_integrates_unavailable_duration_not_death_event_count ... ok
+test engine2::tests::airtime_and_tx_energy_are_clipped_at_simulation_horizon ... ok
+test engine2::tests::docked_energy_segments_remain_charged_to_their_source_kiosk ... ok
+test engine2::tests::availability_interruption_invalidates_an_in_flight_reception ... ok
+test engine2::tests::docked_radio_cannot_transmit_a_queued_frame ... ok
+test engine2::tests::duty_receiver_requires_deterministic_preamble_cad_overlap ... ok
+test engine2::tests::dock_and_recheckout_during_a_frame_invalidates_reception ... ok
+test engine2::tests::duty_tree_rebuilds_in_the_same_availability_event ... ok
+test engine2::tests::energy_accounting_splits_at_checkout_state_transition ... ok
+test engine2::tests::energy_aware_cost_is_charged_to_the_gatewayward_relay ... ok
+test engine2::tests::energy_integration_uses_the_actual_elapsed_step ... ok
+test engine2::tests::energy_segments_preserve_active_then_docked_chronology ... ok
+test engine2::tests::final_partial_energy_step_rebuilds_invalidated_duty_tree ... ok
+test engine2::tests::forwarding_load_decays_when_other_relays_carry_traffic ... ok
+test engine2::tests::insufficient_tx_energy_does_not_create_a_phantom_frame ... ok
+test engine2::tests::half_duplex_check_uses_exact_overlap_not_latest_tx_end ... ok
+test engine2::tests::kiosk_charging_debits_only_actual_battery_headroom ... ok
+test engine2::tests::one_radio_cannot_start_two_overlapping_transmissions ... ok
+test engine2::tests::pending_baseline_energy_is_settled_before_transmission ... ok
+test engine2::tests::event_exactly_at_horizon_does_not_create_zero_duration_rental ... ok
+test engine2::tests::route_progress_remains_continuous_across_utc_midnight ... ok
+test engine2::tests::regional_channel_mobile_attachment_stays_in_its_component ... ok
+test engine2::tests::selective_duty_uses_the_documented_shared_phase ... ok
+test engine2::tests::selective_duty_keeps_every_route_parent_awake ... ok
+test engine2::tests::sender_death_mid_frame_truncates_the_physical_footprint ... ok
+test engine2::tests::settled_packet_cannot_transmit_late ... ok
+test engine2::tests::route_path_depth_is_bounded_by_topology_not_a_magic_constant ... ok
+test engine2::tests::sos_initial_burst_reuses_id_at_absolute_offsets_and_retry_is_fresh ... ok
+test engine2::tests::sos_retry_does_not_follow_a_radio_into_a_new_checkout_session ... ok
+test engine2::tests::sos_retry_stops_when_the_walk_interval_has_ended ... ok
+test engine2::tests::simultaneous_equal_power_collision_is_symmetric_under_sender_order ... ok
+test engine2::tests::transmit_energy_uses_the_actual_duty_baseline ... ok
+test engine2::tests::tx_end_outranks_an_outage_at_the_exact_same_timestamp ... ok
+test engine2::tests::walk_interval_excludes_its_exact_endpoint ... ok
+test engine2::tests::zero_start_soc_is_initially_unavailable ... ok
+test rng::tests::keyed_values_are_stable_and_domain_separated ... ok
+test sim::tests::busy_union_counts_overlaps_once ... ok
+test sim::tests::busy_union_truncation_keeps_the_surviving_frames_exact ... ok
+test rng::tests::streams_are_reproducible_and_isolated ... ok
+test sim::tests::event_uniform_keeps_entity_counter_pairs_distinct_when_swapped ... ok
+test sim::tests::linear_quantiles_match_numpy_style_interpolation ... ok
+test engine2::tests::traffic_draws_are_stable_under_unrelated_node_mac_and_phy_activity ... ok
+test tests::empty_cohort_statistics_serialize_as_null_not_zero ... ok
+test tests::extreme_demand_tiers_fail_closed_without_overflow ... ok
+test inputs::tests::canonical_and_legacy_link_budget_inputs_are_equivalent ... ok
+test sim::tests::latency_bottom_k_is_order_independent_and_not_early_censored ... ok
+
+test result: ok. 47 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
+
+     Running tests/reproducibility.rs (target/debug/deps/reproducibility-f70e04fbadb11f0f)
+
+running 3 tests
+fastsim: 0.1 days of min_hop in 0.1s (1 sim-days/s) -> /var/folders/wq/_3h_b_yn50v8nm67wxx_ht3r0000gn/T/fastsim-repro-7670-0.json
+test invalid_cli_and_timing_inputs_fail_closed ... ok
+fastsim: 0.1 days of min_hop in 0.1s (1 sim-days/s) -> /var/folders/wq/_3h_b_yn50v8nm67wxx_ht3r0000gn/T/fastsim-repro-7670-1.json
+fastsim: 0.1 days of min_hop in 0.1s (1 sim-days/s) -> /var/folders/wq/_3h_b_yn50v8nm67wxx_ht3r0000gn/T/fastsim-repro-7670-2.json
+fastsim: 0.1 days of min_hop in 0.1s (1 sim-days/s) -> /var/folders/wq/_3h_b_yn50v8nm67wxx_ht3r0000gn/T/fastsim-repro-7670-3.json
+fastsim: 0.1 days of min_hop in 0.1s (1 sim-days/s) -> /var/folders/wq/_3h_b_yn50v8nm67wxx_ht3r0000gn/T/fastsim-repro-7670-4.json
+fastsim: 0.1 days of min_hop in 0.1s (1 sim-days/s) -> /var/folders/wq/_3h_b_yn50v8nm67wxx_ht3r0000gn/T/fastsim-repro-7670-5.json
+test same_seed_is_identical_across_processes ... ok
+fastsim: 1 days of min_hop in 7.3s (0 sim-days/s) -> /var/folders/wq/_3h_b_yn50v8nm67wxx_ht3r0000gn/T/fastsim-outage-union-7670.json
+test overlapping_outages_are_merged_as_a_union ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.67s
+

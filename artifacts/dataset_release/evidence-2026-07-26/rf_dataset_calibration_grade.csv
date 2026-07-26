@@ -1,0 +1,1 @@
+timestamp_utc,trial_id,node_id,head_id,from_mesh_id,segment_id,lat,lon,src_lat,src_lon,distance_m,distance_source,hops_away,rssi_dbm,snr_db,obs_esp_dbm,obs_target_dbm,obs_target_source,pred_path_loss_fspl_db,pred_path_loss_itm_db,pred_rssi_dbm,predictor,topography_class,distance_bin,weather_tag,satellite_link_status,time_bin,calibration_eligible,src_pos_staleness_s
