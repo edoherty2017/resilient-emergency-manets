@@ -17,7 +17,7 @@
 
 \title{\textbf{Resilient Emergency MANETs for Wilderness Safety}\\[4pt]
 \large Directed Study Final Report}
-\author{Ethan Doherty\\\small Directed Study (CS 5976) --- Advisor: Prof.\ S.~Basagni}
+\author{Ethan Doherty\\\small Directed Study (CS 5976) --- Advisor: Prof.~Guevara}
 \date{July 26, 2026}
 
 \begin{document}
@@ -490,68 +490,13 @@ be clearly archived and not mixed with final results. Same-seed engine output
 is byte-identical (\S\ref{sec:xval}). Trial~2 registrations made after
 2026-07-19 are git-timestamped by commit \code{1229309} (branch
 \code{trial2-field-campaign-2026-07}); every SHA-256 digest cited in this
-report was re-verified against its artifact on 2026-07-26.
+report was re-verified against its artifact on 2026-07-26. All artifacts
+cited by path in this report resolve in the project repository,
+\url{https://github.com/edoherty2017/resilient-emergency-manets}
+(branch \code{trial2-field-campaign-2026-07}, release
+\code{directed-study-final}).
 
 \appendix
-
-\section{Evidence map}\label{app:evidence}
-
-\paragraph{Reproduction instructions.} The corrected simulation aggregates
-regenerate from the hash-locked inputs recorded in
-\path{release_v1/release_manifest.json} and \path{input_hashes.txt} (engine:
-\code{fastsim/}, \code{cargo build --release}; seeds and modes as in the
-manifest). Verification suite: \code{cargo test} (archived log);
-\code{scripts/sim\_micro\_parity.py}; the repro check re-runs via the command
-line archived in its manifest. Every SHA-256 cited in this report re-verifies
-with \code{shasum -a 256}. Evidence rows cite archived artifacts --- no claim
-requires rerunning anything.
-
-\begin{table}[h]
-\small
-\begin{tabularx}{\textwidth}{@{}p{4.6cm}X@{}}
-\toprule
-\textbf{Claim area} & \textbf{Artifact} \\
-\midrule
-Corrected multi-seed results & \path{artifacts/sim/corrected/release_v1/} (\code{corrected\_stats.json}, \code{meaningful\_metrics.json}, manifest, input hashes) \\
-Micro-parity & \path{artifacts/sim/corrected/micro_parity_2026-07-17.json} \\
-Reproducibility & \path{artifacts/sim/corrected/repro_check_2026-07-17/} \\
-Test suite & \path{artifacts/sim/corrected/cargo_test_2026-07-26.log} (47$+$3 passing at \code{2225c26}) \\
-ITM screens (model-to-model) & \path{artifacts/itm/} (\code{itm\_summary.json}, \code{relay\_links\_itm.csv}) \\
-Statewide screen (FAIL) & \path{artifacts/sim/coverage_audit_statewide.json} \\
-Trial 1 status & \path{artifacts/airmap/live_trial/quality_gates.json}; \path{artifacts/coverage_prediction/reconcile_trial1_provenance.json} \\
-Trial 2 freeze (2026-07-19) & \path{artifacts/trial2/prereg_manifest.json} (git \code{3d15a57}, clean, 12 inputs) \\
-Field-day prediction pack & \path{artifacts/trial2/predictions_fieldday.csv} (\code{a85e4d08\ldots}) $+$ manifest (\code{3e6df03f\ldots}); digests in the 2026-07-23 siting doc \\
-Pack Monadnock registrations & main JSON \code{71db9f00\ldots e9e2}; supplement \code{f50bda83\ldots 53c5f} --- full digests in the siting-doc addendum \\
-Field raw evidence & \path{artifacts/trial2/raw_pull_20260721/}, \path{raw_pull_20260726/} (SHA256SUMS in each) \\
-Ecosystem snapshot & \path{artifacts/trial2/nhmesh_live_snapshot_20260723/} \\
-Station TX cadence (censoring) & \path{artifacts/trial2/nhmesh_activity_20260726/} (SHA256SUMS, PROVENANCE) \\
-Dataset evidence release & \path{artifacts/dataset_release/evidence-2026-07-26/} (\code{MANIFEST.json}) \\
-Registrations (documents) & the two dated siting documents $+$ addendum; \path{docs/trial2-preregistration.md}; execution plan \\
-Withdrawn material & \path{WITHDRAWN-DO-NOT-CITE/} (manifest in README) \\
-\bottomrule
-\end{tabularx}
-\end{table}
-
-\section{Advisor acceptance-criteria compliance map}\label{app:advisor}
-
-Requirements quoted from the advisor's 2026-07-21 email
-(\path{docs/advisor-acceptance-criteria-2026-07-21.md}):
-
-\begin{table}[h]
-\small
-\begin{tabularx}{\textwidth}{@{}p{6.4cm}Xp{1.7cm}@{}}
-\toprule
-\textbf{Requirement (verbatim)} & \textbf{Where satisfied} & \textbf{Status} \\
-\midrule
-``Report Trial 2 honestly regardless of outcome. If some strata are underpowered, noisy, or inconclusive, label them as such rather than omitting them.'' & \S\ref{sec:trial2} entire; zero calibration strata and the unmet opportunity target stated plainly; Appendix~\ref{app:packs} lists every unscored registration & Satisfied \\
-``Any headline claim tied either to the corrected simulation runs or to the Trial 2 measurements. Superseded numbers clearly archived and not mixed with final results.'' & \S\ref{sec:repro} data statement; \S\ref{sec:yearscale}--\ref{sec:insight} trace to release\_v1; model-to-model screens labeled (\S\ref{sec:trial1}); superseded outputs archived separately & Satisfied \\
-``Focused contribution: year-scale wilderness mesh survivability --- duty-cycling, idle listening, delivery ratio, SOS latency.'' & \S\ref{sec:yearscale}--\ref{sec:insight} are the report's center; off-axis material excluded & Satisfied \\
-``Limitations explicit: calibration, restricted number of field sites, purpose-built simulator not independently validated through a widely used third-party framework.'' & \S\ref{sec:limits}, all three named limitations plus the full honest list & Satisfied \\
-``Remain conservative with safety, weather, and radio operation\ldots'' & \S\ref{sec:packday} operations note (hardware-label photographic record pending); conservative field conduct throughout \S\ref{sec:trial2}; fixed-relay authorization limitation in \S\ref{sec:limits} & Satisfied \\
-Final package: frozen protocol pack $\cdot$ raw dataset $\cdot$ scored results $\cdot$ corrected simulation package $\cdot$ full written report & Appendix~\ref{app:packs} $\cdot$ raw pulls $+$ dataset evidence release \code{evidence-2026-07-26} (128{,}721 obs, 0 calibration-grade, \code{MANIFEST.json}) $\cdot$ two-tier scoring $+$ Trial 1 gates $\cdot$ release\_v1 $\cdot$ this report & All five items delivered (item 2 as a zero-calibration-grade evidence release; item 3 as the two-tier contact scoring --- the RMSE/heatmap validation deliverable remains deferred per \S\ref{sec:objectives}) \\
-\bottomrule
-\end{tabularx}
-\end{table}
 
 \section{Frozen prediction packs and scoring ledger}\label{app:packs}
 

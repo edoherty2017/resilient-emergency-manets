@@ -546,53 +546,7 @@ git-timestamped by commit `1229309` (branch `trial2-field-campaign-2026-07`);
 every SHA-256 digest cited in this report was re-verified against its
 artifact on 2026-07-26.
 
-## Appendix A. Evidence map
-
-**Reproduction instructions.** The corrected simulation aggregates regenerate
-from the hash-locked inputs recorded in
-`release_v1/{release_manifest.json, input_hashes.txt}` (engine: `fastsim/`,
-`cargo build --release`; seeds and modes as in the manifest). Verification
-suite: `cargo test` (archived log below); `scripts/sim_micro_parity.py`
-(cross-engine); the repro check re-runs via the command line archived in
-`repro_check_2026-07-17/repro_manifest.json`. Every SHA-256 cited in this
-report re-verifies with `shasum -a 256`. Evidence rows below cite archived
-artifacts — no claim requires rerunning anything.
-
-| Claim area | Artifact |
-|---|---|
-| Corrected multi-seed results | `artifacts/sim/corrected/release_v1/{corrected_stats.json, meaningful_metrics.json, release_manifest.json, input_hashes.txt}` |
-| Decision metrics | `artifacts/sim/corrected/release_v1/meaningful_metrics.json` |
-| Micro-parity | `artifacts/sim/corrected/micro_parity_2026-07-17.json` |
-| Reproducibility | `artifacts/sim/corrected/repro_check_2026-07-17/` |
-| Test suite | `artifacts/sim/corrected/cargo_test_2026-07-26.log` (47+3 passing at HEAD `2225c26`) |
-| ITM screens (model-to-model) | `artifacts/itm/{itm_summary.json, relay_links_itm.csv, lora_airtime.json}` |
-| Statewide screen (FAIL) | `artifacts/sim/coverage_audit_statewide.json` |
-| Trial 1 status | `artifacts/airmap/live_trial/quality_gates.json`; `artifacts/coverage_prediction/reconcile_trial1_provenance.json` |
-| Trial 2 freeze (2026-07-19) | `artifacts/trial2/prereg_manifest.json` (git `3d15a57`, clean, 12 inputs) |
-| Field-day prediction pack | `artifacts/trial2/{predictions_fieldday.csv (a85e4d08…), predictions_fieldday_manifest.json (3e6df03f…)}` — digests in `docs/trial2-monadnock-siting-20260723.md` |
-| Pack Monadnock registrations | `artifacts/trial2/packmonadnock_livemesh_predictions_20260726.json (71db9f00…e9e2)`; supplement `(f50bda83…53c5f)` — full digests in the siting doc addendum |
-| Field raw evidence | `artifacts/trial2/raw_pull_20260721/` + `raw_pull_20260726/` (SHA256SUMS in each) |
-| Ecosystem snapshot | `artifacts/trial2/nhmesh_live_snapshot_20260723/` (SHA256SUMS, PROVENANCE.txt) |
-| Station TX cadence (censoring) | `artifacts/trial2/nhmesh_activity_20260726/` (SHA256SUMS, PROVENANCE.txt) |
-| Dataset evidence release | `artifacts/dataset_release/evidence-2026-07-26/` (MANIFEST.json, DATA_DICTIONARY.md) |
-| Field-day registrations (docs) | `docs/trial2-monadnock-siting-20260723.md`, `docs/trial2-packmonadnock-siting-20260726.md` (+ addendum), `docs/trial2-preregistration.md`, `docs/trial2-weekend-execution-plan-2026-07-18.md` |
-| Withdrawn material | `WITHDRAWN-DO-NOT-CITE/` (manifest in its README) |
-
-## Appendix B. Advisor acceptance-criteria compliance map
-
-Requirements quoted from the advisor's 2026-07-21 email
-(`docs/advisor-acceptance-criteria-2026-07-21.md`):
-
-| Requirement (verbatim) | Where satisfied | Status |
-|---|---|---|
-| "Report Trial 2 honestly regardless of outcome. If some strata are underpowered, noisy, or inconclusive, label them as such rather than omitting them." | §6 entire; §6.7 states zero calibration strata and the unmet opportunity target plainly; Appendix C lists every unscored registration | Satisfied by this report |
-| "Any headline claim tied either to the corrected simulation runs or to the Trial 2 measurements. Superseded numbers clearly archived and not mixed with final results." | §9 data statement; §5.2/5.3 numbers trace to release_v1; model-to-model screens labeled as such (§5.1); superseded outputs archived separately | Satisfied |
-| "Focused contribution: year-scale wilderness mesh survivability — duty-cycling, idle listening, delivery ratio, SOS latency." | §5.2–5.3 are the report's center; off-axis material (statewide build-out advocacy, learned-control experiments, alternative backhaul) is excluded from this report | Satisfied |
-| "Limitations explicit: calibration, restricted number of field sites, purpose-built simulator not independently validated through a widely used third-party framework." | §7.1 (calibration, sites), §7.2 (third-party validation), §7.3 (provenance) | Satisfied |
-| "Remain conservative with safety, weather, and radio operation…" | §6.5 ops note (stock certified hardware as marketed; hardware-label photographic record pending); conservative field conduct throughout §6 (aborts and re-sites rather than protocol bending); §7.3 fixed-relay authorization limitation | Satisfied |
-| Final package: frozen protocol pack · raw dataset · scored results · corrected simulation package · full written report | Appendix C (packs) · raw pulls + dataset evidence release `evidence-2026-07-26` (128,721 obs, 0 calibration-grade, MANIFEST.json) · §6.5 two-tier scoring + Trial 1 gates · release_v1 (§5.2) · this report | All five items delivered (item 2 as a zero-calibration-grade evidence release; item 3 as the two-tier contact scoring — the RMSE/heatmap validation deliverable remains deferred per §1) |
-
-## Appendix C. Frozen prediction packs and scoring ledger
+## Appendix A. Frozen prediction packs and scoring ledger
 
 | Pack | Registered | Status |
 |---|---|---|
