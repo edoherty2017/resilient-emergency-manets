@@ -340,8 +340,7 @@ ever existed.) The field-day prediction pack for
 Moosilauke/Kearsarge/Monadnock (`predictions_fieldday.csv` + manifest) is
 registered via SHA-256 digests recorded in the dated siting documents
 (2026-07-23; CSV `a85e4d08…`, manifest `3e6df03f…`), re-verified matching on
-2026-07-26; these registrations await the repository commit that will
-git-timestamp them.
+2026-07-26; these registrations were git-timestamped by commit `1229309` on 2026-07-26.
 
 ### 6.2 Campaign log: attempts 1–3 (Jul 18–21)
 
@@ -542,9 +541,11 @@ separately in the repository (`WITHDRAWN-DO-NOT-CITE/`, with a manifest) and
 are not cited here, per the acceptance requirement that superseded numbers be
 clearly archived and not mixed with final results. Same-seed engine output is
 byte-identical (§4). Trial 2 registrations made after 2026-07-19 are
-git-timestamped by commit `1229309` (branch `trial2-field-campaign-2026-07`);
-every SHA-256 digest cited in this report was re-verified against its
-artifact on 2026-07-26.
+git-timestamped by commit `1229309`; every SHA-256 digest cited in this
+report was re-verified against its artifact on 2026-07-26. All artifacts
+cited by path in this report resolve in the project repository:
+<https://github.com/edoherty2017/resilient-emergency-manets-final>
+(branch `main`, release `directed-study-final`).
 
 ## Appendix A. Frozen prediction packs and scoring ledger
 
