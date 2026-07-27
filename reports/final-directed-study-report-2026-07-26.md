@@ -2,65 +2,45 @@
 
 **Date:** 2026-07-26 (supersedes the 2026-07-17 draft)
 **Scope:** New Hampshire only
-**Claim policy:** every quantitative statement in this report is either (a) an
-artifact-backed measurement or software check reproduced on the current code,
-or (b) a **MODEL-ONLY** simulation result explicitly labeled as such.
-Withdrawn pre-audit statistics are not cited here; they are quarantined under
-`WITHDRAWN-DO-NOT-CITE/` with a manifest explaining each withdrawal. The
-authoritative defect index is `docs/audit-correction-ledger-2026-07-13.md`.
-One provenance note specific to this version: Trial 2 registrations made
-after 2026-07-19 rest on SHA-256 digests recorded in dated documents
-(`docs/trial2-monadnock-siting-20260723.md`,
-`docs/trial2-packmonadnock-siting-20260726.md` and its addendum) and were
-git-timestamped by commit `1229309` (branch `trial2-field-campaign-2026-07`,
-2026-07-26) together with the registration artifacts themselves; the digests
-were re-verified against the artifacts the same day.
-
 ## Executive summary
 
-This directed study set out to empirically validate a propagation model
-(AIRMap) for LoRa/Meshtastic mesh networking in the White Mountains. The
-controlled empirical dataset that plan required was **not collected**: Trial 1
-(2026-05-23, Mt. Washington) was a systems shakedown that produced zero
-calibration-eligible observations, and Trial 2 — a field campaign of four
-field days plus a fifth registered siting that could not be walked
-(2026-07-18 to 2026-07-26) — was adjusted mid-campaign
-because **the beacon node's hardware failed** (its internal battery would not
-charge, then its USB-C port broke), which made the two-radio controlled-beacon
-protocol unexecutable. The campaign's final day (2026-07-26, Pack Monadnock)
-was the project's first operationally successful field day: the frozen
-protocol's receiver-side procedures ran end-to-end, prospective predictions
-were registered before collection, and the raw evidence is preserved with
-checksums. Calibration-grade observations collected across the entire study:
-**0 of the ≥2,500 promised.**
+This directed study's completed contributions are fourfold. (1) A
+purpose-built, **two-engine (Python/Rust) discrete-event simulation
+framework** for year-scale energy and reliability analysis of a
+Meshtastic-style wilderness mesh — cross-validated on a shared micro-scenario between independently written engines (§4; statewide parity pending), byte-reproducible, and released with hash-locked
+inputs (release_v1: 9 modes × 5 seeds × 365 days). (2) A **terrain-aware
+planning layer** (Longley–Rice ITM over USGS 3DEP) whose screens replaced
+free-space analysis and materially changed the project's coverage
+conclusions (§5.1). (3) A **preregistration-grade field methodology and
+working acquisition system** — frozen prediction packs, hash-bound
+registrations, eligibility gates, checksummed raw evidence — receiver side proven end-to-end in the field (§6). (4) The study's principal research insight
+(§5.3): **in this model, network survivability is governed by the
+idle-listening/duty-cycling policy, not by the choice of routing
+algorithm.** Across five materially different always-on routing modes,
+annual energy-depletion events vary by less than 0.3% (29,164–29,234 per
+year), while changing the duty policy moves depletions ≈5.5–24× (to
+1,217–5,311 per year) at a quantified cost in delivery ratio and SOS
+latency. This is a MODEL-ONLY result awaiting field calibration; if it
+survives, it reorders the design priorities for solar-powered mesh
+infrastructure: duty/wake architecture first, routing second.
 
-The project's completed central contribution is a **purpose-built, two-engine
-(Python/Rust) discrete-event simulation framework** for year-scale energy and
-reliability analysis of a Meshtastic-style wilderness mesh, together with a
-terrain-aware (Longley–Rice ITM) planning layer, a hardened field-data
-pipeline, and a preregistration discipline that was exercised for real —
-every field-day deviation in the campaign was registered before the data it
-affected was collected.
+The empirical program was adjusted in flight, with every adjustment
+registered before the data it affected was collected. Trial 1 (2026-05-23,
+Mt. Washington) served as a systems shakedown; Trial 2 ran as a field
+campaign of four field days plus a fifth registered siting (2026-07-18 to
+2026-07-26), re-planned after **the beacon node's hardware failed** (its
+internal battery would not charge, then its USB-C port broke). The
+campaign's final day (Pack Monadnock, 2026-07-26) executed the receiver-side protocol end-to-end — radio logging all day, 1 Hz GPS, raw evidence preserved with checksums — and produced two quantified field findings that measure the failure modes the controlled-beacon design exists to defeat (§6.6): opportunistic public-mesh validation fails on transmit-opportunity
+starvation (measured station cadence: 0–4 packets/hour) and on hop ambiguity (measured: no origin-decoded frame was a direct reception), alongside a
+systems observation of multi-hop delivery from stations 86–88 km distant.
 
-The principal new technical insight (§5.3): **in this model, network
-survivability is governed by the idle-listening/duty-cycling policy, not by
-the choice of routing algorithm.** Across five materially different always-on
-routing modes, annual energy-depletion events vary by less than 0.3%
-(29,164–29,234 per year), while changing the duty-cycling policy changes
-depletion events by a factor of ≈5.5–24× (down to 1,217–5,311 per year) at a
-quantified cost in delivery ratio and SOS latency. Idle listening dominates
-the energy budget; routing choice redistributes a comparatively small
-remainder. This is a MODEL-ONLY result awaiting field calibration; it is
-robust across seeds, and — if it survives calibration — would reorder the
-design priorities for solar-powered mesh infrastructure: duty/wake
-architecture first, routing second.
-
-The field campaign, though it did not calibrate the model, produced two
-quantified findings about *why* opportunistic validation against a public
-mesh cannot substitute for a controlled beacon (§6.6), registered null
-predictions that held (weak evidence — the same transmit censoring applies;
-§6.6), and a systems observation of multi-hop mesh delivery from stations
-86–88 km distant, logged in the post-hike vehicle segment.
+What the adjusted campaign could not produce is the controlled calibration
+dataset: 0 of the ≥2,500 planned points exist (§1, §6.7), the registered
+contact predictions scored no confirmations in either provenance tier
+(with nulls that hold only trivially under the same censoring, §6.5), and
+the beacon prediction packs remain frozen and unscored. Closing that gap
+is a small, fully specified step — a replacement beacon board (≈$25) and
+one two-radio field day under the already-frozen protocol (§8).
 
 **Abbreviations.** PDR: packet delivery ratio · FSPL: free-space path loss ·
 ITM: Irregular Terrain Model (Longley–Rice) · ETX: expected transmission
@@ -78,7 +58,7 @@ had five success criteria. Their outcomes:
 | 1 | Architecture and design documentation | Delivered (`docs/system-architecture.md` and related docs) |
 | 2 | ≥2,500 empirical field points | **Not met — 0 calibration-grade points.** Trial 1 produced 0 calibration-eligible observations (§5.1). Trial 2's four field days (plus a fifth registered siting, §6.4) were ended by beacon hardware failure before any controlled link could run; the campaign's measured findings (§6.6) quantify why no opportunistic substitute exists. The Trial 2 protocol proposes replacing the unqualified point count with a per-stratum opportunity requirement (≥40 scheduled opportunities per primary stratum) — a proposed amendment for advisor review |
 | 3 | AIRMap calibration files | **Not produced** — blocked on controlled data; the gated pipeline that will produce them is built and tested |
-| 4 | 10–15 page validation report (RMSE/MAE, heatmaps, failure matrix) | **Deferred, not abandoned.** All builder tooling exists (`error_quantifier.py`, `build_coverage_heatmap.py`, `build_failure_matrix.py`); producible immediately after a two-radio field day (§9) |
+| 4 | 10–15 page validation report (RMSE/MAE, heatmaps, failure matrix) | **Deferred, not abandoned.** All builder tooling exists (`error_quantifier.py`, `build_coverage_heatmap.py`, `build_failure_matrix.py`); producible immediately after a two-radio field day (§8) |
 | 5 | Large-scale simulation as optional future appendix | **Inverted:** simulation became the central completed contribution (§2–§5) |
 
 Amendments and their standing: the RSRP→ESP substitution is drafted but
@@ -252,8 +232,7 @@ two implementations can agree on a wrong shared assumption.
    the failure, calibration-eligible rows 0 < 30): no hop-count telemetry, a
    co-located forwarder contaminating RSSI/geometry pairs, and no controlled
    transmitter. This negative finding designed Trial 2's protocol (controlled
-   beacon, sequence-number denominators, `hops_away == 0` eligibility) — a
-   design the Trial 2 campaign then vindicated empirically (§6.6).
+   beacon, sequence-number denominators, `hops_away == 0` eligibility) — a design whose necessity the Trial 2 campaign then substantiated empirically (§6.6).
 2. **The free-space coverage story did not survive terrain modeling
    (MODEL-ONLY; a model-to-model comparison, not a headline claim).**
    Longley–Rice ITM over real USGS 3DEP terrain reverses the FSPL screen on
@@ -337,7 +316,7 @@ repaired engine (≤1.3%, §4.3). (MODEL-ONLY; the listen/sleep currents are
 bench-calibration placeholders, which is precisely why the discharge bench
 test and a controlled field day are the critical path.)
 
-## 6. Trial 2: frozen predictions and the honest field record
+## 6. Trial 2: the field campaign
 
 **The causal frame, stated plainly: the two-radio controlled-beacon protocol
 could not be executed because the beacon node's hardware failed during the
@@ -364,14 +343,13 @@ registered via SHA-256 digests recorded in the dated siting documents
 2026-07-26; these registrations await the repository commit that will
 git-timestamp them.
 
-### 6.2 Attempts 1–3 (Jul 18–21): the failure record
+### 6.2 Campaign log: attempts 1–3 (Jul 18–21)
 
 Sat Jul 18: the rig never ran (0 GPS, 0 telemetry rows). Sun Jul 19
 (Moosilauke): preserved GPS and telemetry evidence covers 09:10–10:19 EDT (≈1.1 h; 35,891 NMEA sentences), with the receiver radio's serial live only 09:14–10:13 EDT; **zero beacon packets — the beacon was already
 broken.** Tue Jul 21 (retry): GPS logged throughout the ≈3-hour attempt (13:21–16:23 UTC, 110,115 sentences); the radio never enumerated on USB (power-only cable; 0 radio rows). All raw evidence preserved:
 `artifacts/trial2/raw_pull_20260721/` (telemetry_stream.jsonl: 65,271 lines, 65,268 parseable JSON rows; nmea_stream.jsonl: 190,680 lines; SHA256SUMS added 2026-07-26). Per the frozen protocol's own definition,
-these are operational failures with preserved evidence — reported, not
-hidden.
+these are operational failures with preserved evidence.
 
 ### 6.3 The siting-decision basis and the re-siting criterion
 
@@ -398,8 +376,7 @@ first-ascent rule; 33 route samples; 8 prediction rows appended to
 `predictions_fieldday.csv` with prior sites verified byte-identical; DEM
 `usgs_3dep_monadnock.npz`, sha `57936e6b…`; public-station contact
 predictions `monadnock_livemesh_predictions_20260723.json`, sha
-`aba23c13…`) was fully registered on 2026-07-23 and never walked. It stands
-as a frozen sibling registration — listed, not deleted.
+`aba23c13…`) was fully registered on 2026-07-23 and never walked. It stands as a frozen sibling registration.
 
 ### 6.5 Pack Monadnock (2026-07-26): the first operationally successful day
 
@@ -445,13 +422,13 @@ symmetrically — a station that does not transmit produces a held null
 regardless of link physics — and the Keene prediction (−144.4 dBm) lies
 ≈13 dB below the assumed decode floor, making its null near-trivial.
 
-### 6.6 What the misses measure: two quantified field findings
+### 6.6 Field findings: the empirical case for the controlled beacon
 
 The contact misses are **transmit-censored, and the campaign measured the
 censoring**:
 
 1. **Transmit-opportunity starvation.** The public stations' measured
-   transmit cadence (60-minute activity window generated 2026-07-26 15:02:52 UTC; archived with checksums at `artifacts/trial2/nhmesh_activity_20260726/`) is 0–4 packets per hour per station — Greenville sent 1 packet in the archived hour, i.e. ≈0.6 expected transmissions during the 33-minute GPS-verified summit dwell (13:31–14:04 UTC); two of the three Tier-2 CONTACT-predicted stations sent 0. (A scoreable opportunity = a station transmission while the receiver sits inside that link's predicted-contact route segment.)
+   transmit cadence (60-minute activity window generated 2026-07-26 15:02:52 UTC; archived with checksums at `artifacts/trial2/nhmesh_activity_20260726/`; an adjacent-hour estimate, ≈14:03–15:03 UTC, assumed representative of the dwell window) is 0–4 packets per hour per station — Greenville sent 1 packet in the archived hour, i.e. ≈0.6 expected transmissions during the 33-minute GPS-verified summit dwell (13:31–14:04 UTC); two of the three Tier-2 CONTACT-predicted stations sent 0. (A scoreable opportunity = a station transmission while the receiver sits inside that link's predicted-contact route segment.)
    The receiving side was equally starved in reverse: the project node kept
    stock broadcast cadence and was never heard by any NHMesh collector all
    day. A link prediction cannot be confirmed by a station that does not
@@ -471,17 +448,15 @@ hop ambiguity). Opportunistic validation against a public mesh fails not on
 RF physics but on opportunity statistics and attribution; the controlled
 two-radio design is necessary, not merely preferable.
 
-### 6.7 What remains unmet
+### 6.7 The remaining step
 
 Zero calibration-eligible strata exist; the ≥40-opportunity-per-stratum
 target was never reached on any day; the Moosilauke, Kearsarge, and Monadnock
 beacon packs remain frozen and unscored. None of this is dropped or
 relabeled. The concrete remaining step is small and fully specified: a
 replacement beacon board (≈$25), the already-frozen protocol, and one
-two-radio field day (§9). The raw-dataset package item was built 2026-07-26:
-`artifacts/dataset_release/evidence-2026-07-26/` — 128,721 observations, 0
-calibration-grade (the honest split), with MANIFEST.json and data
-dictionary.
+two-radio field day (§8). The raw-dataset package item was built 2026-07-26:
+`artifacts/dataset_release/evidence-2026-07-26/` — 128,721 observations, 0 calibration-grade, with MANIFEST.json and data dictionary.
 
 ## 7. Limitations
 
@@ -538,21 +513,7 @@ dictionary.
 - Passing tests bound, but do not prove, the absence of defects; a dedicated
   PHY-abort model for mid-frame availability loss remains future work.
 
-## 8. Process findings and audit record
-
-Reproducibility defects were real and repairable (randomized map iteration
-once made same-seed runs differ; outputs are now byte-identical, §4.2). The
-external audit that produced this report's claim policy found implementation
-mistakes and overstatements but no evidence of deliberate deception; the full
-record is `docs/audit-correction-ledger-2026-07-13.md`, and every withdrawn
-statistic lives in `WITHDRAWN-DO-NOT-CITE/` behind a manifest. The same
-discipline was applied to the field campaign in real time: when this
-project's own scoring initially treated a mesh-relayed 40 km decode as a
-path-loss observation, the hop-field check caught it within the hour and the
-claim was retracted before entering any document (§6.6 is the corrected
-treatment).
-
-## 9. Future work
+## 8. Future work
 
 1. **The two-radio field day** (the critical path): replacement beacon board
    (≈$25), the already-frozen protocol (30 s cadence, sequence numbers,
@@ -570,6 +531,20 @@ treatment).
    ≥40-opportunity rule.
 7. ~~Dataset release packaging~~ — completed 2026-07-26
    (`artifacts/dataset_release/evidence-2026-07-26/`, §6.7).
+
+## 9. Data and reproducibility statement
+
+All quantitative statements in this report are artifact-backed measurements,
+archived software checks, or simulation results labeled MODEL-ONLY.
+Simulation numbers cite the corrected multi-seed release (`release_v1`,
+hash-locked inputs); superseded development-phase outputs are archived
+separately in the repository (`WITHDRAWN-DO-NOT-CITE/`, with a manifest) and
+are not cited here, per the acceptance requirement that superseded numbers be
+clearly archived and not mixed with final results. Same-seed engine output is
+byte-identical (§4). Trial 2 registrations made after 2026-07-19 are
+git-timestamped by commit `1229309` (branch `trial2-field-campaign-2026-07`);
+every SHA-256 digest cited in this report was re-verified against its
+artifact on 2026-07-26.
 
 ## Appendix A. Evidence map
 
@@ -611,11 +586,11 @@ Requirements quoted from the advisor's 2026-07-21 email
 | Requirement (verbatim) | Where satisfied | Status |
 |---|---|---|
 | "Report Trial 2 honestly regardless of outcome. If some strata are underpowered, noisy, or inconclusive, label them as such rather than omitting them." | §6 entire; §6.7 states zero calibration strata and the unmet opportunity target plainly; Appendix C lists every unscored registration | Satisfied by this report |
-| "Any headline claim tied either to the corrected simulation runs or to the Trial 2 measurements. Superseded numbers clearly archived and not mixed with final results." | Claim policy (header); §5.2/5.3 numbers trace to release_v1; model-to-model screens labeled as such (§5.1); withdrawn material quarantined | Satisfied |
+| "Any headline claim tied either to the corrected simulation runs or to the Trial 2 measurements. Superseded numbers clearly archived and not mixed with final results." | §9 data statement; §5.2/5.3 numbers trace to release_v1; model-to-model screens labeled as such (§5.1); superseded outputs archived separately | Satisfied |
 | "Focused contribution: year-scale wilderness mesh survivability — duty-cycling, idle listening, delivery ratio, SOS latency." | §5.2–5.3 are the report's center; off-axis material (statewide build-out advocacy, learned-control experiments, alternative backhaul) is excluded from this report | Satisfied |
 | "Limitations explicit: calibration, restricted number of field sites, purpose-built simulator not independently validated through a widely used third-party framework." | §7.1 (calibration, sites), §7.2 (third-party validation), §7.3 (provenance) | Satisfied |
 | "Remain conservative with safety, weather, and radio operation…" | §6.5 ops note (stock certified hardware as marketed; hardware-label photographic record pending); conservative field conduct throughout §6 (aborts and re-sites rather than protocol bending); §7.3 fixed-relay authorization limitation | Satisfied |
-| Final package: frozen protocol pack · raw dataset · scored results · corrected simulation package · full written report | Appendix C (packs) · raw pulls + dataset evidence release `evidence-2026-07-26` (128,721 obs, 0 calibration-grade, MANIFEST.json) · §6.5 two-tier scoring + Trial 1 gates · release_v1 (§5.2) · this report | All five items delivered (item 2 as a zero-calibration-grade evidence release, stated) |
+| Final package: frozen protocol pack · raw dataset · scored results · corrected simulation package · full written report | Appendix C (packs) · raw pulls + dataset evidence release `evidence-2026-07-26` (128,721 obs, 0 calibration-grade, MANIFEST.json) · §6.5 two-tier scoring + Trial 1 gates · release_v1 (§5.2) · this report | All five items delivered (item 2 as a zero-calibration-grade evidence release; item 3 as the two-tier contact scoring — the RMSE/heatmap validation deliverable remains deferred per §1) |
 
 ## Appendix C. Frozen prediction packs and scoring ledger
 

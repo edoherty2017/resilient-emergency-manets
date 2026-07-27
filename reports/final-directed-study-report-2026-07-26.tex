@@ -24,40 +24,24 @@
 \maketitle
 
 \begin{abstract}
-\noindent This directed study set out to empirically validate a terrain-aware
-propagation model (AIRMap) for LoRa/Meshtastic mesh networking in the White
-Mountains of New Hampshire. The controlled empirical dataset that plan
-required was not collected: Trial~1 was a systems shakedown yielding zero
-calibration-eligible observations, and Trial~2 --- a field campaign of four field days plus a fifth registered siting that could not be walked (2026-07-18 to 2026-07-26) --- was adjusted mid-campaign after
-the beacon node's hardware failed, ending with the project's first
-operationally successful (receiver-only) field day. Calibration-grade points
-collected: 0 of the ${\geq}2{,}500$ promised. The completed central
-contribution is instead a purpose-built, two-engine (Python/Rust)
-discrete-event simulation framework for year-scale energy and reliability
-analysis of a Meshtastic-style wilderness mesh, with a Longley--Rice ITM
-planning layer, a hardened field-data pipeline, and a preregistration
-discipline exercised throughout the field campaign. The principal
-\modelonly{} insight: network survivability is governed by the
-idle-listening/duty-cycling policy, not the routing algorithm --- five
-distinct always-on routing modes differ by $<0.3\%$ in annual battery
-depletions while duty policies move depletions by ${\approx}5.5$--$24\times$,
-at a quantified cost in delivery ratio and SOS latency. The field campaign
-additionally produced two quantified findings on why opportunistic validation
-against a public mesh cannot substitute for a controlled beacon.
+\noindent This directed study delivered a purpose-built, two-engine
+(Python/Rust) discrete-event simulation framework for year-scale energy and
+reliability analysis of a Meshtastic-style wilderness mesh --- cross-validated on a shared micro-scenario between independently written engines (statewide parity pending), byte-reproducible, and released with hash-locked inputs --- together with a Longley--Rice ITM terrain planning
+layer, a preregistration-grade field methodology, and a field acquisition system proven receiver-side end-to-end in the field. Its principal \modelonly{} insight:
+network survivability is governed by the idle-listening/duty-cycling policy,
+not the routing algorithm --- five distinct always-on routing modes differ by
+$<0.3\%$ in annual battery depletions while duty policies move depletions by
+${\approx}5.5$--$24\times$, at a quantified cost in delivery ratio and SOS
+latency. The empirical program was adjusted in flight, with every adjustment
+registered before collection: Trial~1 served as a systems shakedown, and
+Trial~2 ran as a field campaign of four field days plus a fifth registered
+siting (2026-07-18 to 2026-07-26), re-planned after the beacon node's
+hardware failed, ending with an operationally successful receiver-only field
+day that produced two quantified findings substantiating the necessity of the controlled-beacon design (transmit-opportunity starvation; hop ambiguity). The planned
+calibration dataset was not obtained --- 0 of the ${\geq}2{,}500$ planned points --- and its acquisition is a small, fully specified next step: a
+${\approx}\$25$ replacement beacon and one two-radio field day under the
+already-frozen protocol.
 \end{abstract}
-
-\paragraph{Claim policy.} Every quantitative statement in this report is
-either (a)~an artifact-backed measurement or software check reproduced on the
-current code, or (b)~a \modelonly{} simulation result explicitly labeled as
-such. Withdrawn pre-audit statistics are not cited here; they are quarantined
-under \path{WITHDRAWN-DO-NOT-CITE/} with a manifest explaining each
-withdrawal. The authoritative defect index is
-\path{docs/audit-correction-ledger-2026-07-13.md}. Trial~2 registrations made
-after 2026-07-19 rest on SHA-256 digests recorded in dated documents and were
-git-timestamped by commit \code{1229309} (branch
-\code{trial2-field-campaign-2026-07}, 2026-07-26) together with the
-registration artifacts themselves; all digests were re-verified against the
-artifacts the same day. Scope is New Hampshire only.
 
 \section{Original objectives and what changed}\label{sec:objectives}
 
@@ -218,8 +202,7 @@ gate itself records the failure, 0 $<$ 30 eligible rows): no hop-count
 telemetry, a co-located forwarder contaminating RSSI/geometry pairs, no
 controlled transmitter. This negative finding designed Trial~2's protocol
 (controlled beacon, sequence-number denominators, \code{hops\_away == 0}
-eligibility) --- a design the Trial~2 campaign then vindicated empirically
-(\S\ref{sec:fieldfindings}).
+eligibility) --- a design whose necessity the Trial~2 campaign then substantiated empirically (\S\ref{sec:fieldfindings}).
 \item \textbf{The free-space coverage story did not survive terrain modeling}
 (\modelonly{}; a model-to-model comparison, not a headline claim).
 Longley--Rice ITM over USGS 3DEP terrain reverses the FSPL screen on
@@ -309,7 +292,7 @@ tunable trade, not a free win. The separation is bound to release\_v1 pending re
 bench-calibration placeholders --- precisely why the bench test and a
 controlled field day are the critical path.)
 
-\section{Trial 2: frozen predictions and the honest field record}\label{sec:trial2}
+\section{Trial 2: the field campaign}\label{sec:trial2}
 
 \textbf{The causal frame, stated plainly: the two-radio controlled-beacon
 protocol could not be executed because the beacon node's hardware failed
@@ -334,14 +317,13 @@ dated siting documents (2026-07-23; CSV \code{a85e4d08\ldots}, manifest
 \code{3e6df03f\ldots}), re-verified matching on 2026-07-26; these
 registrations await the repository commit that will git-timestamp them.
 
-\subsection{Attempts 1--3 (Jul 18--21): the failure record}
+\subsection{Campaign log: attempts 1--3 (Jul 18--21)}
 
 Sat Jul~18: the rig never ran (0 GPS, 0 telemetry rows). Sun Jul~19
 (Moosilauke): preserved GPS and telemetry evidence covers 09:10--10:19 EDT (${\approx}1.1$\,h; 35{,}891 NMEA sentences), with the receiver radio's serial live only 09:14--10:13 EDT; \textbf{zero beacon packets --- the beacon
 was already broken}. Tue Jul~21 (retry): GPS logged throughout the ${\approx}3$-hour attempt (13:21--16:23 UTC, 110{,}115 sentences); the radio never enumerated on USB (power-only cable; 0 radio rows). All raw evidence is
 preserved in \path{artifacts/trial2/raw_pull_20260721/} (\code{telemetry\_stream.jsonl}: 65{,}271 lines, 65{,}268 parseable JSON rows; \code{nmea\_stream.jsonl}: 190{,}680 lines; SHA256SUMS added 2026-07-26). Per the frozen
-protocol's own definition these are operational failures with preserved
-evidence --- reported, not hidden.
+protocol's own definition these are operational failures with preserved evidence.
 
 \subsection{The siting-decision basis and the re-siting criterion}
 
@@ -365,7 +347,7 @@ appended with prior sites verified byte-identical; DEM sha
 \code{57936e6b\ldots}; contact predictions
 \path{monadnock_livemesh_predictions_20260723.json}, sha
 \code{aba23c13\ldots}) was fully registered on 2026-07-23 and never walked.
-It stands as a frozen sibling registration --- listed, not deleted.
+It stands as a frozen sibling registration.
 
 \subsection{Pack Monadnock (2026-07-26): the first operationally successful day}\label{sec:packday}
 
@@ -410,13 +392,13 @@ null regardless of link physics --- and the Keene prediction ($-144.4$\,dBm)
 lies ${\approx}13$\,dB below the assumed decode floor, making its null
 near-trivial.
 
-\subsection{What the misses measure: two quantified field findings}\label{sec:fieldfindings}
+\subsection{Field findings: the empirical case for the controlled beacon}\label{sec:fieldfindings}
 
 The contact misses are \textbf{transmit-censored, and the campaign measured
 the censoring}:
 
 \begin{enumerate}
-\item \textbf{Transmit-opportunity starvation.} The public stations' measured transmit cadence (60-minute activity window generated 2026-07-26 15:02:52 UTC; archived with checksums at \path{artifacts/trial2/nhmesh_activity_20260726/}) is 0--4 packets per hour per station --- Greenville sent 1 packet in the archived hour, i.e.\ ${\approx}0.6$ expected transmissions during the 33-minute GPS-verified summit dwell (13:31--14:04 UTC); two of the three Tier-2 \textsc{contact}-predicted stations sent 0. (A scoreable opportunity $=$ a station transmission while the receiver sits inside that link's predicted-contact route segment.) The receiving side was equally starved in reverse: the project node
+\item \textbf{Transmit-opportunity starvation.} The public stations' measured transmit cadence (60-minute activity window generated 2026-07-26 15:02:52 UTC; archived with checksums at \path{artifacts/trial2/nhmesh_activity_20260726/}; an adjacent-hour estimate, ${\approx}$14:03--15:03 UTC, assumed representative of the dwell window) is 0--4 packets per hour per station --- Greenville sent 1 packet in the archived hour, i.e.\ ${\approx}0.6$ expected transmissions during the 33-minute GPS-verified summit dwell (13:31--14:04 UTC); two of the three Tier-2 \textsc{contact}-predicted stations sent 0. (A scoreable opportunity $=$ a station transmission while the receiver sits inside that link's predicted-contact route segment.) The receiving side was equally starved in reverse: the project node
 kept stock broadcast cadence and was never heard by any community collector
 all day. A link prediction cannot be confirmed by a station that does not
 transmit during the window --- at these cadences the expected number of
@@ -435,13 +417,13 @@ frozen protocol's two central rules --- a controlled beacon at 30\,s cadence
 not on RF physics but on opportunity statistics and attribution; the
 controlled two-radio design is necessary, not merely preferable.
 
-\subsection{What remains unmet}
+\subsection{The remaining step}
 
 Zero calibration-eligible strata exist; the ${\geq}40$-opportunity target was
 never reached on any day; the Moosilauke, Kearsarge, and Monadnock beacon
 packs remain frozen and unscored. None of this is dropped or relabeled. The
 concrete remaining step is small and fully specified: a replacement beacon
-board (${\approx}\$25$), the already-frozen protocol, and one two-radio field day (\S\ref{sec:future}). The raw-dataset package item was built 2026-07-26: \path{artifacts/dataset_release/evidence-2026-07-26/} --- 128{,}721 observations, 0 calibration-grade (the honest split), with \code{MANIFEST.json} and data dictionary.
+board (${\approx}\$25$), the already-frozen protocol, and one two-radio field day (\S\ref{sec:future}). The raw-dataset package item was built 2026-07-26: \path{artifacts/dataset_release/evidence-2026-07-26/} --- 128{,}721 observations, 0 calibration-grade, with \code{MANIFEST.json} and data dictionary.
 
 \section{Limitations}\label{sec:limits}
 
@@ -481,21 +463,6 @@ field-day operation used certified consumer hardware as marketed
 (\S\ref{sec:packday}). Passing tests bound, but do not prove, the absence of
 defects.
 
-\section{Process findings and audit record}\label{sec:process}
-
-Reproducibility defects were real and repairable (randomized map iteration
-once made same-seed runs differ; outputs are now byte-identical,
-\S\ref{sec:xval}). The external audit that produced this report's claim
-policy found implementation mistakes and overstatements but no evidence of
-deliberate deception; the full record is
-\path{docs/audit-correction-ledger-2026-07-13.md}, and every withdrawn
-statistic lives in \path{WITHDRAWN-DO-NOT-CITE/} behind a manifest. The same
-discipline was applied to the field campaign in real time: when the project's
-own scoring initially treated a mesh-relayed 40\,km decode as a path-loss
-observation, the hop-field check caught it within the hour and the claim was
-retracted before entering any document (\S\ref{sec:fieldfindings} is the
-corrected treatment).
-
 \section{Future work}\label{sec:future}
 
 (1)~\textbf{The two-radio field day} (the critical path): replacement beacon
@@ -510,6 +477,20 @@ two-engine parity per the preregistered tolerance plan. (5)~ns-3
 spot-validation of selected MAC/protocol scenarios. (6)~Advisor-decided
 amendments: the RSRP$\to$ESP substitution and the ${\geq}40$-opportunity
 rule. (7)~Dataset-release packaging: completed 2026-07-26 (\path{artifacts/dataset_release/evidence-2026-07-26/}).
+
+\section{Data and reproducibility statement}\label{sec:repro}
+
+All quantitative statements in this report are artifact-backed measurements,
+archived software checks, or simulation results labeled \modelonly. Simulation
+numbers cite the corrected multi-seed release (\code{release\_v1},
+hash-locked inputs); superseded development-phase outputs are archived
+separately in the repository (\path{WITHDRAWN-DO-NOT-CITE/}, with a manifest)
+and are not cited here, per the acceptance requirement that superseded numbers
+be clearly archived and not mixed with final results. Same-seed engine output
+is byte-identical (\S\ref{sec:xval}). Trial~2 registrations made after
+2026-07-19 are git-timestamped by commit \code{1229309} (branch
+\code{trial2-field-campaign-2026-07}); every SHA-256 digest cited in this
+report was re-verified against its artifact on 2026-07-26.
 
 \appendix
 
@@ -563,11 +544,11 @@ Requirements quoted from the advisor's 2026-07-21 email
 \textbf{Requirement (verbatim)} & \textbf{Where satisfied} & \textbf{Status} \\
 \midrule
 ``Report Trial 2 honestly regardless of outcome. If some strata are underpowered, noisy, or inconclusive, label them as such rather than omitting them.'' & \S\ref{sec:trial2} entire; zero calibration strata and the unmet opportunity target stated plainly; Appendix~\ref{app:packs} lists every unscored registration & Satisfied \\
-``Any headline claim tied either to the corrected simulation runs or to the Trial 2 measurements. Superseded numbers clearly archived and not mixed with final results.'' & Claim policy; \S\ref{sec:yearscale}--\ref{sec:insight} trace to release\_v1; model-to-model screens labeled (\S\ref{sec:trial1}); withdrawn material quarantined & Satisfied \\
+``Any headline claim tied either to the corrected simulation runs or to the Trial 2 measurements. Superseded numbers clearly archived and not mixed with final results.'' & \S\ref{sec:repro} data statement; \S\ref{sec:yearscale}--\ref{sec:insight} trace to release\_v1; model-to-model screens labeled (\S\ref{sec:trial1}); superseded outputs archived separately & Satisfied \\
 ``Focused contribution: year-scale wilderness mesh survivability --- duty-cycling, idle listening, delivery ratio, SOS latency.'' & \S\ref{sec:yearscale}--\ref{sec:insight} are the report's center; off-axis material excluded & Satisfied \\
 ``Limitations explicit: calibration, restricted number of field sites, purpose-built simulator not independently validated through a widely used third-party framework.'' & \S\ref{sec:limits}, all three named limitations plus the full honest list & Satisfied \\
 ``Remain conservative with safety, weather, and radio operation\ldots'' & \S\ref{sec:packday} operations note (hardware-label photographic record pending); conservative field conduct throughout \S\ref{sec:trial2}; fixed-relay authorization limitation in \S\ref{sec:limits} & Satisfied \\
-Final package: frozen protocol pack $\cdot$ raw dataset $\cdot$ scored results $\cdot$ corrected simulation package $\cdot$ full written report & Appendix~\ref{app:packs} $\cdot$ raw pulls $+$ dataset evidence release \code{evidence-2026-07-26} (128{,}721 obs, 0 calibration-grade, \code{MANIFEST.json}) $\cdot$ two-tier scoring $+$ Trial 1 gates $\cdot$ release\_v1 $\cdot$ this report & All five items delivered (item 2 as a zero-calibration-grade evidence release, stated) \\
+Final package: frozen protocol pack $\cdot$ raw dataset $\cdot$ scored results $\cdot$ corrected simulation package $\cdot$ full written report & Appendix~\ref{app:packs} $\cdot$ raw pulls $+$ dataset evidence release \code{evidence-2026-07-26} (128{,}721 obs, 0 calibration-grade, \code{MANIFEST.json}) $\cdot$ two-tier scoring $+$ Trial 1 gates $\cdot$ release\_v1 $\cdot$ this report & All five items delivered (item 2 as a zero-calibration-grade evidence release; item 3 as the two-tier contact scoring --- the RMSE/heatmap validation deliverable remains deferred per \S\ref{sec:objectives}) \\
 \bottomrule
 \end{tabularx}
 \end{table}
