@@ -1,0 +1,68 @@
+\documentclass[11pt]{article}
+\usepackage[margin=0.9in]{geometry}
+\usepackage{microtype}
+\usepackage{url}
+\usepackage[hidelinks]{hyperref}
+\urlstyle{tt}
+\setlength{\parskip}{5pt}
+\setlength{\parindent}{0pt}
+\pagestyle{empty}
+
+\begin{document}
+
+\begin{center}
+{\Large\textbf{Resilient Emergency MANETs for Wilderness Safety}}\\[3pt]
+{\large One-Page Project Summary}\\[3pt]
+{\small Ethan Doherty --- Directed Study (CS 5976) --- Advisor: Prof.~Guevara --- July 2026}
+\end{center}
+
+\vspace{4pt}
+\textbf{What this project was.}
+Hikers in New Hampshire's mountains regularly lose cell coverage exactly where
+emergencies happen. This directed study asked whether a mesh of small, cheap,
+solar-powered LoRa radios (Meshtastic) could carry emergency traffic --- SOS
+messages, position beacons, short texts --- across that terrain, and set out to
+answer it two ways: build and field-test the data-collection system, and
+gather ${\geq}2{,}500$ controlled radio measurements to calibrate a
+terrain-based coverage model.
+
+\textbf{What happened.}
+The first field trial (Mt.~Washington, May) was a systems shakedown: it proved
+the collection pipeline and showed that free-space coverage assumptions fail
+badly in real terrain --- modeled disagreements up to ${\sim}60$\,dB on
+summit-facing links --- which redesigned the field protocol around a
+controlled beacon and direct-link-only data. The project's center of gravity
+became a purpose-built simulator: two independent implementations (Python and
+Rust) of the same statewide mesh model, cross-checked against each other, that
+simulate a full year of network life --- radios, batteries, solar, weather,
+hikers, emergencies --- in about 3.5 minutes. Its principal finding (a model
+result awaiting field calibration): \emph{node survival is governed by how
+much time radios spend listening, not by which routing algorithm they run}.
+Five different routing algorithms differed by less than 0.3\% in annual
+battery depletions, while duty-cycling policies (letting radios sleep between
+listen windows) cut depletions 5.5--24$\times$ --- at a quantified cost in
+delivery rate and SOS latency, so the result is a design trade, not a free
+win. The second field campaign (July) was re-planned in flight after the
+beacon radio's hardware failed --- its battery, then its charging port --- so
+the calibration dataset was not collected (0 of the 2{,}500 points). The final
+field day (Pack Monadnock) still ran the receiver system end-to-end and
+measured exactly why public mesh stations cannot substitute for a controlled
+beacon: they transmit only 0--4 times per hour, and every packet received
+arrived through relays, making signal strength unattributable to any path.
+Every change of plan was registered, with cryptographic hashes, before the
+data it affected was collected.
+
+\textbf{What it is now.}
+A working, documented, reproducible research platform: the two-engine
+simulator with a released, hash-locked results set; a terrain-aware
+(Longley--Rice) planning layer; a preregistered field protocol with frozen
+prediction packs ready to score; a hardened field acquisition rig proven in
+the field; and a complete evidence chain --- every number in the final report
+traces to a checksummed artifact in the repository
+(\url{https://github.com/edoherty2017/resilient-emergency-manets}).
+One small step remains to close the original calibration goal: a
+${\sim}\$25$ replacement beacon board and a single two-radio field day under
+the already-frozen protocol. Full detail: \emph{Directed Study Final Report},
+2026-07-26.
+
+\end{document}
