@@ -2,6 +2,7 @@
 
 **Date:** 2026-07-26 (supersedes the 2026-07-17 draft)
 **Scope:** New Hampshire only
+**Code, data, and all cited artifacts:** <https://github.com/edoherty2017/resilient-emergency-manets-final>
 ## Executive summary
 
 This directed study's completed contributions are fourfold. (1) A
