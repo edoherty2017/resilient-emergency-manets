@@ -1,0 +1,117 @@
+# WMNF mesh network simulation — equipment + environment parameters.
+#
+# Every value is either (a) sourced from a datasheet/our own measurements, or
+# (b) marked BENCH-CALIBRATE meaning it must be replaced with a measured value
+# (open decision C5: bench battery test). The simulator refuses to silently
+# invent numbers — this file is the single source of truth it loads.
+
+radio:
+  # Heltec LoRa32 V3 (ESP32-S3 + Semtech SX1262), Meshtastic LongFast, US 915.
+  # NOTE: regulatory basis for +22 dBm single-channel operation is OPEN
+  # (docs/fcc-part15-compliance-memo.md, decision A2). The sim models the
+  # LongFast link budget as currently operated.
+  preset: LongFast
+  freq_mhz: 915.0
+  sf: 11
+  bw_hz: 250000
+  cr: 1                      # 4/5
+  preamble_syms: 16
+  tx_power_dbm: 22.0
+  tx_antenna_gain_dbi: 2.15
+  tx_feed_loss_db: 0.0       # [BENCH-CALIBRATE] includes pigtail/connector loss
+  tx_eirp_dbm: 24.15         # 22 + 2.15 - 0; excludes receiver antenna gain
+  rx_antenna_gain_dbi: 2.15
+  rx_feed_loss_db: 0.0       # [BENCH-CALIBRATE]
+  # Simulator RSSI reference = tx_eirp_dbm + rx_antenna_gain_dbi -
+  # rx_feed_loss_db = 26.3 dBm before subtracting basic path loss.
+  rx_sensitivity_dbm: -131.0 # SF11/BW250 (SX1262 datasheet)
+  noise_figure_db: 6.0
+  snr_demod_threshold_db: -17.5   # SF11 (Semtech AN1200.22)
+  capture_threshold_db: 6.0       # co-SF capture (Croce et al. 2018)
+  hop_limit: 3               # Meshtastic default; sim sweeps this
+
+shadowing:
+  # Lognormal shadowing on top of ITM median loss. sigma_db falls back to 8 dB
+  # (typical mountainous NLOS) until Trial 2 calibration lands a fitted value
+  # (config/airmap/digital-twin-calibration.yaml).
+  sigma_db: 8.0
+  fast_fading_db: 2.0        # per-packet residual
+  coherence_s: 30.0          # Gauss-Markov redraw scale for the slow component
+
+energy:
+  # Heltec LoRa32 V3 current draws at 3.7 V nominal.
+  # BENCH-CALIBRATE: these are community/datasheet composites, not our bench
+  # numbers. SX1262 PA at +22 dBm ~118 mA + ESP32-S3 active ~110-130 mA;
+  # Meshtastic ESP32 targets cannot deep-sleep while routing.
+  battery_v: 3.7
+  tx_current_ma: 245.0       # board total during transmit  [BENCH-CALIBRATE]
+  # rx_listen_ma community bracket (2026-07 web survey; see sweep_hw/):
+  #   Heltec V3 measured avg ~130 mA (tutoduino.fr), ~110 mA (meshtastic forum)
+  #   T-Beam router ~100 mA (meshtastic forum)
+  #   RAK4631 nRF52 idle 2-6 mA (RAK power thread) — the solar/router choice
+  # 68 mA retained as mid-bracket default; conclusions verified invariant
+  # across 6-130 mA (artifacts/sim/sweep_hw/). [BENCH-CALIBRATE overnight
+  # discharge test on our own Heltec pins this exactly]
+  rx_listen_ma: 68.0         # router idle/RX, screen+BT off [BENCH-CALIBRATE]
+  light_sleep_ma: 12.0       # ESP32 light-sleep between CAD [BENCH-CALIBRATE]
+  gps_active_ma: 25.0        # u-blox class module when enabled
+  duty_sleep_fraction: 0.0   # routers must listen continuously (flood mesh)
+
+battery:
+  capacity_wh: 148.0          # 10,000 mAh x 3.7 V bank (field kit)
+  usable_fraction: 0.85      # Li-ion DoD + converter losses
+  start_soc: 1.0
+
+solar:
+  # BENCH-CALIBRATE panel: assumed 6 W nominal, horizontal mount on relay mast.
+  panel_w_nominal: 24.0
+  system_efficiency: 0.75    # charge controller + wiring + temp + angle derate
+  # Monthly mean daily clearness index kt for northern NH high terrain.
+  # Mt. Washington summit is in cloud ~55-60% of the time; these are
+  # deliberately pessimistic vs NREL lowland values. ML target: replace with
+  # per-day forecasts.
+  monthly_kt_mean: [0.38, 0.41, 0.44, 0.44, 0.45, 0.44, 0.45, 0.45, 0.44, 0.41, 0.36, 0.35]
+  kt_daily_beta_concentration: 8.0   # Beta-distribution spread of daily kt
+  horizon_azimuths: 48       # DEM horizon-mask resolution per node
+  horizon_max_range_m: 12000
+  # Forest-canopy mounting: node hoisted ~16 ft (5 m) onto a branch, below the
+  # ~20-25 m northern-hardwood canopy top. Full-leaf mid-canopy transmittance
+  # 0.10-0.25 in the literature; 0.15 is the design point. BENCH-CALIBRATE
+  # with a lux meter under representative WMNF canopy.
+  canopy_tau_16ft: 0.15
+  # Pyramid housing: 4 upward-facing slabs at this tilt, N/E/S/W, each rated
+  # panel_w_nominal/4. Sheds snow/leaves, catches low sun from any azimuth.
+  pyramid_tilt_deg: 35.0
+
+traffic:
+  position_interval_s: 300    # hiker position beacons (Meshtastic smart pos.)
+  telemetry_interval_s: 900   # device metrics from fixed nodes
+  position_payload_b: 40
+  telemetry_payload_b: 40
+  sos_payload_b: 64
+
+mqtt:
+  # Backhaul sites chosen where grid power + internet actually exist:
+  #  - summit_shermanadams: Sherman Adams building / MWObs (year-round net)
+  #  - gateway_marshfield: Cog Railway Marshfield Base Station (seasonal)
+  uplink_sites: [summit_shermanadams, gateway_marshfield]
+
+sim:
+  duration_days: 3
+  start_date: "2026-07-10"    # mid-summer baseline
+  solar_step_s: 60
+  seed: 20260703
+
+kiosk:
+  # Solar-powered charging box (user spec 2026-07-08): 20 bays, its own array.
+  # Sizing sanity: 20 radios x ~6 Wh/day rental drain = 120 Wh/day demand;
+  # 200 W array at 3-4 NH sun-hours = 600-800 Wh/day summer, ~200 winter.
+  capacity: 20
+  panel_w: 200.0             # flat-mount array on the box roof [SITE-SURVEY]
+  battery_wh: 1000.0         # LiFePO4 bank, usable
+  charge_w_per_bay: 10.0
+  # daily renter demand tiers by route popularity (AMC: Franconia ~700/day
+  # peak; we model RENTAL adoption, capped by kiosk stock):
+  demand_tier_a: 20          # franconia, tuckerman, monadnock, ammo_jewell
+  demand_tier_b: 10          # moderate day hikes
+  demand_tier_c: 4           # remote/long routes

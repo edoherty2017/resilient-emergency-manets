@@ -1,0 +1,25 @@
+{
+ "purpose": "Appendix B design-implication sweeps (Basagni request 2026-07-30): listen-current + battery/panel sensitivity, MODEL-ONLY",
+ "engine_git_head": "31f422a",
+ "engine_binary_sha256": "0b8d5dde5f5a27bbd0af06f34ef3742360c759469fe1252353e47d9ea43b82b2",
+ "base_inputs": "artifacts/sim/corrected/release_v1/ frozen copies (same hashes as release_v1/input_hashes.txt)",
+ "runs": {
+  "cap148wh_12w_s42.json": "44c0bdd2c28094bb3e75aff04521adfcb7f2fef6044e326253e691d7de54b5a5",
+  "cap148wh_24w_s42.json": "98de58e3ae80030596781eb67b6083abecc06a8da3ea98d05f76a42f3833b1cd",
+  "cap148wh_6w_s42.json": "90007c942d709465fc7ab794176dc7278de1e6bbc4e955bdce6622e8855d9bc4",
+  "cap296wh_12w_s42.json": "0fe5e9f62e20c31d816de81b5c28e8383f9aed8044dab1d32ac6b85e8ace9457",
+  "cap296wh_24w_s42.json": "4b1a413a4662f57c17bdc409606d98794f2a1e8af1ad45748a1d73ed3833f276",
+  "cap74wh_12w_s42.json": "062c62cc13d31eaf3db046f553cda78993f91ccfc4539de9aae3f12beb8f1aea",
+  "cap74wh_6w_s42.json": "eed6d12f7ad424f1eeb2ab61279cdd152354412f4fd00951e1748eba476a381a",
+  "rxma10_s42.json": "ddf72e73044a6996d47516e1b530de711320ddc27ea5ffa7b9088394b2166a8b",
+  "rxma20_s42.json": "5622f550e794fa9a83dbd70c7f192be62e6cf2aaaf36cc13c587cf17591300c5",
+  "rxma2_s42.json": "739cbe8413d0baa08d617ed4504208c677e401c163a89a82944537a931832689",
+  "rxma2_s43.json": "dfb73c244d7f468df3173621a5352f5e10a25f2e8afaaf80258759b2d8a5e55d",
+  "rxma2_s44.json": "a3b1a4d0b7ffea2f6b49777b1dff20ecc7f089fea684a772e718af98a1e24056",
+  "rxma40_s42.json": "f4fe8b417ae4b951803214ecc656214bae177adba081d1ef59818766ff96ebfa",
+  "rxma5_s42.json": "cd67cb57921ca3642f459a72ae28b6dddedffdb1e180d72100dedc5eacd68749",
+  "rxma5_s43.json": "582246ba48182dc2b0f062db4b9b1d95a466bfa47c76232691416005cb946047",
+  "rxma5_s44.json": "a1eb2da7349893b7beef559743fabddae045516c3168872f3da796a4437e3b9b",
+  "rxma68_s42.json": "baf409d84304b9a9a886e95bd8ddb0cbe427056327197c646e057abb13e07ae9"
+ }
+}

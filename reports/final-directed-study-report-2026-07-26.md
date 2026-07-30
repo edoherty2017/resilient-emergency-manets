@@ -564,3 +564,71 @@ files label this quantity "EIRP ref" — a terminology carry-over in those
 frozen documents, not a numerical discrepancy; the value is identical), receiver height
 1.5 m, station heights as documented per pack (assumed stock where
 unpublished, labeled in the registration files).
+
+## Appendix B. Design implications: sensitivity of the survivability result
+
+This appendix responds to the advisor's request (2026-07-30) to translate the
+idle-listening finding of §5.3 into engineering terms. All values are
+MODEL-ONLY (uncalibrated constants, §7); the new sweeps ran on the current
+repaired engine against the release_v1 frozen inputs (17 runs, 365 days each;
+hash manifest at `artifacts/sim/appendixB_sweeps/`). The 68 mA baseline
+reproduces the release_v1 depletion count within 0.04% (29,175 vs 29,164 at
+seed 42), while its PDR differs modestly (0.843 vs 0.866) reflecting
+post-release engine repairs — comparisons below are therefore made within
+the sweep.
+
+**B.1 — What listen current makes always-on viable?** Sweeping router listen
+current under always-on energy-aware routing (stock 37 Wh battery, 6 W panel):
+
+| Listen current | Depletions/yr | Fleet availability | PDR |
+|---|---|---|---|
+| 68 mA (ESP32-class, stock) | 29,175 | 53.5% | 0.843 |
+| 40 mA | 13,647 | 72.4% | 0.836 |
+| 20 mA | 2,824 | 90.6% | 0.832 |
+| 10 mA | **27** | **99.8%** | 0.831 |
+| 5 mA | 0 | 100.0% | 0.831 |
+| 2 mA (nRF52-class) | 0 (3 seeds) | 100.0% | 0.832 |
+
+Always-on operation becomes viable at ~10 mA on the stock energy kit, and at
+the nRF52-class 2–5 mA receive currents the modeled fleet loses no node all
+year — while delivery is essentially flat across the sweep. In this model,
+sufficiently low listen current dominates every duty-cycling policy on both
+axes at once, which quantifies the hardware target: bring the radio's idle
+receive path under ~10 mA and the duty-versus-delivery trade of §5.3
+dissolves. (It also identifies listen current as the first constant to pin at
+the bench, and makes the wake-up-receiver direction a natural follow-on
+study.)
+
+**B.2 — What capacity reaches 90–95% availability at stock current?**
+Holding 68 mA and sweeping the energy kit:
+
+| Battery | Panel | Depletions/yr | Fleet availability | PDR |
+|---|---|---|---|---|
+| 37 Wh (stock) | 6 W (stock) | 29,175 | 53.5% | 0.843 |
+| 74 Wh | 6 W | 14,856 | 54.9% | 0.842 |
+| 148 Wh | 6 W | 6,546 | 57.2% | 0.842 |
+| 74 Wh | 12 W | 9,657 | 77.9% | 0.835 |
+| 148 Wh | 12 W | 4,014 | 79.9% | 0.835 |
+| 296 Wh | 12 W | 1,776 | 84.0% | 0.834 |
+| 148 Wh | 24 W | 1,551 | **94.6%** | 0.832 |
+| 296 Wh | 24 W | 235 | **98.5%** | 0.831 |
+
+Availability is panel-dominated: at the stock 6 W panel, even 4× battery
+moves availability only 53.5%→57.2%, because winter harvest — not storage —
+is binding. Reaching the 90–95% band at stock listen current requires roughly
+4× battery *and* 4× panel (148 Wh / 24 W → 94.6%); 8×/4× reaches 98.5%. Per
+relay, that capacity route is materially more expensive than the
+listen-current route of B.1, which reaches higher availability on the stock
+kit — the design lever is the receiver, not the battery.
+
+**B.3 — What duty cycle preserves acceptable SOS latency?** From the released
+policy comparison (§5.2, no new runs): the threshold is structural rather
+than a percentage. Uniform low-duty (duty_sync, 5%) buys the largest
+survivability gain (24×) but crosses the latency cliff — 94.7% SOS delivery
+with a 35-minute p95, because deliveries ride the 5-minute retry loop.
+Backbone-awake policies (rotate_lb, selective_duty), which keep the current
+routing tree's relays listening and duty-cycle everyone else, hold SOS p95 at
+33–62 s with 99.3–99.5% delivery while retaining a 5.5–6× survivability gain.
+Within this model, any deployment with an SOS-latency requirement should
+duty-cycle *off-tree* nodes only; uniform duty cycling is a survivability
+tool for networks without latency-critical traffic.
