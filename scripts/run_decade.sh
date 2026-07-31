@@ -15,7 +15,7 @@ for Y in 2016 2017 2018 2019 2020 2021 2022 2023 2024 2025; do
   [ -s "$OUT/weather_${Y}.json" ] || { echo "MISSING weather_${Y}"; continue; }
   run "duty_${Y}" "$Y" --mode duty_sync &
   run "ea_${Y}"   "$Y" --mode energy_aware &
-  while [ "$(jobs -r | wc -l)" -ge 4 ]; do wait -n; done
+  while [ "$(jobs -r | wc -l)" -ge 4 ]; do sleep 5; done
 done
 wait
 python3 - <<'PYEOF'

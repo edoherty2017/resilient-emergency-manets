@@ -12,7 +12,7 @@ run() { local name=$1; shift
   [ -s "$OUT/$name.json" ] && { echo "skip $name"; return; }
   "$BIN" "${COMMON[@]}" --out "$OUT/$name.json" "$@" >/dev/null && echo "done $name"
 }
-par() { while [ "$(jobs -r | wc -l)" -ge 4 ]; do wait -n; done; }
+par() { while [ "$(jobs -r | wc -l)" -ge 4 ]; do sleep 5; done; }
 for S in 42 43 44; do
   # 1. SOS-retry ablation (rotate_lb with vs without)
   run "retry_on_s${S}"  --mode rotate_lb --seed "$S" --sos-retry & par

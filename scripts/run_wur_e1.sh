@@ -21,7 +21,7 @@ SEEDS="42 43 44 45 46"
 for D in 0 40 50 60 70 80; do for S in $SEEDS; do
   run "wur_d${D}_blind_s${S}"    --mode wur --seed "$S" --wur-delta-db "$D" &
   run "wur_d${D}_informed_s${S}" --mode wur --seed "$S" --wur-delta-db "$D" --wur-informed-tree &
-  while [ "$(jobs -r | wc -l)" -ge 4 ]; do wait -n; done
+  while [ "$(jobs -r | wc -l)" -ge 4 ]; do sleep 5; done
 done; done
 wait
 # E1 comparison rows (current engine, same seeds)
@@ -31,13 +31,13 @@ for S in $SEEDS; do
   run "cmp_dsync_s${S}" --mode duty_sync      --seed "$S" &
   run "cmp_rlb_s${S}"   --mode rotate_lb      --seed "$S" &
   run "cmp_sduty_s${S}" --mode selective_duty --seed "$S" &
-  while [ "$(jobs -r | wc -l)" -ge 4 ]; do wait -n; done
+  while [ "$(jobs -r | wc -l)" -ge 4 ]; do sleep 5; done
 done
 wait
 # E2: boot-latency sensitivity at delta 55
 for B in 50 100 200; do for S in 42 43 44; do
   run "wur_e2_boot${B}_s${S}" --mode wur --seed "$S" --wur-delta-db 55 --wur-boot-ms "$B" &
-  while [ "$(jobs -r | wc -l)" -ge 4 ]; do wait -n; done
+  while [ "$(jobs -r | wc -l)" -ge 4 ]; do sleep 5; done
 done; done
 wait
 # manifest
