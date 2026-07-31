@@ -1,0 +1,325 @@
+{
+ "bom": {
+  "solar_relay": {
+   "lines": [
+    {
+     "component": "LoRa node electronics (core + base + firmware + antennas + cable)",
+     "product": "RAKwireless WisBlock Meshtastic Starter Kit US915 (RAK4631 + RAK19007, SKU 116016)",
+     "qty": 1,
+     "unit_price_usd": 34.97,
+     "line_total_usd": 34.97,
+     "vendor": "Rokland (US, Gainesville FL)",
+     "url": "https://store.rokland.com/products/rak-wireless-wisblock-meshtastic-starter-kit"
+    },
+    {
+     "component": "Outdoor 915 MHz omni antenna",
+     "product": "Rokland 6 dBi Low Profile N-Female Omni Outdoor 915 MHz fiberglass antenna (antenna + U-bolt mount)",
+     "qty": 1,
+     "unit_price_usd": 34.97,
+     "line_total_usd": 34.97,
+     "vendor": "Rokland (US)",
+     "url": "https://store.rokland.com/products/low-profile-6-dbi-n-female-omni-outdoor-915-mhz-antenna-for-helium-rak-miner-2-nebra-indoor-syncrob-it-bobcat"
+    },
+    {
+     "component": "Antenna pigtail (iPEX to N-male)",
+     "product": "Rokland UFL/IPEX (u.FL) to N-Male pigtail cable, RG178/1.13, 4 in or 8 in",
+     "qty": 1,
+     "unit_price_usd": 6.97,
+     "line_total_usd": 6.97,
+     "vendor": "Rokland (US)",
+     "url": "https://store.rokland.com/products/uflipex-ipx-mini-pci-to-n-male-pigtail-cable-extension-rg178"
+    },
+    {
+     "component": "Battery, 37 Wh Li-ion",
+     "product": "Adafruit Lithium Ion Battery 3.7V 10050mAh (PID 5035), JST-PH, protected",
+     "qty": 1,
+     "unit_price_usd": 29.95,
+     "line_total_usd": 29.95,
+     "vendor": "Adafruit",
+     "url": "https://www.adafruit.com/product/5035"
+    },
+    {
+     "component": "Solar panel, 6 V ~6 W class",
+     "product": "Voltaic Systems 5 Watt 6 Volt Solar Panel - ETFE (5.75 W peak, IP67)",
+     "qty": 1,
+     "unit_price_usd": 35,
+     "line_total_usd": 35,
+     "vendor": "Voltaic Systems",
+     "url": "https://voltaicsystems.com/6-watt-panel/"
+    },
+    {
+     "component": "Outdoor IP67 enclosure",
+     "product": "Polycase ML-70F Outdoor NEMA Enclosure, flanged polycarbonate, 254 x 178 x 103 mm, NEMA 4X/6P, IP65-IP68",
+     "qty": 1,
+     "unit_price_usd": 48.13,
+     "line_total_usd": 48.13,
+     "vendor": "Polycase",
+     "url": "https://www.polycase.com/ml-70f"
+    },
+    {
+     "component": "Cable glands (PG7/PG9 + spares)",
+     "product": "VCELINK Cable Gland Assortment Kit, 60 pcs, PA66 nylon, IP68",
+     "qty": 1,
+     "unit_price_usd": 19.99,
+     "line_total_usd": 19.99,
+     "vendor": "VCELINK (US store)",
+     "url": "https://www.vcelink.com/products/cable-gland-pg7-pg19"
+    },
+    {
+     "component": "Antenna bulkhead feedthrough / lightning arrestor",
+     "product": "Proxicast ANT-211-002 Coaxial Lightning Arrester, 0-6 GHz, N-Female to N-Female bulkhead, GDT",
+     "qty": 1,
+     "unit_price_usd": 19.95,
+     "line_total_usd": 19.95,
+     "vendor": "Proxicast",
+     "url": "https://www.proxicast.com/shopping/pro-grade-lightning-arrester-for-0-to-6-ghz-n-female-n-female.html"
+    },
+    {
+     "component": "Pole mount kit",
+     "product": "Altelix NMKQ-200-08 Stainless Steel Universal Pole Mount Kit with Adjustable Bands",
+     "qty": 1,
+     "unit_price_usd": 21.99,
+     "line_total_usd": 21.99,
+     "vendor": "Altelix",
+     "url": "https://altelix.com/stainless-steel-universal-pole-mount-kit-with-adjustable-bands-for-enclosures-4-to-8-inches-wide/"
+    },
+    {
+     "component": "RF interconnect note",
+     "product": "NOTE: N-male\u2013N-male barrel adapter or short jumper required between antenna base (N-F) and arrestor (N-F) \u2014 \u2248$5\u201310, source at order time (verification flag; excluded from total per real-prices-only rule)",
+     "qty": 1,
+     "unit_price_usd": 0,
+     "line_total_usd": 0,
+     "vendor": "\u2014",
+     "url": ""
+    }
+   ],
+   "subtotal_usd": 251.92
+  },
+  "gateway_grid": {
+   "lines": [
+    {
+     "component": "LoRa node electronics (core + base + firmware + antennas + cable)",
+     "product": "RAKwireless WisBlock Meshtastic Starter Kit US915 (RAK4631 + RAK19007, SKU 116016)",
+     "qty": 1,
+     "unit_price_usd": 34.97,
+     "line_total_usd": 34.97,
+     "vendor": "Rokland (US, Gainesville FL)",
+     "url": "https://store.rokland.com/products/rak-wireless-wisblock-meshtastic-starter-kit"
+    },
+    {
+     "component": "Outdoor 915 MHz omni antenna",
+     "product": "Rokland 6 dBi Low Profile N-Female Omni Outdoor 915 MHz fiberglass antenna (antenna + U-bolt mount)",
+     "qty": 1,
+     "unit_price_usd": 34.97,
+     "line_total_usd": 34.97,
+     "vendor": "Rokland (US)",
+     "url": "https://store.rokland.com/products/low-profile-6-dbi-n-female-omni-outdoor-915-mhz-antenna-for-helium-rak-miner-2-nebra-indoor-syncrob-it-bobcat"
+    },
+    {
+     "component": "Antenna pigtail (iPEX to N-male)",
+     "product": "Rokland UFL/IPEX (u.FL) to N-Male pigtail cable, RG178/1.13, 4 in or 8 in",
+     "qty": 1,
+     "unit_price_usd": 6.97,
+     "line_total_usd": 6.97,
+     "vendor": "Rokland (US)",
+     "url": "https://store.rokland.com/products/uflipex-ipx-mini-pci-to-n-male-pigtail-cable-extension-rg178"
+    },
+    {
+     "component": "Outdoor IP67 enclosure",
+     "product": "Polycase ML-70F Outdoor NEMA Enclosure, flanged polycarbonate, 254 x 178 x 103 mm, NEMA 4X/6P, IP65-IP68",
+     "qty": 1,
+     "unit_price_usd": 48.13,
+     "line_total_usd": 48.13,
+     "vendor": "Polycase",
+     "url": "https://www.polycase.com/ml-70f"
+    },
+    {
+     "component": "Cable glands (PG7/PG9 + spares)",
+     "product": "VCELINK Cable Gland Assortment Kit, 60 pcs, PA66 nylon, IP68",
+     "qty": 1,
+     "unit_price_usd": 19.99,
+     "line_total_usd": 19.99,
+     "vendor": "VCELINK (US store)",
+     "url": "https://www.vcelink.com/products/cable-gland-pg7-pg19"
+    },
+    {
+     "component": "Antenna bulkhead feedthrough / lightning arrestor",
+     "product": "Proxicast ANT-211-002 Coaxial Lightning Arrester, 0-6 GHz, N-Female to N-Female bulkhead, GDT",
+     "qty": 1,
+     "unit_price_usd": 19.95,
+     "line_total_usd": 19.95,
+     "vendor": "Proxicast",
+     "url": "https://www.proxicast.com/shopping/pro-grade-lightning-arrester-for-0-to-6-ghz-n-female-n-female.html"
+    },
+    {
+     "component": "Pole mount kit",
+     "product": "Altelix NMKQ-200-08 Stainless Steel Universal Pole Mount Kit with Adjustable Bands",
+     "qty": 1,
+     "unit_price_usd": 21.99,
+     "line_total_usd": 21.99,
+     "vendor": "Altelix",
+     "url": "https://altelix.com/stainless-steel-universal-pole-mount-kit-with-adjustable-bands-for-enclosures-4-to-8-inches-wide/"
+    },
+    {
+     "component": "Power & internet",
+     "product": "NOTE: power & internet: site-provided, $0",
+     "qty": 1,
+     "unit_price_usd": 0,
+     "line_total_usd": 0,
+     "vendor": "n/a (host site)",
+     "url": ""
+    },
+    {
+     "component": "RF interconnect note",
+     "product": "NOTE: N-male\u2013N-male barrel adapter or short jumper required between antenna base (N-F) and arrestor (N-F) \u2014 \u2248$5\u201310, source at order time (verification flag; excluded from total per real-prices-only rule)",
+     "qty": 1,
+     "unit_price_usd": 0,
+     "line_total_usd": 0,
+     "vendor": "\u2014",
+     "url": ""
+    }
+   ],
+   "subtotal_usd": 186.97
+  },
+  "portable_sar": {
+   "lines": [
+    {
+     "component": "LoRa node electronics (core + base + firmware + antennas + cable)",
+     "product": "RAKwireless WisBlock Meshtastic Starter Kit US915 (RAK4631 + RAK19007, SKU 116016)",
+     "qty": 1,
+     "unit_price_usd": 34.97,
+     "line_total_usd": 34.97,
+     "vendor": "Rokland (US, Gainesville FL)",
+     "url": "https://store.rokland.com/products/rak-wireless-wisblock-meshtastic-starter-kit"
+    },
+    {
+     "component": "Spare 18650 battery, protected button-top",
+     "product": "Orbtronic 18650 3500mAh Protected 10A Button Top 3.7V (Panasonic-Sanyo cell), safety case included",
+     "qty": 1,
+     "unit_price_usd": 14.99,
+     "line_total_usd": 14.99,
+     "vendor": "Orbtronic (ships from Florida)",
+     "url": "https://www.orbtronic.com/18650-protected-battery-3500mah-lithium-ion"
+    },
+    {
+     "component": "Hard case, IP67",
+     "product": "Pelican 1050 Micro Case, black (interior 6.31 x 3.68 x 2.75 in)",
+     "qty": 1,
+     "unit_price_usd": 31.95,
+     "line_total_usd": 31.95,
+     "vendor": "Allcases",
+     "url": "https://allcases.com/products/pelican-1050-micro-case/"
+    },
+    {
+     "component": "Stub antenna",
+     "product": "NOTE: uses the iPEX LoRa antenna included in the Meshtastic Starter Kit, $0 (no external N-type antenna on the portable build)",
+     "qty": 1,
+     "unit_price_usd": 0,
+     "line_total_usd": 0,
+     "vendor": "n/a (included in kit)",
+     "url": ""
+    }
+   ],
+   "subtotal_usd": 81.91
+  },
+  "kiosk": {
+   "lines": [
+    {
+     "component": "Rental radio",
+     "product": "Heltec WiFi LoRa 32 (V3), US915 MHz (with/without plastic shell, same price)",
+     "qty": 22,
+     "unit_price_usd": 26.97,
+     "line_total_usd": 593.34,
+     "vendor": "Rokland (US)",
+     "url": "https://store.rokland.com/products/heltec-wifi-lora-32v3"
+    },
+    {
+     "component": "20+ port USB charging station",
+     "product": "Skazeke 200W 20-Port USB Charging Station (5V/2A per port, built-in fan)",
+     "qty": 1,
+     "unit_price_usd": 69.99,
+     "line_total_usd": 69.99,
+     "vendor": "Amazon (sold by Skazeke)",
+     "url": "https://www.amazon.com/Charging-Multiple-20-Port-Electronics/dp/B09QYBM9SM"
+    },
+    {
+     "component": "Kiosk shell \u2014 lockable outdoor cabinet",
+     "product": "Suncast 73-Gallon Resin Wicker Deck Box, Mocha Brown, lockable lid (DBW7300 class)",
+     "qty": 1,
+     "unit_price_usd": 144.99,
+     "line_total_usd": 144.99,
+     "vendor": "Amazon",
+     "url": "https://www.amazon.com/Suncast-Gallon-Resin-Wicker-Storage/dp/B0044V2ODW"
+    },
+    {
+     "component": "Weatherproof padlock",
+     "product": "Master Lock Magnum M115XKADLF, covered laminated steel, keyed",
+     "qty": 1,
+     "unit_price_usd": 14.99,
+     "line_total_usd": 14.99,
+     "vendor": "Amazon",
+     "url": "https://www.amazon.com/Master-Lock-Padlock-Laminated-M115XKADLF/dp/B000RFLNG8"
+    },
+    {
+     "component": "USB-C short cables (30 cables for 22 radios + spares)",
+     "product": "Smays Short USB-A to USB-C Cable 1 ft, 10-Pack, Black",
+     "qty": 3,
+     "unit_price_usd": 9.99,
+     "line_total_usd": 29.97,
+     "vendor": "Amazon",
+     "url": "https://www.amazon.com/Short-Cable-3-Pack-Type-C-Charger/dp/B07R14JVGW"
+    },
+    {
+     "component": "PETG filament for printed radio cases, 2 kg",
+     "product": "Overture High Speed PETG Filament 1.75 mm, 1 kg spool, black",
+     "qty": 2,
+     "unit_price_usd": 14.99,
+     "line_total_usd": 29.98,
+     "vendor": "Overture 3D official US store",
+     "url": "https://overture3d.com/products/overture-petg"
+    }
+   ],
+   "subtotal_usd": 883.26,
+   "offgrid_lines": [
+    {
+     "component": "NOTE (off-grid add-on): 200 W solar panel",
+     "product": "Renogy 200 Watt 12 Volt Monocrystalline Solar Panel (rigid)",
+     "qty": 1,
+     "unit_price_usd": 169.99,
+     "line_total_usd": 169.99,
+     "vendor": "Off Grid Stores (Renogy dealer)",
+     "url": "https://offgridstores.com/products/renogy-200-watt-12-volt-monocrystalline-solar-panel"
+    },
+    {
+     "component": "NOTE (off-grid add-on): 12 V 100 Ah LiFePO4 battery",
+     "product": "Redodo 12V 100Ah LiFePO4 Lithium Battery (Group 31), 1,280 Wh, IP65",
+     "qty": 1,
+     "unit_price_usd": 269.99,
+     "line_total_usd": 269.99,
+     "vendor": "Redodo Power",
+     "url": "https://www.redodopower.com/products/12v-100ah-lithium-battery"
+    },
+    {
+     "component": "NOTE (off-grid add-on): MPPT charge controller",
+     "product": "Victron Energy SmartSolar MPPT 75/15 (SCC075015060R), Bluetooth",
+     "qty": 1,
+     "unit_price_usd": 70.55,
+     "line_total_usd": 70.55,
+     "vendor": "EXPLORIST.life",
+     "url": "https://shop.explorist.life/shop/all-products/victron-smartsolar-mppt-7515/"
+    }
+   ],
+   "subtotal_offgrid_usd": 1393.79
+  }
+ },
+ "issues": [
+  "No price changes or dead links: all five load-bearing items re-verified 2026-07-31 at the researchers' prices (kit $34.97, Heltec V3 $26.97, battery $29.95, ML-70F $48.13, 200W panel $169.99).",
+  "polycase.com returns HTTP 403 to direct automated fetches; ML-70F price/stock re-confirmed via r.jina.ai reader proxy (same method the enclosure researcher used) \u2014 the URL itself is live, not dead.",
+  "RF interconnect gap in relay/gateway BOMs as specified: the Proxicast bulkhead arrestor is N-female on BOTH sides and the antenna base is also N-female, so mating them requires an N-male-to-N-male barrel adapter or short jumper (~$5-10, not in any researcher's list). Alternative: skip the arrestor and screw the included N-male pigtail directly onto the antenna, but then you lose lightning protection and the sealed feedthrough.",
+  "Altelix pole mount ($21.99): product page advertises same-day shipping but the cart showed a 'Contact Us for Availability' prompt on 2026-07-31 \u2014 confirm stock at order time or fall back to Altelix's Amazon storefront.",
+  "Adafruit battery has a 10+ quantity break at $26.96/unit \u2014 relevant if ordering 10 or more solar relays (BOM keeps the verified 1-unit price of $29.95 per instructions).",
+  "Kiosk radio count is 22 but the recommended charging station has 20 ports; 2 radios rotate or charge from the station in shifts \u2014 flagged in case a 2nd station or a 24-port unit is preferred.",
+  "Renogy 200W multi-packs are cheaper per panel ($338.81/2, $656.46/4) if multiple off-grid kiosks are built; BOM uses the verified 1-pack price."
+ ],
+ "prices_verified": "2026-07-31"
+}
