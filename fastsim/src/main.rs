@@ -49,10 +49,12 @@ fn parse_cli(raw: &[String]) -> Result<(HashMap<String, String>, HashSet<String>
         "energy-step-s",
         "relay-rx-ma",
         "hiker-rx-ma",
+        "wur-delta-db",
+        "wur-boot-ms",
         "outage",
         "out",
     ];
-    const FLAG_OPTIONS: &[&str] = &["sos-retry", "regional-channels"];
+    const FLAG_OPTIONS: &[&str] = &["sos-retry", "regional-channels", "wur-informed-tree"];
 
     let mut args = HashMap::new();
     let mut flags = HashSet::new();
@@ -223,6 +225,20 @@ fn validate_params(params: &Params, cfg: &Config, routes: &RoutesFile) -> Result
             ));
         }
     }
+    // wur-specific bounds (deliberately NOT the <= tx_current_ma pattern
+    // above, which is meaningless for a dB delta or a millisecond window).
+    // Zero is a valid delta (the ideal-WuR bound in the E1 sweep) and a valid
+    // boot time, so there is no zero sentinel: absence of the CLI option
+    // resolved to the config value at parse time.
+    if !params.wur_delta_db.is_finite() || !(0.0..=200.0).contains(&params.wur_delta_db) {
+        return Err("--wur-delta-db must be finite and between 0 and 200 dB".to_string());
+    }
+    if !params.wur_boot_ms.is_finite() || !(0.0..=60_000.0).contains(&params.wur_boot_ms) {
+        return Err(
+            "--wur-boot-ms must be finite and between 0 and 60000 ms (frames must stay far below the 600 s packet TTL)"
+                .to_string(),
+        );
+    }
     Ok(())
 }
 
@@ -324,6 +340,18 @@ fn main() {
     let mode_name = arg(&args, "mode", "lb_energy");
     let mode =
         Mode::parse(&mode_name).unwrap_or_else(|| die(format!("unknown mode {mode_name:?}")));
+    // wur options are inert outside mode=wur; fail loudly rather than let a
+    // sweep silently carry a meaningless flag.
+    if mode != Mode::Wur {
+        for key in ["wur-delta-db", "wur-boot-ms"] {
+            if args.contains_key(key) {
+                die(format!("--{key} requires --mode wur"));
+            }
+        }
+        if flags.contains("wur-informed-tree") {
+            die("--wur-informed-tree requires --mode wur");
+        }
+    }
     let days = parse_value(&args, "days", "365");
     let outages =
         parse_outages(&arg(&args, "outage", ""), days, &topo).unwrap_or_else(|error| die(error));
@@ -350,6 +378,17 @@ fn main() {
         }),
         relay_rx_ma: parse_value(&args, "relay-rx-ma", "0"),
         hiker_rx_ma: parse_value(&args, "hiker-rx-ma", "0"),
+        // Resolved here (CLI value when given, else config) because 0 is a
+        // meaningful delta/boot value and cannot serve as a sentinel.
+        wur_delta_db: args
+            .get("wur-delta-db")
+            .map_or(cfg.wur.wake_sensitivity_delta_db, |_| {
+                parse_value(&args, "wur-delta-db", "0")
+            }),
+        wur_boot_ms: args.get("wur-boot-ms").map_or(cfg.wur.main_boot_ms, |_| {
+            parse_value(&args, "wur-boot-ms", "0")
+        }),
+        wur_informed_tree: flags.contains("wur-informed-tree"),
         regional_channels: flags.contains("regional-channels"),
         outages,
     };
@@ -372,28 +411,32 @@ fn main() {
     for (i, n) in sim.nodes.iter().enumerate() {
         let channel_busy_s = sim.local_busy[i].total_through(dur);
         let dead_time_s = n.unavailable_s_through(dur);
-        per_node.insert(
-            n.name.clone(),
-            json!({
-                "tx": n.stats.tx, "rx_ok": n.stats.rx_ok,
-                "collisions": n.stats.collisions,
-                "duty_misses": n.stats.duty_misses,
-                "dup_suppressed": n.stats.dup_suppressed,
-                "tx_airtime_s": round2(n.stats.tx_airtime_s),
-                "energy_tx_wh": round5(n.stats.energy_tx_wh),
-                "deaths": n.stats.deaths,
-                "death_events": n.stats.deaths,
-                "ever_died": n.stats.deaths > 0,
-                "dead_time_s": round2(dead_time_s),
-                "availability": round5(n.availability_through(dur)),
-                "channel_busy_s": round2(channel_busy_s),
-                "channel_busy_ratio": round5(channel_busy_s / dur.max(f64::EPSILON)),
-                "solar_wh": round2(n.stats.solar_wh),
-                "final_soc": round4(n.soc_wh / n.cap_wh),
-                "power": if n.grid { "grid" } else if n.solar { "solar" }
-                         else { "battery" },
-            }),
-        );
+        let mut row = json!({
+            "tx": n.stats.tx, "rx_ok": n.stats.rx_ok,
+            "collisions": n.stats.collisions,
+            "duty_misses": n.stats.duty_misses,
+            "dup_suppressed": n.stats.dup_suppressed,
+            "tx_airtime_s": round2(n.stats.tx_airtime_s),
+            "energy_tx_wh": round5(n.stats.energy_tx_wh),
+            "deaths": n.stats.deaths,
+            "death_events": n.stats.deaths,
+            "ever_died": n.stats.deaths > 0,
+            "dead_time_s": round2(dead_time_s),
+            "availability": round5(n.availability_through(dur)),
+            "channel_busy_s": round2(channel_busy_s),
+            "channel_busy_ratio": round5(channel_busy_s / dur.max(f64::EPSILON)),
+            "solar_wh": round2(n.stats.solar_wh),
+            "final_soc": round4(n.soc_wh / n.cap_wh),
+            "power": if n.grid { "grid" } else if n.solar { "solar" }
+                     else { "battery" },
+        });
+        // Gated to wur mode so released-mode summaries stay byte-identical.
+        if sim.p.mode == Mode::Wur {
+            row["wake_attempts"] = json!(n.stats.wake_attempts);
+            row["wake_budget_fail"] = json!(n.stats.wake_budget_fail);
+            row["wake_misses"] = json!(n.stats.wake_misses);
+        }
+        per_node.insert(n.name.clone(), row);
     }
     let mut per_origin = serde_json::Map::new();
     for (origin, agg) in &sim.agg {
@@ -512,13 +555,16 @@ fn main() {
 
     let offered_ratio = sim.total_offered_airtime_s / dur.max(f64::EPSILON);
     let duty_misses_total: u64 = sim.nodes.iter().map(|n| n.stats.duty_misses).sum();
+    let wake_attempts_total: u64 = sim.nodes.iter().map(|n| n.stats.wake_attempts).sum();
+    let wake_budget_fail_total: u64 = sim.nodes.iter().map(|n| n.stats.wake_budget_fail).sum();
+    let wake_misses_total: u64 = sim.nodes.iter().map(|n| n.stats.wake_misses).sum();
     let mut receiver_busy_ratios: Vec<f64> = sim.local_busy[..sim.n_fixed]
         .iter()
         .map(|b| b.total_through(dur) / dur.max(f64::EPSILON))
         .collect();
     receiver_busy_ratios.sort_by(f64::total_cmp);
     let busy_q = |p: f64| linear_quantile_sorted(&receiver_busy_ratios, p).unwrap_or(0.0);
-    let summary = json!({
+    let mut summary = json!({
         "engine": "fastsim (rust)",
         "mode": mode_name,
         "days": days,
@@ -562,7 +608,23 @@ fn main() {
             "definition": "per-fixed-site physical RF interval union above the carrier-sense threshold, including own transmit intervals and periods when a site's receiver is unavailable; ratios use full run duration",
         },
         "routing_solar_forecast": "monthly_climatology_no_future_weather",
-        "duty_wake_model": if sim.p.mode.is_duty() {
+        // The Wur check must precede is_duty(): Wur is a duty mode for the
+        // wake machinery but its wake model is not periodic CAD, and the CAD
+        // labeling here would misdocument every wur summary (spec §3 trap).
+        "duty_wake_model": if sim.p.mode == Mode::Wur {
+            json!({
+                "model": "wur_always_on_wake_receiver_v1",
+                "wake_sensitivity_delta_db": sim.p.wur_delta_db,
+                "wake_chirp_ms": sim.cfg.wur.wake_chirp_ms,
+                "main_boot_ms": sim.p.wur_boot_ms,
+                "wake_hangover_s": sim.cfg.wur.wake_hangover_s,
+                "wake_miss_prob": sim.cfg.wur.wake_miss_prob,
+                "wur_idle_ma": sim.cfg.wur.wur_idle_ma,
+                "wake_informed_tree": sim.p.wur_informed_tree,
+                "receiver_decision": "three_state_frozen_at_tx_start; awake_or_hangover=data_budget, mid_boot=asleep, asleep=sens_plus_delta_and_keyed_miss_draw",
+                "missed_reception_possible": true,
+            })
+        } else if sim.p.mode.is_duty() {
             json!({
                 "model": "deterministic_periodic_cad",
                 "sniff_period_s": CAD_PERIOD_S,
@@ -627,6 +689,52 @@ fn main() {
         "per_origin": per_origin,
         "per_node": per_node,
     });
+    // Wur-only summary keys, inserted after construction so released-mode
+    // summaries stay byte-identical to the pre-wur engine output.
+    if sim.p.mode == Mode::Wur {
+        summary["wake_attempts_total"] = json!(wake_attempts_total);
+        summary["wake_budget_fail_total"] = json!(wake_budget_fail_total);
+        summary["wake_misses_total"] = json!(wake_misses_total);
+        // Fleet battery Wh actually debited (baseline segments + TX
+        // increments + wur transients) — the parity harness's
+        // consumed-energy scalar (rel 0.10 band, spec §5).
+        // SOLAR fleet only — the cross-engine agreed definition (the Python
+        // twin sums the solar fleet; hiker rental radios and grid sites are
+        // excluded).  Same filter as fleet_energy.
+        let consumed_wh_total: f64 = sim
+            .nodes
+            .iter()
+            .filter(|n| n.solar)
+            .map(|n| n.stats.consumed_wh)
+            .sum();
+        summary["consumed_wh_total"] = json!(round4(consumed_wh_total));
+        // Overall delivery p50 across ALL packets: global bottom-k by the
+        // same keyed priorities as the per-origin samples.  The global
+        // k-smallest priorities are necessarily contained in the union of
+        // per-origin k-smallest (same cap), so this is a valid uniform
+        // sample of all delivered packets, not a pooled-bias estimate.
+        let mut pooled: Vec<(u64, f64)> = sim
+            .agg
+            .values()
+            .flat_map(|agg| agg.latency_sample.iter().copied())
+            .collect();
+        pooled.sort_by_key(|(prio, _)| *prio);
+        pooled.truncate(crate::sim::LATENCY_SAMPLE_CAP);
+        let mut lat: Vec<f64> = pooled.iter().map(|(_, l)| *l).collect();
+        lat.sort_by(f64::total_cmp);
+        summary["overall_delivery_latency_p50_s"] = linear_quantile_sorted(&lat, 0.5)
+            .map_or(serde_json::Value::Null, |v| json!(round4(v)));
+        summary["rng_stream_model"] = json!(
+            "counter_keyed_per_phenomenon_and_entity; keyed_per_day_incidents; per_link_phy_streams; keyed_per_packet_hop_wur_miss"
+        );
+        summary["resolved_parameters"]["wur_delta_db"] = json!(sim.p.wur_delta_db);
+        summary["resolved_parameters"]["wur_boot_ms"] = json!(sim.p.wur_boot_ms);
+        summary["resolved_parameters"]["wur_informed_tree"] = json!(sim.p.wur_informed_tree);
+        summary["resolved_parameters"]["wur_idle_ma"] = json!(sim.cfg.wur.wur_idle_ma);
+        summary["resolved_parameters"]["wake_chirp_ms"] = json!(sim.cfg.wur.wake_chirp_ms);
+        summary["resolved_parameters"]["wake_hangover_s"] = json!(sim.cfg.wur.wake_hangover_s);
+        summary["resolved_parameters"]["wake_miss_prob"] = json!(sim.cfg.wur.wake_miss_prob);
+    }
     let serialized = serde_json::to_string_pretty(&summary)
         .unwrap_or_else(|error| die(format!("cannot serialize summary: {error}")));
     atomic_write(&out_path, &serialized).unwrap_or_else(|error| die(error));

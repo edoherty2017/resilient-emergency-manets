@@ -61,6 +61,8 @@ impl Sim {
                 docked: false,
                 checkout_generation: 0,
                 duty: 1.0,
+                boot_until: -1.0,
+                hangover_until: -1.0,
                 is_radio: false,
                 channel: 0,
                 kiosk: None,
@@ -250,6 +252,8 @@ impl Sim {
                     docked: true,
                     checkout_generation: 0,
                     duty: 1.0,
+                    boot_until: -1.0,
+                    hangover_until: -1.0,
                     is_radio: true,
                     channel: 0,
                     kiosk: Some(kiosk),
@@ -575,14 +579,29 @@ impl Sim {
                 }));
             }
         }
+        // --wur-informed-tree (E1 control arm): a tree edge whose RECEIVER is
+        // a wur relay is admitted only when its static q50 margin covers the
+        // wake budget.  Applied at relaxation time (not to fixed_adj) so the
+        // data-margin adjacency consumed by channel components and
+        // selective_duty cut-vertex search is untouched.  The blind arm
+        // (default) is wake-unaware by design; wake failures never feed
+        // link_health in either arm.
+        let wake_gate = self.p.mode == Mode::Wur && self.p.wur_informed_tree;
+        let wake_delta_db = self.p.wur_delta_db;
         while let Some(Reverse(s)) = pq.pop() {
             let Ev::TxEnd { idx } = s.ev else { continue };
             let u = idx as usize;
             if s.t > dist[u] {
                 continue;
             }
+            // In the reverse relaxation below, `u` is the gatewayward node
+            // that will RECEIVE the upstream packet from `v`.
+            let u_wake_gated = wake_gate && self.is_wur_relay(u as u32);
             let neighbors = self.fixed_adj[u].clone();
             for (v, margin) in neighbors {
+                if u_wake_gated && margin < wake_delta_db {
+                    continue;
+                }
                 let nv = &self.nodes[v as usize];
                 if !nv.alive || nv.docked {
                     continue;
@@ -656,6 +675,12 @@ impl Sim {
                             0.02
                         }
                     }
+                    // Wur relays keep the main radio asleep; wake acquisition
+                    // is decided per frame at TxStart (never via the CAD
+                    // machinery) and the sleep current is wur_idle_ma.  This
+                    // explicit arm exists because the `_ => 1.0` catch-all
+                    // below would silently absorb the variant (spec §3 trap).
+                    Mode::Wur => 0.0,
                     _ => 1.0,
                 };
             }
@@ -774,6 +799,16 @@ impl Sim {
                 - loss
                 - self.cfg.radio.rx_sensitivity_dbm;
             if margin < 3.0 {
+                continue;
+            }
+            // --wur-informed-tree: the attach edge's receiver is the fixed
+            // site; when it is a wur relay the ingress must also cover the
+            // wake budget.
+            if self.p.mode == Mode::Wur
+                && self.p.wur_informed_tree
+                && self.is_wur_relay(s)
+                && margin < self.p.wur_delta_db
+            {
                 continue;
             }
             let total = c + self.edge_weight(s, margin);

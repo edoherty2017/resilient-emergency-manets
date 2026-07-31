@@ -1,0 +1,213 @@
+{
+  "scenario": {
+    "topology": "artifacts/sim/topology.json",
+    "routes": "artifacts/sim/routes.json",
+    "weather": "artifacts/sim/weather_year.json",
+    "days": 3.0,
+    "seed": 42,
+    "renters": 2,
+    "modes": [
+      "wur"
+    ],
+    "wur_delta_db": [
+      0.0,
+      55.0
+    ],
+    "out": "artifacts/sim/corrected/micro_parity_wur_2026-07-31.json"
+  },
+  "results": {
+    "wur[delta=0]": {
+      "python": {
+        "pdr_overall": 0.931,
+        "offered_airtime": 0.14582,
+        "deaths_total": 0,
+        "duty_misses_total": 0,
+        "sos_sent": 2,
+        "sos_delivered": 2,
+        "wake_attempts_total": 508473,
+        "wake_misses_total": 1,
+        "wake_budget_fail_total": 408012,
+        "fleet_consumed_wh": 46.5442,
+        "overall_delivery_p50_s": 0.784
+      },
+      "rust": {
+        "pdr_overall": 0.9316,
+        "offered_airtime": 0.14435,
+        "deaths_total": 0,
+        "duty_misses_total": 0,
+        "sos_sent": 2,
+        "sos_delivered": 2,
+        "wake_attempts_total": 500422,
+        "wake_misses_total": 0,
+        "wake_budget_fail_total": 401070,
+        "fleet_consumed_wh": 46.2278,
+        "overall_delivery_p50_s": 0.7851
+      },
+      "checks": {
+        "pdr_overall": {
+          "python": 0.931,
+          "rust": 0.9316,
+          "divergence": "abs 0.0006 / rel 0.1%",
+          "within_tol": true
+        },
+        "offered_airtime": {
+          "python": 0.14582,
+          "rust": 0.14435,
+          "divergence": "abs 0.00147 / rel 1.0%",
+          "within_tol": true
+        },
+        "deaths_total": {
+          "python": 0,
+          "rust": 0,
+          "divergence": "abs 0 / rel 0.0%",
+          "within_tol": true
+        },
+        "duty_misses_total": {
+          "python": 0,
+          "rust": 0,
+          "divergence": "abs 0 / rel 0.0%",
+          "within_tol": true
+        },
+        "sos_sent": {
+          "python": 2,
+          "rust": 2,
+          "divergence": "abs 0 / rel 0.0%",
+          "within_tol": true
+        },
+        "sos_delivered": {
+          "python": 2,
+          "rust": 2,
+          "divergence": "abs 0 / rel 0.0%",
+          "within_tol": true
+        },
+        "wake_attempts_total": {
+          "python": 508473,
+          "rust": 500422,
+          "divergence": "abs 8051 / rel 1.6%",
+          "within_tol": true
+        },
+        "wake_misses_total": {
+          "python": 1,
+          "rust": 0,
+          "divergence": "abs 1 / rel 100.0%",
+          "within_tol": true
+        },
+        "wake_budget_fail_total": {
+          "python": 408012,
+          "rust": 401070,
+          "divergence": "abs 6942 / rel 1.7%",
+          "within_tol": true
+        },
+        "fleet_consumed_wh": {
+          "python": 46.5442,
+          "rust": 46.2278,
+          "divergence": "abs 0.3164 / rel 0.7%",
+          "within_tol": true
+        },
+        "overall_delivery_p50_s": {
+          "python": 0.784,
+          "rust": 0.7851,
+          "divergence": "abs 0.0011 / rel 0.1%",
+          "within_tol": true
+        }
+      }
+    },
+    "wur[delta=55]": {
+      "python": {
+        "pdr_overall": 0.8422,
+        "offered_airtime": 0.07275,
+        "deaths_total": 0,
+        "duty_misses_total": 0,
+        "sos_sent": 2,
+        "sos_delivered": 2,
+        "wake_attempts_total": 550040,
+        "wake_misses_total": 0,
+        "wake_budget_fail_total": 525354,
+        "fleet_consumed_wh": 12.2196,
+        "overall_delivery_p50_s": 0.771
+      },
+      "rust": {
+        "pdr_overall": 0.8373,
+        "offered_airtime": 0.07249,
+        "deaths_total": 0,
+        "duty_misses_total": 0,
+        "sos_sent": 2,
+        "sos_delivered": 2,
+        "wake_attempts_total": 548177,
+        "wake_misses_total": 0,
+        "wake_budget_fail_total": 523928,
+        "fleet_consumed_wh": 12.0368,
+        "overall_delivery_p50_s": 0.7748
+      },
+      "checks": {
+        "pdr_overall": {
+          "python": 0.8422,
+          "rust": 0.8373,
+          "divergence": "abs 0.0049 / rel 0.6%",
+          "within_tol": true
+        },
+        "offered_airtime": {
+          "python": 0.07275,
+          "rust": 0.07249,
+          "divergence": "abs 0.00026 / rel 0.4%",
+          "within_tol": true
+        },
+        "deaths_total": {
+          "python": 0,
+          "rust": 0,
+          "divergence": "abs 0 / rel 0.0%",
+          "within_tol": true
+        },
+        "duty_misses_total": {
+          "python": 0,
+          "rust": 0,
+          "divergence": "abs 0 / rel 0.0%",
+          "within_tol": true
+        },
+        "sos_sent": {
+          "python": 2,
+          "rust": 2,
+          "divergence": "abs 0 / rel 0.0%",
+          "within_tol": true
+        },
+        "sos_delivered": {
+          "python": 2,
+          "rust": 2,
+          "divergence": "abs 0 / rel 0.0%",
+          "within_tol": true
+        },
+        "wake_attempts_total": {
+          "python": 550040,
+          "rust": 548177,
+          "divergence": "abs 1863 / rel 0.3%",
+          "within_tol": true
+        },
+        "wake_misses_total": {
+          "python": 0,
+          "rust": 0,
+          "divergence": "abs 0 / rel 0.0%",
+          "within_tol": true
+        },
+        "wake_budget_fail_total": {
+          "python": 525354,
+          "rust": 523928,
+          "divergence": "abs 1426 / rel 0.3%",
+          "within_tol": true
+        },
+        "fleet_consumed_wh": {
+          "python": 12.2196,
+          "rust": 12.0368,
+          "divergence": "abs 0.1828 / rel 1.5%",
+          "within_tol": true
+        },
+        "overall_delivery_p50_s": {
+          "python": 0.771,
+          "rust": 0.7748,
+          "divergence": "abs 0.0038 / rel 0.5%",
+          "within_tol": true
+        }
+      }
+    }
+  },
+  "all_within_tolerance": true
+}

@@ -37,6 +37,11 @@ pub const RNG_MAC_REBROADCAST: u64 = 0x4d41_435f_5245_4203;
 pub const RNG_PHY: u64 = 0x5048_5900_0000_0004;
 pub const RNG_CAD_PHASE: u64 = 0x4341_445f_5048_4105;
 pub const RNG_LATENCY_SAMPLE: u64 = 0x4c41_545f_5341_4d06;
+/// Wake-up-radio decoder-miss draws: a fresh stateless keyed domain.  Keys are
+/// the collision-safe `event_draw_key` combine of (packet id, (tx<<32)|rx),
+/// so different forwarders of the same packet draw independently and skipped
+/// draws (awake receivers) can never shift any other stream.
+pub const RNG_WUR_MISS: u64 = 0x5755_525f_4d49_5307;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Mode {
@@ -49,6 +54,10 @@ pub enum Mode {
     DutyAdaptive,
     RotateLb,
     SelectiveDuty,
+    /// Wake-up radio: solar relays sleep at `wur_idle_ma` and are woken per
+    /// frame by a chirp on a worse wake channel (data sensitivity + delta).
+    /// docs/wur-design-2026-07-31.md (v2); MODEL-ONLY.
+    Wur,
 }
 
 impl Mode {
@@ -63,13 +72,23 @@ impl Mode {
             "duty_adaptive" => Mode::DutyAdaptive,
             "rotate_lb" => Mode::RotateLb,
             "selective_duty" => Mode::SelectiveDuty,
+            "wur" => Mode::Wur,
             _ => return None,
         })
     }
+    /// Wur is deliberately included: it inherits the duty-mode wake machinery
+    /// (construction-time tree init, same-event rebuild on availability
+    /// transitions, duty-split energy accounting) with explicit Wur arms at
+    /// every duty consumer (duty assignment, CAD acquisition, TX baseline,
+    /// duty_miss accounting, weight_mode, duty_wake_model labeling).
     pub fn is_duty(self) -> bool {
         matches!(
             self,
-            Mode::DutySync | Mode::DutyAdaptive | Mode::RotateLb | Mode::SelectiveDuty
+            Mode::DutySync
+                | Mode::DutyAdaptive
+                | Mode::RotateLb
+                | Mode::SelectiveDuty
+                | Mode::Wur
         )
     }
     pub fn is_routed(self) -> bool {
@@ -77,10 +96,13 @@ impl Mode {
     }
     /// duty modes route with lb_energy weights
     pub fn weight_mode(self) -> Mode {
-        if self.is_duty() {
-            Mode::LbEnergy
-        } else {
-            self
+        match self {
+            // Wur composes with the energy_aware tree.  This arm must precede
+            // the is_duty() default, which would silently hand it lb_energy
+            // weights (spec §3 silent-default trap list).
+            Mode::Wur => Mode::EnergyAware,
+            _ if self.is_duty() => Mode::LbEnergy,
+            _ => self,
         }
     }
 }
@@ -177,9 +199,19 @@ pub struct NodeStats {
     pub rx_ok: u64,
     pub collisions: u64,
     pub duty_misses: u64,
+    /// Wur mode only, counted at TxStart independent of frame outcome: one
+    /// attempt per sleeping wur receiver inside the RX gate, decomposed into
+    /// below-wake-budget and decoder-miss causes.  `duty_misses` keeps its
+    /// CAD meaning and is never touched in wur mode.
+    pub wake_attempts: u64,
+    pub wake_budget_fail: u64,
+    pub wake_misses: u64,
     pub dup_suppressed: u64,
     pub tx_airtime_s: f64,
     pub energy_tx_wh: f64,
+    /// Total battery Wh debited from this node (baseline segments + TX
+    /// increments + wur transients).  Serialized only in wur mode.
+    pub consumed_wh: f64,
     /// Energy-depletion transitions.  Repeated deplete/revive cycles remain
     /// events; availability is reported separately from unavailable time.
     pub deaths: u64,
@@ -193,6 +225,11 @@ pub enum EnergySegment {
         listen_s: f64,
         sleep_s: f64,
         gps_s: f64,
+        /// Wur main-radio boot time (drained at listen current, but kept as
+        /// its own accumulator so the rate is priced explicitly and can be
+        /// audited/changed without silently mispricing merged listen time).
+        /// Always 0.0 outside wur mode.
+        boot_s: f64,
     },
     Docked {
         seconds: f64,
@@ -228,6 +265,14 @@ pub struct Node {
     /// later renter's session.
     pub checkout_generation: u64,
     pub duty: f64,
+    /// Wur wake-transient windows (wur relays only; -1.0 = never woken).
+    /// Invariant: `boot_until <= hangover_until`.  Both are set only after
+    /// `accrue_node_energy_state` has banked elapsed time under the old state
+    /// (the `set_docked` accrue-first-then-set pattern), so
+    /// `accrue_node_energy_state` can split its interval at these boundaries
+    /// with the fields constant within each call.
+    pub boot_until: f64,
+    pub hangover_until: f64,
     pub is_radio: bool,
     pub channel: u8,
     pub kiosk: Option<u32>, // fixed-site index of current box
@@ -484,6 +529,16 @@ pub struct Params {
     pub energy_step_s: f64,
     pub relay_rx_ma: f64, // fixed-site listen current (0 = config value)
     pub hiker_rx_ma: f64, // rental-radio listen current (0 = config value)
+    /// Resolved at CLI parse: `--wur-delta-db` when given, else
+    /// `cfg.wur.wake_sensitivity_delta_db`.  No zero sentinel — delta = 0 is
+    /// the meaningful ideal-WuR bound in the E1 sweep.
+    pub wur_delta_db: f64,
+    /// Resolved at CLI parse: `--wur-boot-ms` when given, else
+    /// `cfg.wur.main_boot_ms`.
+    pub wur_boot_ms: f64,
+    /// E1 wake-aware-routing control arm: edges whose receiver is a wur relay
+    /// are admitted to the route tree only when q50 margin >= delta.
+    pub wur_informed_tree: bool,
     pub regional_channels: bool,
     pub outages: Vec<(String, f64, f64)>, // (site, start_day, end_day)
 }
@@ -575,8 +630,20 @@ impl Sim {
         target.fwd_ewma_seq = sequence;
     }
 
+    /// Fixed sites that carry WuR semantics in wur mode: non-mqtt, non-grid
+    /// (the exact population the duty-assignment loop covers).  Gateways and
+    /// hiker radios are never wake-gated and keep released behavior.
+    pub(crate) fn is_wur_relay(&self, node: u32) -> bool {
+        if self.p.mode != Mode::Wur {
+            return false;
+        }
+        let n = &self.nodes[node as usize];
+        !n.is_radio && !n.mqtt && !n.grid
+    }
+
     pub(crate) fn accrue_node_energy_state(&mut self, node: u32) {
         let now = self.now;
+        let wur_mode = self.p.mode == Mode::Wur;
         let target = &mut self.nodes[node as usize];
         let elapsed = (now - target.energy_state_t).max(0.0);
         if elapsed > 0.0 && !target.grid {
@@ -592,23 +659,42 @@ impl Sim {
                 }
             } else if target.energy_alive {
                 let duty = target.duty.clamp(0.0, 1.0);
-                let listen_s = duty * elapsed;
-                let sleep_s = (1.0 - duty) * elapsed;
                 let gps_s = if target.is_radio { elapsed } else { 0.0 };
+                let wur_relay = wur_mode && !target.is_radio && !target.mqtt;
+                let (listen_s, sleep_s, boot_s) = if wur_relay {
+                    // Split the elapsed interval at the wake-transient
+                    // boundaries.  Windows are set accrue-first-then-set, so
+                    // both bounds are constant within this call and the boot
+                    // sub-interval can never precede `energy_state_t`.
+                    // boot -> boot_s (listen-current rate); hangover ->
+                    // forced listen; remainder -> normal duty split.
+                    let t0 = now - elapsed;
+                    let boot_hi = target.boot_until.clamp(t0, now);
+                    let hangover_hi = target.hangover_until.clamp(boot_hi, now);
+                    let boot_s = boot_hi - t0;
+                    let hangover_s = hangover_hi - boot_hi;
+                    let rest = now - hangover_hi;
+                    (hangover_s + duty * rest, (1.0 - duty) * rest, boot_s)
+                } else {
+                    (duty * elapsed, (1.0 - duty) * elapsed, 0.0)
+                };
                 match target.energy_segments.last_mut() {
                     Some(EnergySegment::Active {
                         listen_s: pending_listen_s,
                         sleep_s: pending_sleep_s,
                         gps_s: pending_gps_s,
+                        boot_s: pending_boot_s,
                     }) => {
                         *pending_listen_s += listen_s;
                         *pending_sleep_s += sleep_s;
                         *pending_gps_s += gps_s;
+                        *pending_boot_s += boot_s;
                     }
                     _ => target.energy_segments.push(EnergySegment::Active {
                         listen_s,
                         sleep_s,
                         gps_s,
+                        boot_s,
                     }),
                 }
             }
@@ -617,7 +703,9 @@ impl Sim {
     }
 }
 
-fn event_draw_key(entity: u64, counter: u64) -> u64 {
+/// Collision-safe two-value key combine (shared by `event_uniform` counters
+/// and the wur wake-miss draw, which keys by (packet id, (tx<<32)|rx)).
+pub(crate) fn event_draw_key(entity: u64, counter: u64) -> u64 {
     Rng::mix64(
         entity.wrapping_add(0xD1B5_4A32_D192_ED03)
             ^ Rng::mix64(counter.wrapping_add(0x9E37_79B9_7F4A_7C15)),

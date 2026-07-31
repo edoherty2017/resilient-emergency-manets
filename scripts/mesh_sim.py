@@ -11,11 +11,16 @@ Layers:
           Meshtastic managed-flood contention window (better SNR → longer
           wait, so the farthest node relays first) and are CANCELLED if the
           same packet is overheard again while waiting (duplicate suppression).
-  NET   — two pluggable modes:
+  NET   — pluggable modes:
             flood         Meshtastic managed flooding with hop_limit
             energy_aware  source routing (Dijkstra) with energy-cost edges:
                           airtime energy × battery-scarcity × solar-poverty —
                           the analytic baseline the ML router learns to beat
+            wur           wake-up-radio twin (docs/wur-design-2026-07-31.md):
+                          relays sleep at the µW wur idle floor; every frame
+                          carries a chirp+boot preamble; reception is decided
+                          by the three-state rule frozen at TxStart; routing
+                          composes with the energy_aware tree
   ENERGY— continuous RX-listen drain + per-TX energy at 3.7 V; solar charging
           from solar_model (real DEM horizon shading, daily clearness index);
           grid-powered sites never die; battery nodes die at 0% and revive at
@@ -57,10 +62,25 @@ KIOSK_MIN_CHECKOUT_SOC = 0.20  # operational reserve; configurable per run confi
 LATENCY_RESERVOIR_SIZE = 2000
 ROUTED_MODES = ("min_hop", "etx", "energy_aware", "lb_energy",
                 "duty_sync", "duty_adaptive", "rotate_lb",
-                "q_routing", "rl_duty", "selective_duty")
+                "q_routing", "rl_duty", "selective_duty", "wur")
+# NOTE: "wur" is deliberately in DUTY_MODES so it inherits the t=0 duty
+# assignment and per-rebuild machinery, with explicit arms at every
+# silent-default trap (edge_weight, duty assignment, CAD gate, duty_misses,
+# duty_wake_model) — docs/wur-design-2026-07-31.md §3.5.
 DUTY_MODES = ("duty_sync", "duty_adaptive", "rotate_lb", "rl_duty",
-              "selective_duty")
+              "selective_duty", "wur")
 LEARNED_MODES = ("q_routing", "rl_duty")
+# Wake-up-radio model parameters: defaults are the registered spec table
+# (docs/wur-design-2026-07-31.md §2); a config `wur:` block or CLI
+# --wur-delta-db / --wur-boot-ms override them.
+WUR_DEFAULTS = {
+    "wur_idle_ma": 0.001,               # ≈3 µW @3.7 V wake receiver idle
+    "wake_sensitivity_delta_db": 55.0,  # wake budget vs main-radio sens
+    "wake_chirp_ms": 20.0,              # OOK address-coded preamble
+    "main_boot_ms": 100.0,              # sleep -> RX-ready
+    "wake_hangover_s": 2.0,             # stay-awake window, activity-refreshed
+    "wake_miss_prob": 3.0e-6,           # compound 1% miss with 2 folded retries
+}
 
 
 # ── Support models ───────────────────────────────────────────────────────────
@@ -156,6 +176,10 @@ class Node:
         self.death_score = 0.0     # decaying death memory (lb_energy)
         self.duty = 1.0            # listen duty cycle (duty-cycled modes)
         self.wake_phase_s = 0.0    # deterministic CAD phase within T_SNIFF_S
+        # wur wake state (spec §2): invariant boot_until <= hangover_until
+        # whenever both are set by an acquisition; -1.0 = asleep/no window.
+        self.boot_until = -1.0     # wur: main-radio boot window end
+        self.hangover_until = -1.0  # wur: stay-awake window end
         self.dead_since_s: float | None = None
         self.dead_time_s = 0.0
         self.ever_died = False
@@ -176,7 +200,9 @@ class MeshSim:
                  route_refresh_s: float = 900.0, sos_retry: bool = False,
                  kiosk_pool: bool = False, kiosk_spares: int = 2,
                  kiosk_demand_scale: float | None = None,
-                 hiker_trace_sample: float = 1.0):
+                 hiker_trace_sample: float = 1.0,
+                 wur_delta_db: float | None = None,
+                 wur_boot_ms: float | None = None):
         self.always_beacon = always_beacon
         self.telemetry_interval_s = telemetry_interval_s
         self.routes = routes
@@ -331,6 +357,53 @@ class MeshSim:
             self.start_utc = datetime.fromisoformat(
                 weather["start_date"]).replace(tzinfo=timezone.utc)
 
+        # ── wake-up-radio (wur) model resolution — spec table §2 defaults,
+        # config `wur:` block override, CLI override on top ────────────────
+        wcfg = (cfg.get("wur") or {})
+        self.wur_idle_ma = float(wcfg.get("wur_idle_ma",
+                                          WUR_DEFAULTS["wur_idle_ma"]))
+        self.wur_delta_db = float(
+            wur_delta_db if wur_delta_db is not None
+            else wcfg.get("wake_sensitivity_delta_db",
+                          WUR_DEFAULTS["wake_sensitivity_delta_db"]))
+        self.wur_chirp_ms = float(wcfg.get("wake_chirp_ms",
+                                           WUR_DEFAULTS["wake_chirp_ms"]))
+        self.wur_boot_ms = float(
+            wur_boot_ms if wur_boot_ms is not None
+            else wcfg.get("main_boot_ms", WUR_DEFAULTS["main_boot_ms"]))
+        self.wur_hangover_s = float(wcfg.get("wake_hangover_s",
+                                             WUR_DEFAULTS["wake_hangover_s"]))
+        self.wur_miss_prob = float(wcfg.get("wake_miss_prob",
+                                            WUR_DEFAULTS["wake_miss_prob"]))
+        self.wur_boot_s = self.wur_boot_ms / 1000.0
+        # sender frame overhead: one chirp serves all receivers; the frame
+        # occupies the channel (and is billed) for overhead + data airtime
+        self.wur_overhead_s = (self.wur_chirp_ms + self.wur_boot_ms) / 1000.0
+        ecfg = cfg["energy"]
+        # awake transient (boot + hangover) is billed at listen current ABOVE
+        # the wur idle floor the step integrator charges continuously —
+        # event-driven lump debits, step-size independent (spec §5)
+        self._wur_awake_delta_w = (max(ecfg["rx_listen_ma"] - self.wur_idle_ma,
+                                       0.0) / 1000.0 * ecfg["battery_v"])
+        if mode == "wur":
+            # wur-specific bounds: the µA idle current is bounded by the
+            # LISTEN current, deliberately not the ≤ tx_current_ma check
+            if self.wur_delta_db < 0.0:
+                raise ValueError("wur: wake_sensitivity_delta_db must be >= 0")
+            if not 0.0 <= self.wur_miss_prob <= 1.0:
+                raise ValueError("wur: wake_miss_prob must be in [0, 1]")
+            if min(self.wur_chirp_ms, self.wur_boot_ms,
+                   self.wur_hangover_s) < 0.0:
+                raise ValueError("wur: chirp/boot/hangover must be >= 0")
+            if not 0.0 <= self.wur_idle_ma <= ecfg["rx_listen_ma"]:
+                raise ValueError("wur: wur_idle_ma must be in [0, rx_listen_ma]")
+            # per-node wake counters + consumed-energy ledger; keys exist
+            # only in wur mode so released-mode summaries stay byte-identical
+            for nd in self.nodes.values():
+                nd.stats.update({"wake_attempts": 0, "wake_budget_fail": 0,
+                                 "wake_misses": 0, "energy_wur_awake_wh": 0.0,
+                                 "energy_consumed_wh": 0.0})
+
         # A receiver's wake clock is deterministic and independent of event
         # order. duty_sync shares phase zero; other duty modes are per-node.
         for name, node in self.nodes.items():
@@ -411,6 +484,11 @@ class MeshSim:
         is lost. This is deterministic, explicit, and charges the same listen
         duty used by the energy model.
         """
+        if self.mode == "wur":
+            # defensive explicit arm (spec §3.5): wur acquisition is decided
+            # by wur_receiver_acquires at the TxStart call site, never by
+            # periodic CAD — reaching here is a wiring bug, fail loudly.
+            raise AssertionError("wur mode must not use periodic CAD")
         if self.mode not in DUTY_MODES or node.duty >= 1.0:
             return True
         awake_s = max(0.0, min(float(node.duty), 1.0)) * T_SNIFF_S
@@ -427,6 +505,93 @@ class MeshSim:
             if overlap + 1e-12 >= cad_s:
                 return True
         return False
+
+    # ── wur mode: wake-up-radio receiver model (docs/wur-design-2026-07-31.md)
+    def _is_wur_relay(self, node: Node) -> bool:
+        """Fixed relay carrying WuR semantics. Gateways (mqtt/grid) and hiker
+        radios are unchanged and never wake-gated (spec §2); this predicate
+        matches exactly the duty-assignment skip set."""
+        return (not node.mqtt and node.power != "grid"
+                and node.name not in self.hiker_names)
+
+    def wur_miss_draw(self, pkt_id: int, tx_name: str, rx_name: str) -> float:
+        """Stateless keyed wake-miss draw — the Python twin of Rust's
+        RNG_WUR_MISS domain, keyed by (pkt_id, tx, rx) (spec §2).
+
+        Immutable keying makes skipped draws harmless and lets different
+        forwarders of the same packet draw independently. Deliberately NOT
+        routed through rng_for(): caching one Generator per (pkt, tx, rx)
+        would grow without bound over year runs; the derivation below is the
+        same blake2b keying discipline, evaluated fresh per draw.
+        """
+        material = (f"mesh-sim-v2|{self.seed}|wur_miss|"
+                    f"{pkt_id}|{tx_name}|{rx_name}").encode()
+        child_seed = int.from_bytes(
+            hashlib.blake2b(material, digest_size=16).digest(), "little")
+        return float(np.random.default_rng(child_seed).random())
+
+    def _wur_refresh_hangover(self, node: Node, now: float, target: float):
+        """Extend a wur relay's awake window to ``target`` and lump-debit the
+        NEW awake seconds at listen current above the wur idle floor.
+
+        Event-driven and step-size independent (spec §5): the fixed-step
+        integrator keeps charging wur_idle continuously for duty=0 relays;
+        each wake/refresh debits only the delta interval
+        [max(hangover_until, now), target], clipped at the simulation
+        horizon, so repeated refreshes can never double-charge. Boot time is
+        inside this window (boot_until <= hangover_until) and both boot and
+        hangover accrue at listen current, so one debit covers the whole
+        transient — mirroring Rust's ordered-segment split without segments.
+        """
+        if target <= node.hangover_until:
+            return
+        debit_s = (min(target, self.days * 86400.0)
+                   - max(node.hangover_until, now))
+        if debit_s > 0.0 and node.power != "grid":
+            wh = self._wur_awake_delta_w * debit_s / 3600.0
+            node.soc_wh -= wh
+            node.stats["energy_wur_awake_wh"] += wh
+            node.stats["energy_consumed_wh"] += wh
+        node.hangover_until = target
+
+    def wur_receiver_acquires(self, node: Node, pkt: dict, sender: str,
+                              rssi: float, t0: float,
+                              frame_end: float) -> bool:
+        """Three-state WuR acquisition rule, frozen at TxStart (spec §2 v2).
+
+        1. awake — duty >= 1.0 (gateways, hiker radios: never wake-gated) or
+           a wur relay inside its hangover window: acquires on the DATA
+           budget only (sens/SNR applied in deliver()); no delta, no miss
+           draw (skipping draws is safe: the miss stream is stateless keyed);
+        2. mid-boot (boot_until > tx_start): treated as asleep in v1 — every
+           frame carries its own chirp+boot preamble (explicit choice);
+        3. asleep — acquires iff rssi >= sens + delta (wake budget) AND the
+           keyed wake-miss draw passes.
+
+        Wake accounting is attempt-level at TxStart, independent of the
+        frame's eventual fate; duty_misses is never touched in wur mode.
+        On acquisition: debit-first, then stamp boot_until/hangover_until
+        (accrue-first-then-set; invariant boot_until <= hangover_until).
+        A woken/awake receiver refreshes hangover_until the same way.
+        """
+        if node.duty >= 1.0:          # gateway / hiker radio: never wake-gated
+            return True
+        mid_boot = node.boot_until > t0
+        if not mid_boot and node.hangover_until > t0:   # awake in hangover
+            self._wur_refresh_hangover(node, t0,
+                                       frame_end + self.wur_hangover_s)
+            return True
+        # asleep (or mid-boot, treated as asleep): attempt-level accounting
+        node.stats["wake_attempts"] += 1
+        if rssi < self.radio["rx_sensitivity_dbm"] + self.wur_delta_db:
+            node.stats["wake_budget_fail"] += 1
+            return False
+        if self.wur_miss_draw(pkt["id"], sender, node.name) < self.wur_miss_prob:
+            node.stats["wake_misses"] += 1
+            return False
+        self._wur_refresh_hangover(node, t0, frame_end + self.wur_hangover_s)
+        node.boot_until = t0 + self.wur_boot_s
+        return True
 
     # ── geometry: where is a hiker at sim time t? ───────────────────────────
     def hiker_track_t(self, node: Node, t: float) -> float:
@@ -504,6 +669,13 @@ class MeshSim:
     def transmit(self, sender: Node, pkt: dict):
         air_s = airtime_ms(pkt["bytes"], self.radio["sf"], self.radio["bw_hz"],
                            self.radio["cr"], self.radio["preamble_syms"]) / 1000.0
+        if self.mode == "wur":
+            # sender-side wake overhead (spec §2): the chirp+boot preamble
+            # occupies the channel and is billed like signal for its full
+            # duration; TxEnd scheduling, busy intervals, capture windows,
+            # half-duplex, offered airtime and TX energy all inherit from
+            # air_s coherently. One chirp serves all receivers.
+            air_s += self.wur_overhead_s
         symbol_s = (2 ** self.radio["sf"]) / self.radio["bw_hz"]
         preamble_s = (self.radio["preamble_syms"] + 4.25) * symbol_s
         t0 = self.env.now
@@ -521,9 +693,17 @@ class MeshSim:
         if cand:
             shades = self.shadow.batch(sender.name, [c[0] for c in cand], t0)
             for (name, loss), sh in zip(cand, shades):
-                tx["rssi_at"][name] = self.rx_power_reference_dbm - loss + sh
-                tx["cad_at"][name] = self.receiver_cad_detects(
-                    self.nodes[name], t0, preamble_s)
+                rssi = self.rx_power_reference_dbm - loss + sh
+                tx["rssi_at"][name] = rssi
+                if self.mode == "wur":
+                    # three-state acquisition, frozen at TxStart exactly like
+                    # the released CAD rule; wake accounting happens inside
+                    tx["cad_at"][name] = self.wur_receiver_acquires(
+                        self.nodes[name], pkt, sender.name, rssi,
+                        t0, t0 + air_s)
+                else:
+                    tx["cad_at"][name] = self.receiver_cad_detects(
+                        self.nodes[name], t0, preamble_s)
         # Record immutable snapshots on both sides of every overlap while both
         # transmissions are known. The snapshot remains after the earlier TX
         # leaves active_tx, so reception cannot depend on equal-time event order;
@@ -557,12 +737,23 @@ class MeshSim:
         # duty-weighted baseline current (matches Rust): charge only the TX
         # current above the listen/sleep baseline the sender would draw anyway.
         d = sender.duty
-        baseline_ma = d * e["rx_listen_ma"] + (1.0 - d) * e["light_sleep_ma"]
+        if self.mode == "wur" and self._is_wur_relay(sender):
+            # wake-state-aware TX baseline (spec §2): a wur sender refreshes
+            # its own hangover_until to >= frame end at TxStart, so listen
+            # current is charged via the awake-window debit for the whole
+            # frame and the TX increment is (tx - listen) — never
+            # (tx - wur_idle) plus listen double-counted.
+            self._wur_refresh_hangover(sender, t0, t0 + air_s)
+            baseline_ma = e["rx_listen_ma"]
+        else:
+            baseline_ma = d * e["rx_listen_ma"] + (1.0 - d) * e["light_sleep_ma"]
         etx = (max(e["tx_current_ma"] - baseline_ma, 0.0) / 1000.0
                * e["battery_v"] * accounted_air / 3600.0)
         sender.stats["energy_tx_wh"] += etx
         if sender.power != "grid":
             sender.soc_wh -= etx
+            if self.mode == "wur":
+                sender.stats["energy_consumed_wh"] += etx
         if sender.name in self.hiker_names and self.trace_selected(
                 1.0 if pkt.get("okind", pkt["kind"]) == "sos"
                 else self.hiker_trace_sample):
@@ -616,7 +807,15 @@ class MeshSim:
             ok = (rssi >= self.radio["rx_sensitivity_dbm"]
                   and snr >= self.radio["snr_demod_threshold_db"])
             if ok and not tx["cad_at"].get(name, False):
-                node.stats["duty_misses"] += 1
+                if self.mode == "wur":
+                    # explicit wur arm (spec §2): frame loss decomposes into
+                    # wake budget / decoder-miss / collision causes counted
+                    # at TxStart — duty_misses is NEVER incremented in wur
+                    # mode. Runtime pin (test hook) of the ≡0 invariant:
+                    assert node.stats["duty_misses"] == 0, \
+                        "wur invariant violated: duty_misses must stay 0"
+                else:
+                    node.stats["duty_misses"] += 1
                 if name == qr_next:
                     self._qr_update(tx["sender"], name, False, tx["start"])
                 continue
@@ -802,7 +1001,14 @@ class MeshSim:
 
     def edge_weight(self, u: str, v: str, margin: float, t: float) -> float:
         """Cost of node v relaying one packet received from u, per self.mode."""
-        mode = "lb_energy" if self.mode in DUTY_MODES else self.mode
+        if self.mode == "wur":
+            # explicit arm (spec §3.5): wur composes with the energy_aware
+            # tree — the DUTY_MODES catch-all would silently give lb_energy
+            mode = "energy_aware"
+        elif self.mode in DUTY_MODES:
+            mode = "lb_energy"
+        else:
+            mode = self.mode
         if mode == "min_hop":
             return 1.0
         p = max(self.link_p_success(margin), 0.02)
@@ -1026,6 +1232,12 @@ class MeshSim:
                     nd.duty = float(np.clip(0.02 + 0.23 * rf, 0.02, 0.25))
                 elif self.mode == "rl_duty":
                     self._rl_duty_step(nd, t)
+                elif self.mode == "wur":
+                    # explicit arm (spec §3.5): wake-up-radio relays keep the
+                    # main radio asleep at the wur idle floor; reception is
+                    # wake-gated at TxStart (three-state rule), not CAD.
+                    # Gateways/hikers never reach this loop and stay duty=1.
+                    nd.duty = 0.0
                 else:  # rotate_lb: tree relays always-on, everyone else sniffs
                     nd.duty = 1.0 if n in on_tree else 0.02
 
@@ -1397,6 +1609,10 @@ class MeshSim:
         node.stats["deaths"] += 1
         node.death_score = 0.7 * node.death_score + 1.0
         self.route_tree_t = -1e9
+        if self.mode == "wur" and self._is_wur_relay(node):
+            # wake state dies with the node; in-flight frames keep their
+            # TxStart-frozen acquisition snapshots untouched
+            node.boot_until = node.hangover_until = -1.0
         self.emit(ev="dead", n=node.name)
 
     def mark_alive(self, node: Node):
@@ -1408,6 +1624,14 @@ class MeshSim:
         node.dead_since_s = None
         node.alive = True
         self.route_tree_t = -1e9
+        if self.mode == "wur" and self._is_wur_relay(node):
+            # revival pays a boot transient before the relay can receive.
+            # mark_alive is the single choke point for BOTH revival paths
+            # (solar recharge and kiosk-dock); the _is_wur_relay gate keeps
+            # the docked-revival path from ever touching hiker radios.
+            now = self.env.now
+            self._wur_refresh_hangover(node, now, now + self.wur_boot_s)
+            node.boot_until = now + self.wur_boot_s
         self.emit(ev="alive", n=node.name)
 
     def node_dead_time_s(self, node: Node, end_s: float | None = None) -> float:
@@ -1423,6 +1647,7 @@ class MeshSim:
         v = e["battery_v"]
         rx_w = e["rx_listen_ma"] / 1000.0 * v
         sleep_w = e["light_sleep_ma"] / 1000.0 * v   # [BENCH-CALIBRATE] floor
+        wur_idle_w = self.wur_idle_ma / 1000.0 * v   # wur relays' sleep floor
         gps_wh_per_s = e["gps_active_ma"] / 1000.0 * v / 3600.0
         while True:
             yield self.env.timeout(step)
@@ -1464,7 +1689,13 @@ class MeshSim:
                     node._last_solar_w = 0.0
                     continue
                 d = node.duty
-                drain = (d * rx_w + (1.0 - d) * sleep_w) / 3600.0 * step
+                # wur relays idle at wur_idle in place of light sleep; the
+                # boot/hangover transient is charged by event-driven lump
+                # debits at wake time, NOT by this fixed-step integrator
+                # (step-size independent — spec §5)
+                sw = (wur_idle_w if self.mode == "wur"
+                      and self._is_wur_relay(node) else sleep_w)
+                drain = (d * rx_w + (1.0 - d) * sw) / 3600.0 * step
                 if node.name in self.hiker_names:
                     drain += gps_wh_per_s * step
                 sol_w = 0.0
@@ -1477,6 +1708,8 @@ class MeshSim:
                     node.stats["solar_wh"] += gain
                 if node.alive:
                     node.soc_wh -= drain
+                    if self.mode == "wur":
+                        node.stats["energy_consumed_wh"] += drain
                     if node.soc_wh <= 0.0:
                         self.mark_dead(node)
                 elif node.soc_wh >= REVIVE_FRACTION * node.cap_wh:
@@ -1647,6 +1880,11 @@ class MeshSim:
                 "final_soc": round(nd.soc_wh / nd.cap_wh, 3),
                 "power": nd.power,
             }
+            if self.mode == "wur":
+                node_stats[n]["energy_wur_awake_wh"] = round(
+                    nd.stats["energy_wur_awake_wh"], 4)
+                node_stats[n]["energy_consumed_wh"] = round(
+                    nd.stats["energy_consumed_wh"], 4)
         # struggling links: fixed-fixed pairs that carried traffic with thin
         # margin or heavy loss — the "where does the network hurt" table
         link_rows = []
@@ -1694,6 +1932,24 @@ class MeshSim:
             "relay_energy_gini": round(gini, 4) if gini is not None else None,
             "soc_series_6h": self.fleet_soc_series,
         }
+        if self.mode == "wur":
+            # runtime pin of the spec §2 convention (twin of the Rust test):
+            # wur frame loss never lands in duty_misses
+            assert fleet["duty_misses_total"] == 0, \
+                "wur invariant violated: duty_misses_total must be 0"
+            fleet["wake_attempts_total"] = int(sum(
+                nd.stats["wake_attempts"] for nd in self.nodes.values()))
+            fleet["wake_budget_fail_total"] = int(sum(
+                nd.stats["wake_budget_fail"] for nd in self.nodes.values()))
+            fleet["wake_misses_total"] = int(sum(
+                nd.stats["wake_misses"] for nd in self.nodes.values()))
+            # fleet consumed energy (parity band rel 0.10, spec §5): battery
+            # Wh actually drawn by the SOLAR fleet — fixed-step baseline
+            # drain + TX increments + event-driven wake-transient debits.
+            # The Rust twin must emit the same quantity (harness accepts
+            # fleet_energy.consumed_wh_total or top-level fleet_consumed_wh).
+            fleet["consumed_wh_total"] = round(float(sum(
+                nd.stats["energy_consumed_wh"] for nd in solar)), 4)
         fixed_names = [n for n in self.nodes if n not in self.hiker_names]
         busy_ratios = np.array([
             self.channel_busy_through(n, dur) / max(dur, 1e-9)
@@ -1711,7 +1967,7 @@ class MeshSim:
                                         if len(busy_ratios) else None),
         }
         offered = self.total_airtime_s / max(dur, 1e-9)
-        return {
+        out = {
             "mode": self.mode, "days": self.days, "seed": self.seed,
             "hop_limit": self.hop_limit,
             "n_renters": n_renters,
@@ -1748,7 +2004,18 @@ class MeshSim:
             "rng_stream_model": "blake2_keyed_per_phenomenon_and_entity_v2",
             "traffic_clock_model": "exogenous_arrivals_independent_of_mac_service",
             "routing_solar_forecast": "monthly_climatology_no_future_weather",
+            # explicit wur arm first (spec §3.5): wur is in DUTY_MODES but
+            # its wake model is the always-on wake receiver, not periodic CAD
             "duty_wake_model": ({
+                "model": "wur_always_on_wake_receiver_v1",
+                "wake_sensitivity_delta_db": self.wur_delta_db,
+                "wake_chirp_ms": self.wur_chirp_ms,
+                "main_boot_ms": self.wur_boot_ms,
+                "wake_hangover_s": self.wur_hangover_s,
+                "wake_miss_prob": self.wur_miss_prob,
+                "wur_idle_ma": self.wur_idle_ma,
+                "missed_reception_possible": True,
+            } if self.mode == "wur" else {
                 "model": "deterministic_periodic_cad",
                 "sniff_period_s": T_SNIFF_S,
                 "cad_min_symbols": CAD_MIN_SYMBOLS,
@@ -1778,6 +2045,26 @@ class MeshSim:
             "per_node": node_stats,
             "rl": self.rl_summary(),
         }
+        if self.mode == "wur":
+            # overall delivery p50 (parity band abs 0.5 s, spec §5): pooled
+            # per-origin latency samples of ALL delivered packets. At the
+            # micro parity scale reservoirs are not full, so the pool is the
+            # complete first-delivery latency population in both engines.
+            all_lat = [x for a in self.agg.values() for x in a["lat"]]
+            out["overall_delivery_latency_p50_s"] = (
+                round(float(np.median(all_lat)), 3) if all_lat else None)
+            # resolved-parameter echo for audit trails
+            out["wur"] = {
+                "wur_idle_ma": self.wur_idle_ma,
+                "wake_sensitivity_delta_db": self.wur_delta_db,
+                "wake_chirp_ms": self.wur_chirp_ms,
+                "main_boot_ms": self.wur_boot_ms,
+                "wake_hangover_s": self.wur_hangover_s,
+                "wake_miss_prob": self.wur_miss_prob,
+                "wake_overhead_s": self.wur_overhead_s,
+                "wake_miss_stream": "blake2b_keyed_stateless_pkt_tx_rx_v1",
+            }
+        return out
 
     def rl_summary(self) -> dict | None:
         """Learned-policy snapshot for q_routing / rl_duty (None otherwise)."""
@@ -1811,6 +2098,7 @@ def run_sim(mode="flood", days=None, seed=None, extra_hikers=0,
             energy_step_s=None, weather_path=None, telemetry_interval_s=None,
             route_refresh_s=900.0, sos_retry=False, kiosk_pool=False,
             kiosk_demand_scale=None, hiker_trace_sample=1.0,
+            wur_delta_db=None, wur_boot_ms=None,
             config="config/sim/wmnf_sim.yaml",
             topology="artifacts/sim/topology.json") -> dict:
     import yaml
@@ -1836,6 +2124,7 @@ def run_sim(mode="flood", days=None, seed=None, extra_hikers=0,
                   route_refresh_s=route_refresh_s, sos_retry=sos_retry,
                   kiosk_pool=kiosk_pool, kiosk_demand_scale=kiosk_demand_scale,
                   hiker_trace_sample=hiker_trace_sample,
+                  wur_delta_db=wur_delta_db, wur_boot_ms=wur_boot_ms,
                   trace_path=Path(trace_path) if trace_path else None)
     return sim.run()
 
@@ -1844,7 +2133,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="WMNF mesh discrete-event simulation")
     ap.add_argument("--mode", choices=["flood", "min_hop", "etx", "energy_aware",
                     "lb_energy", "duty_sync", "duty_adaptive", "rotate_lb",
-                    "q_routing", "rl_duty", "selective_duty"],
+                    "q_routing", "rl_duty", "selective_duty", "wur"],
                     default="flood")
     ap.add_argument(
         "--days",
@@ -1881,6 +2170,13 @@ def main() -> int:
     ap.add_argument("--hiker-trace-sample", type=float, default=1.0,
                     help="Sample rate for hiker-origin tx/rx trace events "
                          "(SOS always traced)")
+    ap.add_argument("--wur-delta-db", type=float, default=None,
+                    help="wur mode: wake sensitivity delta vs the main radio "
+                         "(dB); default from the config wur: block or the "
+                         "registered spec table (55)")
+    ap.add_argument("--wur-boot-ms", type=float, default=None,
+                    help="wur mode: main-radio boot time (ms); default from "
+                         "the config wur: block or the spec table (100)")
     args = ap.parse_args()
 
     (ROOT / "artifacts/sim").mkdir(parents=True, exist_ok=True)
@@ -1898,6 +2194,7 @@ def main() -> int:
                 kiosk_pool=args.kiosk_pool,
                 kiosk_demand_scale=args.kiosk_demand_scale,
                 hiker_trace_sample=args.hiker_trace_sample,
+                wur_delta_db=args.wur_delta_db, wur_boot_ms=args.wur_boot_ms,
                 trace_path=ROOT / args.trace if args.trace else None)
     out = ROOT / args.out
     out.write_text(json.dumps(s, indent=2))

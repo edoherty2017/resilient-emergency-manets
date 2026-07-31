@@ -10,7 +10,7 @@ fn project_path(relative: &str) -> PathBuf {
         .join(relative)
 }
 
-fn fastsim_command(output: &Path, days: &str) -> Command {
+fn fastsim_mode_command(output: &Path, days: &str, mode: &str) -> Command {
     let mut command = Command::new(env!("CARGO_BIN_EXE_fastsim"));
     command.args([
         "--topology",
@@ -30,7 +30,7 @@ fn fastsim_command(output: &Path, days: &str) -> Command {
             .to_str()
             .expect("UTF-8 config path"),
         "--mode",
-        "min_hop",
+        mode,
         "--days",
         days,
         "--seed",
@@ -43,14 +43,20 @@ fn fastsim_command(output: &Path, days: &str) -> Command {
     command
 }
 
-#[test]
-fn same_seed_is_identical_across_processes() {
+fn fastsim_command(output: &Path, days: &str) -> Command {
+    fastsim_mode_command(output, days, "min_hop")
+}
+
+fn assert_mode_is_identical_across_processes(mode: &str, check: impl Fn(&Value)) {
     let temp_root = std::env::temp_dir();
     let mut reference: Option<Vec<u8>> = None;
 
     for run in 0..6 {
-        let output = temp_root.join(format!("fastsim-repro-{}-{run}.json", std::process::id()));
-        let status = fastsim_command(&output, "0.1")
+        let output = temp_root.join(format!(
+            "fastsim-repro-{mode}-{}-{run}.json",
+            std::process::id()
+        ));
+        let status = fastsim_mode_command(&output, "0.1", mode)
             .status()
             .expect("run FastSim child process");
         assert!(status.success(), "FastSim child process failed");
@@ -58,6 +64,7 @@ fn same_seed_is_identical_across_processes() {
         let bytes = fs::read(&output).expect("read FastSim summary");
         let summary: Value = serde_json::from_slice(&bytes).expect("parse FastSim summary");
         assert_eq!(summary["start_date"], "2025-07-01");
+        check(&summary);
         fs::remove_file(&output).expect("remove temporary FastSim summary");
 
         if let Some(expected) = &reference {
@@ -69,6 +76,37 @@ fn same_seed_is_identical_across_processes() {
             reference = Some(bytes);
         }
     }
+}
+
+#[test]
+fn same_seed_is_identical_across_processes() {
+    assert_mode_is_identical_across_processes("min_hop", |summary| {
+        assert!(
+            summary.get("wake_attempts_total").is_none(),
+            "wur-only keys must not appear in released-mode summaries"
+        );
+    });
+}
+
+#[test]
+fn same_seed_is_identical_across_processes_wur() {
+    // Clone of the released byte-identity gate for mode=wur: the stateless
+    // keyed wake-miss stream and the TxStart wake-state mutations must be
+    // fully deterministic across processes.
+    assert_mode_is_identical_across_processes("wur", |summary| {
+        assert_eq!(
+            summary["duty_misses_total"], 0,
+            "duty_misses keeps its CAD meaning and is identically zero in wur mode"
+        );
+        assert!(
+            summary["wake_attempts_total"].is_u64(),
+            "wur summaries must serialize the wake counters"
+        );
+        assert_eq!(
+            summary["duty_wake_model"]["model"],
+            "wur_always_on_wake_receiver_v1"
+        );
+    });
 }
 
 #[test]

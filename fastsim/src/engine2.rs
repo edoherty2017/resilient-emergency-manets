@@ -469,9 +469,20 @@ impl Sim {
         // Duty cycling affects deterministic receiver acquisition, not packet
         // airtime.  The old random 0..1 s extension was a perfect-wakeup
         // abstraction and also consumed an algorithm-dependent RNG draw.
-        let air = self.airtime_s2(flight.bytes);
+        // In wur mode every frame is preceded by a wake chirp and the
+        // receiver's boot window; the sender occupies the channel (and pays
+        // TX current) for overhead + data airtime, so TxEnd scheduling, busy
+        // intervals, capture overlap, half-duplex, offered airtime, and
+        // truncation refunds all inherit the extension coherently.
+        let air = self.airtime_s2(flight.bytes)
+            + if self.p.mode == Mode::Wur {
+                (self.cfg.wur.wake_chirp_ms + self.p.wur_boot_ms) / 1000.0
+            } else {
+                0.0
+            };
         let horizon = self.p.days * 86400.0;
         let accounted_air = ((self.now + air).min(horizon) - self.now).max(0.0);
+        let sender_is_wur_relay = self.is_wur_relay(sender);
         let (etx, incremental_tx_w) = {
             let e = &self.cfg.energy;
             let sender_node = &self.nodes[sender as usize];
@@ -482,8 +493,17 @@ impl Sim {
             } else {
                 e.rx_listen_ma
             };
-            let baseline_ma =
-                sender_node.duty * listen_ma + (1.0 - sender_node.duty) * e.light_sleep_ma;
+            let baseline_ma = if sender_is_wur_relay {
+                // Wake-state-aware TX baseline: a committed wur frame always
+                // lies inside the sender's own hangover window (refreshed at
+                // commit below, at this same TxStart instant), so the accrual
+                // over the frame interval runs at listen current and the TX
+                // increment is above listen — never above wur_idle, which
+                // would double-charge listen for the same interval.
+                listen_ma
+            } else {
+                sender_node.duty * listen_ma + (1.0 - sender_node.duty) * e.light_sleep_ma
+            };
             let incremental_tx_ma = (e.tx_current_ma - baseline_ma).max(0.0);
             let incremental_tx_w = incremental_tx_ma / 1000.0 * e.battery_v;
             (incremental_tx_w * accounted_air / 3600.0, incremental_tx_w)
@@ -528,11 +548,19 @@ impl Sim {
             ));
         }
         let end = self.now + air;
-        let cad_acquired: HashSet<u32> = rssi_at
-            .iter()
-            .map(|(rx, _, _)| *rx)
-            .filter(|&rx| self.receiver_acquires_preamble_at(rx, self.now, end))
-            .collect();
+        let cad_acquired: HashSet<u32> = if self.p.mode == Mode::Wur {
+            // The wur decision lives at this call site because it needs the
+            // per-receiver RSSI snapshot and the flight id (for the keyed
+            // miss draw), which receiver_acquires_preamble_at lacks.  It is
+            // frozen at TxStart exactly like the CAD rule.
+            self.wur_acquisition_at_tx_start(sender, flight.id, &rssi_at, end)
+        } else {
+            rssi_at
+                .iter()
+                .map(|(rx, _, _)| *rx)
+                .filter(|&rx| self.receiver_acquires_preamble_at(rx, self.now, end))
+                .collect()
+        };
         self.local_busy[sender as usize].add(self.now, end);
         for &(rx, rssi, _) in &rssi_at {
             if rssi >= CARRIER_SENSE_DBM {
@@ -556,11 +584,25 @@ impl Sim {
         );
         {
             let n = &mut self.nodes[sender as usize];
+            if sender_is_wur_relay {
+                // Sender hangover refresh at TxStart: the whole frame interval
+                // must accrue at listen current so a mid-frame hangover expiry
+                // cannot undercut the listen baseline the TX increment above
+                // was computed against.  Accrual was banked at function entry
+                // at this same instant, so setting the window here is anchored
+                // (accrue-first-then-set).  Applied only to committed frames —
+                // a frame rejected by the energy check must not leave phantom
+                // wake state.  Spec-literal reading (cross-engine agreed):
+                // the refresh reaches the frame END only — transmitting does
+                // not grant a post-TX hangover; reception does.
+                n.hangover_until = n.hangover_until.max(end);
+            }
             n.tx_until = end;
             n.stats.tx += 1;
             n.stats.tx_airtime_s += accounted_air;
             n.stats.energy_tx_wh += etx;
             if !n.grid {
+                n.stats.consumed_wh += etx;
                 n.soc_wh = (n.soc_wh - etx).max(0.0);
                 if n.energy_alive && n.soc_wh <= 0.0 {
                     n.soc_wh = 0.0;
@@ -619,7 +661,16 @@ impl Sim {
             let phy_ok = rssi >= sens && snr >= demod;
             let cad_acquired = tx.cad_acquired.contains(&rx);
             if phy_ok && !cad_acquired {
-                self.nodes[rx as usize].stats.duty_misses += 1;
+                match self.p.mode {
+                    // Explicit arm (spec §3 trap list): a wake-infeasible or
+                    // wake-missed wur receiver on a data-usable link is
+                    // exactly phy_ok && !cad_acquired, but its loss is
+                    // already decomposed at TxStart into wake_budget_fail /
+                    // wake_misses.  duty_misses keeps its CAD meaning and is
+                    // identically zero in wur mode.
+                    Mode::Wur => {}
+                    _ => self.nodes[rx as usize].stats.duty_misses += 1,
+                }
             }
             let mut worst_i = f64::NEG_INFINITY;
             if cad_acquired {
@@ -632,7 +683,10 @@ impl Sim {
                 }
             }
             // Link health measures PHY opportunities, not a duty-cycle CAD
-            // sleep that deliberately prevented an attempted reception.
+            // sleep that deliberately prevented an attempted reception.  In
+            // wur mode the same cad_acquired gate deliberately excludes wake
+            // failures: routing gets no oracle knowledge of the wake budget
+            // in either E1 arm (spec §2 routing bullet).
             if sender_fixed && !self.nodes[rx as usize].is_radio && cad_acquired {
                 let key = if tx.sender < rx {
                     (tx.sender, rx)
@@ -775,8 +829,21 @@ impl Sim {
         } else {
             self.cfg.energy.rx_listen_ma
         };
-        let sleep_w = self.cfg.energy.light_sleep_ma / 1000.0 * battery_v;
+        // Wur relays idle on the always-on wake receiver: the sleep current is
+        // wur_idle_ma at BOTH duplicated consumption sites (here and the
+        // transmit() baseline, which resolves to listen via the hangover
+        // refresh).  Boot time drains at listen current from its own
+        // accumulator.
+        let wur_relay = self.is_wur_relay(node);
+        let sleep_w = if wur_relay {
+            self.cfg.wur.wur_idle_ma
+        } else {
+            self.cfg.energy.light_sleep_ma
+        } / 1000.0
+            * battery_v;
         let gps_w = self.cfg.energy.gps_active_ma / 1000.0 * battery_v;
+        let wur_boot_window_s = self.p.wur_boot_ms / 1000.0;
+        let now = self.now;
 
         for segment in segments {
             match segment {
@@ -799,18 +866,29 @@ impl Sim {
                     n.soc_wh = (n.soc_wh + got_wh).min(n.cap_wh);
                     if !n.energy_alive && n.soc_wh >= REVIVE_FRACTION * n.cap_wh {
                         n.energy_alive = true;
+                        // Revival boot windows are gated to wur RELAYS.  The
+                        // docked path is only reachable by rental radios, so
+                        // this arm is defensively unreachable in wur mode; it
+                        // exists so both revival sites state the rule
+                        // explicitly (spec §2 energy model).
+                        if wur_relay {
+                            n.boot_until = n.boot_until.max(now + wur_boot_window_s);
+                            n.hangover_until = n.hangover_until.max(n.boot_until);
+                        }
                     }
                 }
                 EnergySegment::Active {
                     listen_s,
                     sleep_s,
                     gps_s,
+                    boot_s,
                 } => {
-                    let drain = (listen_s * listen_ma / 1000.0 * battery_v
+                    let drain = ((listen_s + boot_s) * listen_ma / 1000.0 * battery_v
                         + sleep_s * sleep_w
                         + gps_s * gps_w)
                         / 3600.0;
                     let n = &mut self.nodes[i];
+                    n.stats.consumed_wh += drain;
                     n.soc_wh = (n.soc_wh - drain).max(0.0);
                     if n.energy_alive && n.soc_wh <= 0.0 {
                         n.energy_alive = false;
@@ -910,6 +988,17 @@ impl Sim {
                 && self.nodes[i].soc_wh >= REVIVE_FRACTION * self.nodes[i].cap_wh
             {
                 self.nodes[i].energy_alive = true;
+                // Second revival site: a revived wur relay boots its main
+                // radio before it can hear anything.  Gated to wur relays
+                // only — hiker radios and gateways are never wake-gated.
+                // Accrual for every node was banked at the top of this
+                // energy step, so setting the window here is anchored.
+                if self.is_wur_relay(i as u32) {
+                    let boot_window = self.now + self.p.wur_boot_ms / 1000.0;
+                    let n = &mut self.nodes[i];
+                    n.boot_until = n.boot_until.max(boot_window);
+                    n.hangover_until = n.hangover_until.max(n.boot_until);
+                }
             }
             self.settle_node_energy_segments(i as u32);
         }
@@ -1068,7 +1157,94 @@ impl Sim {
         }
         false
     }
+    /// Three-state wur receiver decision, evaluated and frozen at TxStart
+    /// (docs/wur-design-2026-07-31.md §2).  Precedence: an always-on class
+    /// (duty >= 1.0: gateways, hiker radios, grid sites) acquires on the data
+    /// budget only; a mid-boot relay (`boot_until > tx_start`) is treated as
+    /// asleep in v1 (every frame carries its own chirp+boot preamble); a
+    /// hangover-awake relay acquires on the data budget only; an asleep relay
+    /// needs the wake budget (rssi >= sens + delta) AND the keyed miss draw.
+    /// The mid-boot test must precede the hangover test because
+    /// `boot_until <= hangover_until` makes both windows overlap during boot.
+    ///
+    /// Wake accounting is attempt-level here at TxStart, independent of the
+    /// frame's eventual PHY/capture outcome.  Boot/hangover windows are set
+    /// accrue-first-then-set at this instant.  Skipping the miss draw for
+    /// awake receivers is safe: the stream is stateless keyed.
+    fn wur_acquisition_at_tx_start(
+        &mut self,
+        sender: u32,
+        flight_id: u64,
+        rssi_at: &[(u32, f64, u64)],
+        frame_end: f64,
+    ) -> HashSet<u32> {
+        let tx_start = self.now;
+        let sens = self.cfg.radio.rx_sensitivity_dbm;
+        let delta = self.p.wur_delta_db;
+        let miss_p = self.cfg.wur.wake_miss_prob;
+        let hangover_s = self.cfg.wur.wake_hangover_s;
+        let boot_window_s = self.p.wur_boot_ms / 1000.0;
+        let mut acquired = HashSet::new();
+        // rssi_at is built in node-index order, so all counter updates and
+        // window mutations below are event-loop deterministic.
+        for &(rx, rssi, _) in rssi_at {
+            let i = rx as usize;
+            if !self.is_wur_relay(rx) || self.nodes[i].duty >= 1.0 {
+                // Never wake-gated: acquires unconditionally at TxStart; the
+                // data budget (sens/SNR) is enforced at TxEnd exactly as for
+                // every always-on receiver in the released modes.
+                acquired.insert(rx);
+                continue;
+            }
+            let mid_boot = self.nodes[i].boot_until > tx_start;
+            if !mid_boot && self.nodes[i].hangover_until > tx_start {
+                // Hangover-awake: main radio is demodulating; data budget
+                // only, no delta, no miss draw.  Activity refreshes the
+                // hangover window.
+                acquired.insert(rx);
+                self.accrue_node_energy_state(rx);
+                let n = &mut self.nodes[i];
+                n.hangover_until = n.hangover_until.max(frame_end + hangover_s);
+                continue;
+            }
+            // Asleep (or mid-boot, treated as asleep in v1).
+            self.nodes[i].stats.wake_attempts += 1;
+            if rssi < sens + delta {
+                self.nodes[i].stats.wake_budget_fail += 1;
+                continue;
+            }
+            let key = event_draw_key(flight_id, ((sender as u64) << 32) | rx as u64);
+            if Rng::keyed_f64(self.p.seed, RNG_WUR_MISS, key) < miss_p {
+                self.nodes[i].stats.wake_misses += 1;
+                continue;
+            }
+            acquired.insert(rx);
+            self.accrue_node_energy_state(rx);
+            let n = &mut self.nodes[i];
+            n.boot_until = tx_start + boot_window_s;
+            n.hangover_until = n.hangover_until.max(frame_end + hangover_s);
+        }
+        acquired
+    }
+    /// Awake-state part of the wur decision, shared with the defensive arm in
+    /// `receiver_acquires_preamble_at`.
+    fn wur_receiver_awake_at(&self, rx: u32, t: f64) -> bool {
+        let n = &self.nodes[rx as usize];
+        if !self.is_wur_relay(rx) || n.duty >= 1.0 {
+            return true;
+        }
+        n.boot_until <= t && n.hangover_until > t
+    }
     fn receiver_acquires_preamble_at(&self, rx: u32, tx_start: f64, tx_end: f64) -> bool {
+        if self.p.mode == Mode::Wur {
+            // Defensive agreeing arm (spec §3 trap list: Wur must never fall
+            // into the CAD phase math below).  Production wur acquisition is
+            // decided at the transmit() call site, which has the RSSI
+            // snapshot and flight id this function lacks; this arm agrees
+            // exactly for awake receivers and is conservatively false for
+            // asleep ones (no wake budget/miss draw available here).
+            return self.wur_receiver_awake_at(rx, tx_start);
+        }
         if !self.p.mode.is_duty() {
             return true;
         }
@@ -1316,7 +1492,7 @@ pub(crate) mod tests {
     use super::*;
     use crate::inputs::{
         BatteryCfg, Config, EnergyCfg, KioskCfg, Link, RadioCfg, Route, RoutesFile, ShadowCfg,
-        Site, SolarCfg, Topology, TrafficCfg, WeatherDay, WeatherFile,
+        Site, SolarCfg, Topology, TrafficCfg, WeatherDay, WeatherFile, WurCfg,
     };
     use std::collections::HashMap;
 
@@ -1392,6 +1568,16 @@ pub(crate) mod tests {
                 demand_tier_b: 1,
                 demand_tier_c: 1,
             },
+            wur: WurCfg {
+                wur_idle_ma: 0.001,
+                wake_sensitivity_delta_db: 55.0,
+                wake_chirp_ms: 20.0,
+                main_boot_ms: 100.0,
+                wake_hangover_s: 2.0,
+                // Deterministic tests default to a zero miss probability;
+                // miss-path tests set 1.0 explicitly.
+                wake_miss_prob: 0.0,
+            },
         }
     }
 
@@ -1444,6 +1630,9 @@ pub(crate) mod tests {
             energy_step_s: 600.0,
             relay_rx_ma: 0.0,
             hiker_rx_ma: 0.0,
+            wur_delta_db: 55.0,
+            wur_boot_ms: 100.0,
+            wur_informed_tree: false,
             regional_channels: false,
             outages: Vec::new(),
         }
@@ -2451,6 +2640,458 @@ pub(crate) mod tests {
         assert!(
             !sim.nodes[sender as usize].alive,
             "the outage still applies after the frame is resolved"
+        );
+    }
+
+    // ── wur (wake-up radio) mode ─────────────────────────────────────────────
+    // docs/wur-design-2026-07-31.md v2.  Fixture: an always-on grid sender
+    // ("src", non-mqtt so it originates telemetry), one battery wur relay,
+    // and an mqtt gateway.  Test config: reference 0 dBm, q50 loss 100 dB,
+    // sigma 0 => rssi -100 dBm at every receiver; sens -130 => margin 30 dB.
+
+    fn wur_test_sim() -> Sim {
+        let mut sites = HashMap::new();
+        sites.insert("src".to_string(), site(false));
+        let mut relay = site(false);
+        relay.power = "battery".to_string();
+        sites.insert("relay".to_string(), relay);
+        sites.insert("gateway".to_string(), site(true));
+        let mut links = HashMap::new();
+        for key in ["src|relay", "src|gateway", "relay|gateway"] {
+            links.insert(
+                key.to_string(),
+                Link {
+                    loss_db_q50: 100.0,
+                    loss_db_q90: 100.0,
+                },
+            );
+        }
+        Sim::new(
+            test_config(),
+            Topology { sites, links },
+            RoutesFile {
+                routes: HashMap::new(),
+            },
+            WeatherFile {
+                start_date: "2026-01-01".to_string(),
+                days: vec![WeatherDay {
+                    date: "2026-01-01".to_string(),
+                    kt: 0.4,
+                    snow_factor: 1.0,
+                }],
+            },
+            test_params(Mode::Wur),
+        )
+    }
+
+    #[test]
+    fn wur_mode_registers_with_energy_aware_weights_and_asleep_relays() {
+        assert!(Mode::parse("wur") == Some(Mode::Wur));
+        assert!(Mode::Wur.is_duty());
+        assert!(Mode::Wur.is_routed());
+        assert!(
+            matches!(Mode::Wur.weight_mode(), Mode::EnergyAware),
+            "wur must compose with the energy_aware tree, not the is_duty lb_energy default"
+        );
+        let sim = wur_test_sim();
+        // Duty state is part of the initial condition (tree built in Sim::new).
+        assert_eq!(sim.route_tree_t, 0.0);
+        assert_eq!(
+            sim.nodes[sim.name_to_idx["relay"] as usize].duty, 0.0,
+            "wur relays keep the main radio asleep"
+        );
+        assert_eq!(
+            sim.nodes[sim.name_to_idx["src"] as usize].duty, 1.0,
+            "non-relay fixed sites are never wake-gated"
+        );
+        assert_eq!(sim.nodes[sim.name_to_idx["gateway"] as usize].duty, 1.0);
+        // Relays start asleep: no boot or hangover window at t=0.
+        let relay = &sim.nodes[sim.name_to_idx["relay"] as usize];
+        assert_eq!((relay.boot_until, relay.hangover_until), (-1.0, -1.0));
+    }
+
+    #[test]
+    fn wur_three_state_receiver_decision_is_frozen_at_tx_start() {
+        let mut sim = wur_test_sim();
+        let src = sim.name_to_idx["src"];
+        let relay = sim.name_to_idx["relay"];
+        let gateway = sim.name_to_idx["gateway"];
+        sim.p.wur_delta_db = 55.0; // margin 30 dB < delta: wake-infeasible link
+
+        // Frame 1: the asleep relay fails the wake budget; the gateway is
+        // never wake-gated and receives at plain data sensitivity.
+        let f1 = sim.new_flight2(src, Kind::Tel, 40, Dest::Mqtt, false);
+        let id1 = f1.id;
+        sim.transmit(src, f1);
+        assert!(!sim.active[&0].cad_acquired.contains(&relay));
+        assert!(sim.active[&0].cad_acquired.contains(&gateway));
+        assert_eq!(sim.nodes[relay as usize].stats.wake_attempts, 1);
+        assert_eq!(sim.nodes[relay as usize].stats.wake_budget_fail, 1);
+        let end1 = sim.active[&0].end;
+        sim.now = end1;
+        sim.handle_tx_end(0);
+        assert!(sim.pkt_meta[&id1].delivered, "gateway ingress needs no delta");
+        assert_eq!(
+            sim.nodes[relay as usize].stats.duty_misses, 0,
+            "wur never counts duty_misses; the loss is a wake_budget_fail"
+        );
+
+        // Frame 2 arrives during the relay's hangover: received on the same
+        // margin<delta link, data budget only, no attempt counted.
+        sim.now = end1 + 1.0;
+        sim.nodes[relay as usize].hangover_until = sim.now + 1.0;
+        let f2 = sim.new_flight2(src, Kind::Tel, 40, Dest::Mqtt, false);
+        sim.transmit(src, f2);
+        assert!(sim.active[&1].cad_acquired.contains(&relay));
+        assert_eq!(sim.nodes[relay as usize].stats.wake_attempts, 1);
+        let end2 = sim.active[&1].end;
+        assert!(
+            (sim.nodes[relay as usize].hangover_until
+                - (end2 + sim.cfg.wur.wake_hangover_s))
+                .abs()
+                < 1e-12,
+            "activity refreshes the hangover window to frame end + hangover"
+        );
+        let rx_ok_before = sim.nodes[relay as usize].stats.rx_ok;
+        sim.now = end2;
+        sim.handle_tx_end(1);
+        assert_eq!(
+            sim.nodes[relay as usize].stats.rx_ok,
+            rx_ok_before + 1,
+            "frame-2-in-hangover must actually be received"
+        );
+
+        // Frame 3: mid-boot is treated as asleep in v1 even though the
+        // hangover window is also open (boot_until <= hangover_until).
+        sim.now = end2 + 20.0;
+        sim.nodes[relay as usize].boot_until = sim.now + 5.0;
+        sim.nodes[relay as usize].hangover_until = sim.now + 50.0;
+        let f3 = sim.new_flight2(src, Kind::Tel, 40, Dest::Mqtt, false);
+        sim.transmit(src, f3);
+        assert!(
+            !sim.active[&2].cad_acquired.contains(&relay),
+            "mid-boot receivers re-run the wake budget"
+        );
+        assert_eq!(sim.nodes[relay as usize].stats.wake_attempts, 2);
+        assert_eq!(sim.nodes[relay as usize].stats.wake_budget_fail, 2);
+    }
+
+    #[test]
+    fn wur_acquisition_wakes_the_relay_and_pins_counters_at_tx_start() {
+        let mut sim = wur_test_sim();
+        let src = sim.name_to_idx["src"];
+        let relay = sim.name_to_idx["relay"];
+        sim.p.wur_delta_db = 20.0; // margin 30 dB >= delta: wake-feasible
+
+        let f = sim.new_flight2(src, Kind::Tel, 40, Dest::Mqtt, false);
+        sim.transmit(src, f);
+        assert!(sim.active[&0].cad_acquired.contains(&relay));
+        let end = sim.active[&0].end;
+        let n = &sim.nodes[relay as usize];
+        assert_eq!(n.stats.wake_attempts, 1, "attempts count successes too");
+        assert_eq!(n.stats.wake_budget_fail, 0);
+        assert_eq!(n.stats.wake_misses, 0);
+        assert!((n.boot_until - sim.p.wur_boot_ms / 1000.0).abs() < 1e-12);
+        assert!((n.hangover_until - (end + sim.cfg.wur.wake_hangover_s)).abs() < 1e-12);
+        assert!(n.boot_until <= n.hangover_until);
+
+        // The TxStart decision is frozen: clearing the wake state mid-frame
+        // must not change the acquisition set (released CAD rule).
+        sim.nodes[relay as usize].boot_until = -1.0;
+        sim.nodes[relay as usize].hangover_until = -1.0;
+        assert!(sim.active[&0].cad_acquired.contains(&relay));
+    }
+
+    #[test]
+    fn wur_wake_miss_draw_is_counted_at_tx_start_and_never_as_duty_miss() {
+        let mut sim = wur_test_sim();
+        let src = sim.name_to_idx["src"];
+        let relay = sim.name_to_idx["relay"];
+        sim.p.wur_delta_db = 20.0;
+        sim.cfg.wur.wake_miss_prob = 1.0; // every budget-passing draw misses
+
+        let f = sim.new_flight2(src, Kind::Tel, 40, Dest::Mqtt, false);
+        sim.transmit(src, f);
+        assert!(!sim.active[&0].cad_acquired.contains(&relay));
+        {
+            let s = &sim.nodes[relay as usize].stats;
+            assert_eq!((s.wake_attempts, s.wake_budget_fail, s.wake_misses), (1, 0, 1));
+        }
+        // The frame is PHY-receivable (rssi -100 >= sens -130), so the
+        // released TxEnd path would have counted a duty_miss; the explicit
+        // Wur arm must not.
+        let end = sim.active[&0].end;
+        sim.now = end;
+        sim.handle_tx_end(0);
+        let s = &sim.nodes[relay as usize].stats;
+        assert_eq!(s.duty_misses, 0);
+        assert_eq!(s.rx_ok, 0);
+        assert_eq!(
+            (s.wake_attempts, s.wake_budget_fail, s.wake_misses),
+            (1, 0, 1),
+            "wake accounting is attempt-level at TxStart, not TxEnd"
+        );
+    }
+
+    #[test]
+    fn wur_boot_and_hangover_accrual_splits_at_window_boundaries() {
+        let mut sim = wur_test_sim();
+        let relay = sim.name_to_idx["relay"];
+        assert_eq!(sim.nodes[relay as usize].duty, 0.0);
+        let cap = sim.nodes[relay as usize].soc_wh;
+        // Wake at t=0: boot [0,10), hangover [10,20), asleep [20,30).
+        sim.nodes[relay as usize].boot_until = 10.0;
+        sim.nodes[relay as usize].hangover_until = 20.0;
+        sim.now = 30.0;
+        sim.accrue_node_energy_state(relay);
+        match sim.nodes[relay as usize].energy_segments.last() {
+            Some(&EnergySegment::Active {
+                listen_s,
+                sleep_s,
+                gps_s,
+                boot_s,
+            }) => {
+                assert!((boot_s - 10.0).abs() < 1e-12, "boot sub-interval");
+                assert!((listen_s - 10.0).abs() < 1e-12, "hangover forces listen");
+                assert!((sleep_s - 10.0).abs() < 1e-12, "remainder at duty 0");
+                assert_eq!(gps_s, 0.0);
+            }
+            other => panic!("expected an Active segment, got {other:?}"),
+        }
+        sim.settle_node_energy_segments(relay);
+        // Boot drains at listen current; sleep drains at wur_idle_ma (the
+        // second consumption site of the sleep-current replacement).
+        let v = sim.cfg.energy.battery_v;
+        let expected = ((10.0 + 10.0) * sim.cfg.energy.rx_listen_ma / 1000.0 * v
+            + 10.0 * (sim.cfg.wur.wur_idle_ma / 1000.0 * v))
+            / 3600.0;
+        assert!((sim.nodes[relay as usize].soc_wh - (cap - expected)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn wur_transmit_charges_increment_above_listen_and_refreshes_hangover() {
+        // 2179-twin: the wur TX baseline is listen current (the frame lies
+        // inside the sender's refreshed hangover window), never wur_idle or
+        // light-sleep — those would double-charge listen for the interval.
+        for prior_hangover in [0.5_f64, -1.0] {
+            // 0.5: sender already in hangover at TxStart, expiring mid-frame.
+            // -1.0: asleep relay originating its own telemetry.
+            let mut sim = wur_test_sim();
+            let relay = sim.name_to_idx["relay"];
+            sim.p.relay_rx_ma = 60.0;
+            sim.nodes[relay as usize].hangover_until = prior_hangover;
+            let air = sim.airtime_s2(40)
+                + (sim.cfg.wur.wake_chirp_ms + sim.p.wur_boot_ms) / 1000.0;
+            let expected = (sim.cfg.energy.tx_current_ma - 60.0) / 1000.0
+                * sim.cfg.energy.battery_v
+                * air
+                / 3600.0;
+            let flight = sim.new_flight2(relay, Kind::Tel, 40, Dest::Mqtt, false);
+            sim.transmit(relay, flight);
+            assert!(
+                (sim.nodes[relay as usize].stats.energy_tx_wh - expected).abs() < 1e-12,
+                "prior_hangover={prior_hangover}: increment must be above listen"
+            );
+            let end = sim.active[&0].end;
+            // Cross-engine agreed spec-literal reading: the sender refresh
+            // reaches the frame END only (no post-TX hangover grant).
+            assert!(
+                (sim.nodes[relay as usize].hangover_until - end.max(prior_hangover))
+                    .abs()
+                    < 1e-12,
+                "sender hangover refresh at TxStart covers the whole frame, no further"
+            );
+        }
+    }
+
+    #[test]
+    fn wur_frame_overhead_extends_airtime_energy_and_truncation() {
+        let mut sim = wur_test_sim();
+        let relay = sim.name_to_idx["relay"];
+        let data_air = sim.airtime_s2(40);
+        let air = data_air + (sim.cfg.wur.wake_chirp_ms + sim.p.wur_boot_ms) / 1000.0;
+        assert!((air - data_air - 0.12).abs() < 1e-12, "chirp 20 ms + boot 100 ms");
+
+        let flight = sim.new_flight2(relay, Kind::Tel, 40, Dest::Mqtt, false);
+        sim.transmit(relay, flight);
+        assert!((sim.active[&0].end - air).abs() < 1e-12);
+        assert!((sim.nodes[relay as usize].stats.tx_airtime_s - air).abs() < 1e-12);
+        assert!((sim.total_offered_airtime_s - air).abs() < 1e-12);
+        assert!((sim.nodes[relay as usize].tx_until - air).abs() < 1e-12);
+        let full_frame_energy = sim.nodes[relay as usize].stats.energy_tx_wh;
+
+        // Sender death one third in: refunds are proportional to the
+        // extended frame, exactly as for released frames.
+        sim.now = air / 3.0;
+        sim.nodes[relay as usize].energy_alive = false;
+        sim.nodes[relay as usize].stats.deaths += 1;
+        sim.refresh_node_availability(relay);
+        assert_eq!(sim.active[&0].end, air / 3.0);
+        assert!((sim.nodes[relay as usize].stats.tx_airtime_s - air / 3.0).abs() < 1e-12);
+        assert!((sim.total_offered_airtime_s - air / 3.0).abs() < 1e-12);
+        assert!(
+            (sim.nodes[relay as usize].stats.energy_tx_wh - full_frame_energy / 3.0).abs()
+                < 1e-15
+        );
+    }
+
+    #[test]
+    fn wur_informed_tree_gates_edges_into_wake_infeasible_relays() {
+        let mut sites = HashMap::new();
+        for name in ["far_src", "mid_relay"] {
+            let mut relay = site(false);
+            relay.power = "battery".to_string();
+            sites.insert(name.to_string(), relay);
+        }
+        sites.insert("gateway".to_string(), site(true));
+        let mut links = HashMap::new();
+        for key in ["far_src|mid_relay", "mid_relay|gateway"] {
+            links.insert(
+                key.to_string(),
+                Link {
+                    loss_db_q50: 100.0, // margin 30 dB on both hops
+                    loss_db_q90: 100.0,
+                },
+            );
+        }
+        let mut sim = Sim::new(
+            test_config(),
+            Topology { sites, links },
+            RoutesFile {
+                routes: HashMap::new(),
+            },
+            WeatherFile {
+                start_date: "2026-01-01".to_string(),
+                days: vec![WeatherDay {
+                    date: "2026-01-01".to_string(),
+                    kt: 0.4,
+                    snow_factor: 1.0,
+                }],
+            },
+            test_params(Mode::Wur),
+        );
+        let src = sim.name_to_idx["far_src"];
+        let mid = sim.name_to_idx["mid_relay"];
+        let gateway = sim.name_to_idx["gateway"];
+
+        // Blind arm (default): the wake-infeasible src->mid edge is used.
+        sim.p.wur_delta_db = 40.0;
+        sim.build_route_tree();
+        assert_eq!(
+            sim.route_to_mqtt_public(src),
+            Some(vec![src, mid, gateway]),
+            "blind routing is wake-unaware by design"
+        );
+
+        // Informed arm: src->mid has receiver mid_relay (a wur relay) with
+        // margin 30 < delta 40, so the edge is inadmissible; mid->gateway has
+        // a never-wake-gated receiver and stays at the 3 dB data rule.
+        sim.p.wur_informed_tree = true;
+        sim.build_route_tree();
+        assert_eq!(sim.route_next[src as usize], None);
+        assert_eq!(sim.route_to_mqtt_public(src), None);
+        assert_eq!(
+            sim.route_to_mqtt_public(mid),
+            Some(vec![mid, gateway]),
+            "edges into gateways are not wake-gated"
+        );
+
+        // A wake-feasible delta re-admits the edge.
+        sim.p.wur_delta_db = 20.0;
+        sim.build_route_tree();
+        assert_eq!(sim.route_to_mqtt_public(src), Some(vec![src, mid, gateway]));
+    }
+
+    #[test]
+    fn wur_revival_sets_a_boot_window_for_relays_only() {
+        // Solar/battery revival site (handle_energy): wur relays boot.
+        let mut sim = wur_test_sim();
+        let relay = sim.name_to_idx["relay"];
+        {
+            let n = &mut sim.nodes[relay as usize];
+            n.soc_wh = 0.06 * n.cap_wh; // above REVIVE_FRACTION
+            n.energy_alive = false;
+        }
+        sim.refresh_node_availability(relay);
+        sim.now = 600.0;
+        sim.handle_energy();
+        let n = &sim.nodes[relay as usize];
+        assert!(n.energy_alive && n.alive);
+        assert!((n.boot_until - (600.0 + sim.p.wur_boot_ms / 1000.0)).abs() < 1e-12);
+        assert_eq!(n.hangover_until, n.boot_until);
+
+        // Docked revival site: only rental radios dock, and hiker radios are
+        // never wake-gated — no boot window may be set.
+        let sites = HashMap::from([("kiosk".to_string(), site(true))]);
+        let route = Route {
+            kiosk: "kiosk".to_string(),
+            return_kiosk: "kiosk".to_string(),
+            duration_s: 3600.0,
+            t_s: vec![0.0, 3600.0],
+            lat: vec![44.0, 44.1],
+            lon: vec![-71.0, -71.0],
+            loss_t_s: vec![0.0, 3600.0],
+            loss_db_q50: HashMap::from([("kiosk".to_string(), vec![100.0, 120.0])]),
+        };
+        let mut rental = Sim::new(
+            test_config(),
+            Topology {
+                sites,
+                links: HashMap::new(),
+            },
+            RoutesFile {
+                routes: HashMap::from([("overnight".to_string(), route)]),
+            },
+            WeatherFile {
+                start_date: "2026-01-01".to_string(),
+                days: vec![WeatherDay {
+                    date: "2026-01-01".to_string(),
+                    kt: 0.4,
+                    snow_factor: 1.0,
+                }],
+            },
+            test_params(Mode::Wur),
+        );
+        let radio = rental.n_fixed as u32;
+        assert!(rental.nodes[radio as usize].is_radio);
+        rental.nodes[radio as usize].soc_wh = 0.0;
+        rental.nodes[radio as usize].energy_alive = false;
+        rental.now = 600.0;
+        rental.handle_energy();
+        let r = &rental.nodes[radio as usize];
+        assert!(r.energy_alive, "kiosk charge revives the docked radio");
+        assert_eq!(
+            (r.boot_until, r.hangover_until),
+            (-1.0, -1.0),
+            "docked revival must not touch hiker radios' wake state"
+        );
+    }
+
+    #[test]
+    fn wur_miss_draws_are_keyed_per_packet_hop_and_shift_no_other_stream() {
+        // Stateless keyed miss draws: consuming (or skipping) them cannot
+        // move any existing stream — the wur twin of engine2.rs:2008.
+        let mut baseline = wur_test_sim();
+        let mut perturbed = wur_test_sim();
+        let src = baseline.name_to_idx["src"];
+        let expected = baseline.event_uniform(RNG_TRAFFIC_TELEMETRY, src as u64, 0.9, 1.1);
+
+        perturbed.p.wur_delta_db = 20.0; // budget passes => miss draw happens
+        let f = perturbed.new_flight2(src, Kind::Tel, 40, Dest::Mqtt, false);
+        perturbed.transmit(src, f);
+        let actual = perturbed.event_uniform(RNG_TRAFFIC_TELEMETRY, src as u64, 0.9, 1.1);
+        assert_eq!(actual, expected);
+
+        // The collision-safe (pkt, tx, rx) combine decorrelates different
+        // forwarders of the same packet and is direction-sensitive.
+        let key = |pkt: u64, tx: u64, rx: u64| event_draw_key(pkt, (tx << 32) | rx);
+        assert_ne!(key(7, 1, 2), key(7, 3, 2), "forwarders draw independently");
+        assert_ne!(key(7, 1, 2), key(7, 2, 1), "tx/rx are not interchangeable");
+        assert_ne!(key(7, 1, 2), key(8, 1, 2), "fresh packet ids re-draw");
+        assert_eq!(
+            Rng::keyed_f64(42, RNG_WUR_MISS, key(7, 1, 2)),
+            Rng::keyed_f64(42, RNG_WUR_MISS, key(7, 1, 2)),
+            "draws are stateless and immutable"
         );
     }
 

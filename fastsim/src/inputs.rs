@@ -79,6 +79,72 @@ pub struct Config {
     pub sim: SimCfg,
     #[serde(default)]
     pub kiosk: KioskCfg,
+    /// Wake-up-radio model (mode `wur` only; docs/wur-design-2026-07-31.md §2).
+    /// Fully defaulted so released configs parse unchanged.
+    #[serde(default)]
+    pub wur: WurCfg,
+}
+
+#[derive(Deserialize)]
+pub struct WurCfg {
+    /// Always-on wake-receiver idle current, mA (~3 µW @ 3.7 V class).
+    /// Replaces the light-sleep current for wur relays at BOTH consumption
+    /// sites (TX baseline and segment settle).
+    #[serde(default = "default_wur_idle_ma")]
+    pub wur_idle_ma: f64,
+    /// Wake channel is worse than the data channel by this many dB:
+    /// an asleep relay wakes only when rssi >= rx_sensitivity_dbm + delta.
+    /// CLI-overridable via --wur-delta-db.
+    #[serde(default = "default_wake_sensitivity_delta_db")]
+    pub wake_sensitivity_delta_db: f64,
+    /// OOK address-coded wake chirp length, ms (sender-side frame overhead).
+    #[serde(default = "default_wake_chirp_ms")]
+    pub wake_chirp_ms: f64,
+    /// Main radio sleep -> RX-ready boot, ms.  CLI-overridable via
+    /// --wur-boot-ms.
+    #[serde(default = "default_main_boot_ms")]
+    pub main_boot_ms: f64,
+    /// Stay-awake window after activity, seconds (refreshed at TxStart to
+    /// frame end + hangover for acquiring receivers and wur senders).
+    #[serde(default = "default_wake_hangover_s")]
+    pub wake_hangover_s: f64,
+    /// Per-(packet, tx, rx) compound decoder-miss probability.  Default is
+    /// 1% per attempt with 2 folded retries: 1-(1-0.01)^3 (spec §2, restores
+    /// delta=0 as the ideal-WuR bound).
+    #[serde(default = "default_wake_miss_prob")]
+    pub wake_miss_prob: f64,
+}
+
+impl Default for WurCfg {
+    fn default() -> Self {
+        WurCfg {
+            wur_idle_ma: default_wur_idle_ma(),
+            wake_sensitivity_delta_db: default_wake_sensitivity_delta_db(),
+            wake_chirp_ms: default_wake_chirp_ms(),
+            main_boot_ms: default_main_boot_ms(),
+            wake_hangover_s: default_wake_hangover_s(),
+            wake_miss_prob: default_wake_miss_prob(),
+        }
+    }
+}
+
+fn default_wur_idle_ma() -> f64 {
+    0.001
+}
+fn default_wake_sensitivity_delta_db() -> f64 {
+    55.0
+}
+fn default_wake_chirp_ms() -> f64 {
+    20.0
+}
+fn default_main_boot_ms() -> f64 {
+    100.0
+}
+fn default_wake_hangover_s() -> f64 {
+    2.0
+}
+fn default_wake_miss_prob() -> f64 {
+    3.0e-6
 }
 
 #[derive(Deserialize)]
@@ -415,6 +481,26 @@ pub fn validate_model_inputs(
         || cfg.energy.tx_current_ma < cfg.energy.light_sleep_ma
     {
         return Err("energy.tx_current_ma must cover the configured radio baseline".to_string());
+    }
+    // wur bounds are wur-specific: the µA-class idle current must NOT reuse
+    // the meaninglessly loose <= tx_current_ma check above.
+    nonnegative("wur.wur_idle_ma", cfg.wur.wur_idle_ma)?;
+    if cfg.wur.wur_idle_ma > cfg.energy.rx_listen_ma {
+        return Err(
+            "wur.wur_idle_ma cannot exceed energy.rx_listen_ma (wake receiver idles below the main radio's listen draw)"
+                .to_string(),
+        );
+    }
+    nonnegative(
+        "wur.wake_sensitivity_delta_db",
+        cfg.wur.wake_sensitivity_delta_db,
+    )?;
+    nonnegative("wur.wake_chirp_ms", cfg.wur.wake_chirp_ms)?;
+    nonnegative("wur.main_boot_ms", cfg.wur.main_boot_ms)?;
+    nonnegative("wur.wake_hangover_s", cfg.wur.wake_hangover_s)?;
+    finite("wur.wake_miss_prob", cfg.wur.wake_miss_prob)?;
+    if !(0.0..=1.0).contains(&cfg.wur.wake_miss_prob) {
+        return Err("wur.wake_miss_prob must be between zero and one".to_string());
     }
     positive("battery.capacity_wh", cfg.battery.capacity_wh)?;
     positive("battery.usable_fraction", cfg.battery.usable_fraction)?;
