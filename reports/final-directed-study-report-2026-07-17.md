@@ -1,4 +1,4 @@
-> **SUPERSEDED (2026-07-26):** this draft is retained for history only. The current report is `final-directed-study-report-2026-07-26.pdf`; see `reports/supplementary-materials-2026-07-26.pdf`.
+> **SUPERSEDED (2026-07-26):** this draft is retained for history only. The current report is `directed-study-report-2026-07-31.pdf`; see `reports/supplementary-materials-2026-07-26.pdf`.
 
 # Resilient Emergency MANETs for Wilderness Safety — Directed Study Final Report
 
