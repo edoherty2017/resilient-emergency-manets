@@ -99,3 +99,17 @@ artifacts/sim/corrected/release_v1/*
 WITHDRAWN-DO-NOT-CITE/artifacts/sim/real_trace_*.jsonl
 WITHDRAWN-DO-NOT-CITE/artifacts/sim/archive_preaudit_2026-07/kiosk_trace_*.jsonl
 WITHDRAWN-DO-NOT-CITE/artifacts/sim/archive_preaudit_2026-07/THE_YEAR.html
+# WuR study, re-earn, and decade campaigns: version the integrity manifests,
+# the pinned per-year weather inputs, and the small static census; run JSONs
+# are regenerable from the committed runners + frozen inputs.
+!artifacts/sim/wur_study/
+artifacts/sim/wur_study/*
+!artifacts/sim/wur_study/manifest.json
+!artifacts/sim/wur_study/e3_census.json
+!artifacts/sim/reearn/
+artifacts/sim/reearn/*
+!artifacts/sim/reearn/manifest.json
+!artifacts/sim/weather_decade/
+artifacts/sim/weather_decade/*
+!artifacts/sim/weather_decade/weather_*.json
+!artifacts/sim/weather_decade/manifest.json

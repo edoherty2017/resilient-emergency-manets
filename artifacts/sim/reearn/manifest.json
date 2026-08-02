@@ -1,0 +1,30 @@
+{
+ "purpose": "re-earn campaign: withdrawn-but-cheap claims re-run on corrected engine (2026-07-31)",
+ "engine_git_head": "4ff96eb",
+ "runs": {
+  "gwout_s42.json": "6d0245407e0befbbbdd6853c96f343a10f7cec3c829f21b6326ddc4d651848e7",
+  "gwout_s43.json": "bd3e13dedebf942b25fc378fd170c8a08456adb5f1aa9f294613c6987bbb2714",
+  "gwout_s44.json": "ad4ee1e20c5ef21ae25d83a5b02f138fa7a3de89be2daaddffb10f0b694de4e6",
+  "peak_duty_s42.json": "9cc81a3e26376267153a188cc8e7887cbcbd7dfec0b12e4b265e94dd9f71e150",
+  "peak_duty_s43.json": "59ae40d05c0dabedd5ae6c18ec5b9eb530d0ad2854b45a590d00f457d2010210",
+  "peak_duty_s44.json": "381be4f93f3a2e51203b0c4af7b8c94592f74b353ad6449a22f14521699d67e7",
+  "peak_flood_s42.json": "107023c2d75b76447bfb05b61931db37ae20c6febfe566314723bc00ec34503a",
+  "peak_flood_s43.json": "b23a944f5d634303cd9216920155d4d2e1278cf242649070d9e384787eec1f07",
+  "peak_flood_s44.json": "faff7d640ac7a97be2ea9f4b083f7b877298ec594264e793076fb20730e29acc",
+  "regional_off_s42.json": "43ac57f96facade2a21a5ad9690de7e417ecf9558e66ab7ad0efd4499aaf5d53",
+  "regional_off_s43.json": "7b20cd6363b85a8c9d9a0cb0344e5127bc78b1382d3a2f71c93b775000875413",
+  "regional_off_s44.json": "4788ba7ad1c0d763acaf11b4e84a173577e3044075773af22aa280479b71b46d",
+  "regional_on_s42.json": "b80f6525f6d77676269a7e251c60bca1d6b96b71cc21a55c6a52d0eecdc2477a",
+  "regional_on_s43.json": "7796573515be4ce01c2a90d528331d64f371f6a6ceb0bf3b380f2732e6d2cde7",
+  "regional_on_s44.json": "990d7aa8758b3dca0d4a2089e0d36db2ce87a948c2b1d360381878ccad624d77",
+  "retry_off_s42.json": "bbac1620878f46b064aa8875fede502faa0bf9dd93c2d41291deeee16cc9b2fb",
+  "retry_off_s43.json": "51d6619ec37404e0d011a91dec57aae51e3090b814e8c84794c63fffd172a25c",
+  "retry_off_s44.json": "1e2631195c5ba44c22408467f0520c70a2c149355776963bcfc1af6975817ad4",
+  "retry_on_s42.json": "6abe484bc0b479e438c0e5fbfed93e9730bc86b8b77fbd94b07814ac79707da8",
+  "retry_on_s43.json": "5f9c1c8fded8622f185e5e986a41b2d4a5292f9287baa2d923dfac2e4ab0fa45",
+  "retry_on_s44.json": "094c233dd5e7192202f63ff5178cac003db639acee7e27332b517e798ffc8502",
+  "spares0_s42.json": "b225c842c61dd8bea35f8a7fe8e043afbcbc9739017449fc77be0203ef71642b",
+  "spares0_s43.json": "abdbb8063be0f3c5143738d58210beb32fd5f84a8bf532c4b1c085b483765d2d",
+  "spares0_s44.json": "28f120903153d67e46cbf8e49da1b0cf44af527a6b9b494aeea13ec29134655e"
+ }
+}
