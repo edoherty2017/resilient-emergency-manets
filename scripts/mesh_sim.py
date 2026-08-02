@@ -202,8 +202,15 @@ class MeshSim:
                  kiosk_demand_scale: float | None = None,
                  hiker_trace_sample: float = 1.0,
                  wur_delta_db: float | None = None,
-                 wur_boot_ms: float | None = None):
+                 wur_boot_ms: float | None = None,
+                 relay_rx_ma: float = 0.0,
+                 start_day: int = 0,
+                 trace_after_days: float = 0.0):
         self.always_beacon = always_beacon
+        # fixed-site listen-current override (mirrors fastsim --relay-rx-ma):
+        # applies to every non-hiker node's listen/TX-baseline current;
+        # 0.0 = use the config value. Not combinable with wur mode.
+        self.relay_rx_ma = float(relay_rx_ma or 0.0)
         self.telemetry_interval_s = telemetry_interval_s
         self.routes = routes
         self.rx_trace_sample = rx_trace_sample
@@ -356,6 +363,16 @@ class MeshSim:
         if weather:
             self.start_utc = datetime.fromisoformat(
                 weather["start_date"]).replace(tzinfo=timezone.utc)
+        # replay-window offset: start the sim N days into the weather year.
+        # All date-derived logic (solar geometry, months, summary start_date)
+        # flows through start_utc; only the weather-list lookups need the
+        # explicit index shift. start_day=0 is byte-identical to before.
+        self.start_day = int(start_day or 0)
+        if self.start_day:
+            self.start_utc += timedelta(days=self.start_day)
+        # windowed trace: record only after N sim days (see emit())
+        self.trace_after_days = float(trace_after_days or 0.0)
+        self.trace_start_s = self.trace_after_days * 86400.0
 
         # ── wake-up-radio (wur) model resolution — spec table §2 defaults,
         # config `wur:` block override, CLI override on top ────────────────
@@ -385,6 +402,9 @@ class MeshSim:
         # event-driven lump debits, step-size independent (spec §5)
         self._wur_awake_delta_w = (max(ecfg["rx_listen_ma"] - self.wur_idle_ma,
                                        0.0) / 1000.0 * ecfg["battery_v"])
+        if self.relay_rx_ma > 0.0 and mode == "wur":
+            raise ValueError("relay_rx_ma override is not defined for wur "
+                             "mode (wur relays idle at wur_idle_ma)")
         if mode == "wur":
             # wur-specific bounds: the µA idle current is bounded by the
             # LISTEN current, deliberately not the ≤ tx_current_ma check
@@ -436,7 +456,10 @@ class MeshSim:
         return self.start_utc + timedelta(seconds=self.env.now)
 
     def emit(self, **kv):
-        if self.trace_fh:
+        # trace_start_s gates recording, not behavior: the sim runs (and the
+        # model RNG streams advance) identically either way, so a windowed
+        # trace shows the fleet in its true accumulated seasonal state.
+        if self.trace_fh and self.env.now >= self.trace_start_s:
             kv["t"] = round(self.env.now, 2)
             self.trace_fh.write(json.dumps(kv) + "\n")
 
@@ -449,6 +472,14 @@ class MeshSim:
         """Observation-only sampling; never consumes a model RNG stream."""
         return bool(self.trace_fh and
                     (rate >= 1.0 or self.rng_for("trace").random() < rate))
+
+    def listen_ma_for(self, node: Node) -> float:
+        """Listen current for one node: the --relay-rx-ma override applies to
+        every fixed site (mirrors fastsim's !is_radio gate); hiker/rental
+        radios always draw the config value."""
+        if self.relay_rx_ma > 0.0 and node.name not in self.hiker_names:
+            return self.relay_rx_ma
+        return self.cfg["energy"]["rx_listen_ma"]
 
     def record_channel_busy(self, name: str, start: float, end: float):
         """Accumulate the union of RF-busy intervals at one receiver.
@@ -585,12 +616,19 @@ class MeshSim:
         node.stats["wake_attempts"] += 1
         if rssi < self.radio["rx_sensitivity_dbm"] + self.wur_delta_db:
             node.stats["wake_budget_fail"] += 1
+            # observation-only trace of the wake decision (sampled)
+            self.emit_sampled(ev="wake", n=node.name, ok=0, why="budget",
+                              pkt=pkt["id"], **{"from": sender})
             return False
         if self.wur_miss_draw(pkt["id"], sender, node.name) < self.wur_miss_prob:
             node.stats["wake_misses"] += 1
+            self.emit(ev="wake", n=node.name, ok=0, why="miss",
+                      pkt=pkt["id"], **{"from": sender})
             return False
         self._wur_refresh_hangover(node, t0, frame_end + self.wur_hangover_s)
         node.boot_until = t0 + self.wur_boot_s
+        self.emit_sampled(ev="wake", n=node.name, ok=1, why="ok",
+                          pkt=pkt["id"], **{"from": sender})
         return True
 
     # ── geometry: where is a hiker at sim time t? ───────────────────────────
@@ -746,7 +784,8 @@ class MeshSim:
             self._wur_refresh_hangover(sender, t0, t0 + air_s)
             baseline_ma = e["rx_listen_ma"]
         else:
-            baseline_ma = d * e["rx_listen_ma"] + (1.0 - d) * e["light_sleep_ma"]
+            baseline_ma = (d * self.listen_ma_for(sender)
+                           + (1.0 - d) * e["light_sleep_ma"])
         etx = (max(e["tx_current_ma"] - baseline_ma, 0.0) / 1000.0
                * e["battery_v"] * accounted_air / 3600.0)
         sender.stats["energy_tx_wh"] += etx
@@ -940,7 +979,8 @@ class MeshSim:
     # ── energy-aware routing ─────────────────────────────────────────────────
     def _kt_for_day(self, day: int) -> float:
         if self.weather:
-            return self.weather[min(day, len(self.weather) - 1)]["kt"]
+            return self.weather[min(day + self.start_day,
+                                    len(self.weather) - 1)]["kt"]
         while len(self.daily_kt) <= day:
             month = (self.start_utc + timedelta(days=len(self.daily_kt))).month
             self.daily_kt.append(solar_model.sample_daily_kt(month,
@@ -953,7 +993,7 @@ class MeshSim:
         (sheds within ~a day thanks to the steep faces)."""
         if not self.weather:
             return 1.0
-        w = self.weather[min(day, len(self.weather) - 1)]
+        w = self.weather[min(day + self.start_day, len(self.weather) - 1)]
         return w.get("snow_factor", 1.0)
 
     def solar_remaining_wh(self, node: Node, t: float) -> float:
@@ -1646,6 +1686,9 @@ class MeshSim:
         step = float(self.energy_step_s or self.cfg["sim"]["solar_step_s"])
         v = e["battery_v"]
         rx_w = e["rx_listen_ma"] / 1000.0 * v
+        # per-node listen watts (static): --relay-rx-ma override on fixed sites
+        rx_w_node = {name: self.listen_ma_for(node) / 1000.0 * v
+                     for name, node in self.nodes.items()}
         sleep_w = e["light_sleep_ma"] / 1000.0 * v   # [BENCH-CALIBRATE] floor
         wur_idle_w = self.wur_idle_ma / 1000.0 * v   # wur relays' sleep floor
         gps_wh_per_s = e["gps_active_ma"] / 1000.0 * v / 3600.0
@@ -1695,7 +1738,8 @@ class MeshSim:
                 # (step-size independent — spec §5)
                 sw = (wur_idle_w if self.mode == "wur"
                       and self._is_wur_relay(node) else sleep_w)
-                drain = (d * rx_w + (1.0 - d) * sw) / 3600.0 * step
+                drain = (d * rx_w_node.get(node.name, rx_w)
+                         + (1.0 - d) * sw) / 3600.0 * step
                 if node.name in self.hiker_names:
                     drain += gps_wh_per_s * step
                 sol_w = 0.0
@@ -1717,12 +1761,21 @@ class MeshSim:
                 node._last_solar_w = sol_w
 
     def trace_process(self):
+        wur_mode = self.mode == "wur"
         while True:
+            now = self.env.now
             for name, node in self.nodes.items():
-                self.emit(ev="bat", n=name,
+                kv = dict(ev="bat", n=name,
                           soc=round(node.soc_wh / node.cap_wh, 4),
                           sw=round(getattr(node, "_last_solar_w", 0.0), 2),
-                          alive=node.alive)
+                          alive=node.alive,
+                          d=round(node.duty, 3))
+                if wur_mode and self._is_wur_relay(node):
+                    # observation-only wake state: 1 = booting, 2 = awake in
+                    # hangover, 0 = asleep at the wur idle floor
+                    kv["wk"] = (1 if node.boot_until > now else
+                                2 if node.hangover_until > now else 0)
+                self.emit(**kv)
             yield self.env.timeout(self.bat_trace_s)
 
     def pos_trace_process(self):
@@ -1991,7 +2044,15 @@ class MeshSim:
             "link_health": link_rows,
             "beacon_interval_s": self.beacon_interval_s,
             "n_nodes": len(self.nodes),
-            "daily_kt": [round(k, 3) for k in self.daily_kt],
+            # realized sky per sim day: weather-driven runs read the pinned
+            # reanalysis days (start_day-shifted); synthetic runs report the
+            # sampled kt stream. Output-only — the model reads _kt_for_day.
+            "daily_kt": ([round(self._kt_for_day(d), 3)
+                          for d in range(int(math.ceil(self.days)))]
+                         if self.weather else
+                         [round(k, 3) for k in self.daily_kt]),
+            "start_day": self.start_day,
+            "trace_after_days": self.trace_after_days,
             # The legacy key is retained so existing artifact readers do not
             # break, but it is explicitly an offered-airtime ratio, not a
             # bounded measurement of local channel occupancy.
@@ -2098,7 +2159,8 @@ def run_sim(mode="flood", days=None, seed=None, extra_hikers=0,
             energy_step_s=None, weather_path=None, telemetry_interval_s=None,
             route_refresh_s=900.0, sos_retry=False, kiosk_pool=False,
             kiosk_demand_scale=None, hiker_trace_sample=1.0,
-            wur_delta_db=None, wur_boot_ms=None,
+            wur_delta_db=None, wur_boot_ms=None, relay_rx_ma=0.0,
+            start_day=0, trace_after_days=0.0,
             config="config/sim/wmnf_sim.yaml",
             topology="artifacts/sim/topology.json") -> dict:
     import yaml
@@ -2125,6 +2187,8 @@ def run_sim(mode="flood", days=None, seed=None, extra_hikers=0,
                   kiosk_pool=kiosk_pool, kiosk_demand_scale=kiosk_demand_scale,
                   hiker_trace_sample=hiker_trace_sample,
                   wur_delta_db=wur_delta_db, wur_boot_ms=wur_boot_ms,
+                  relay_rx_ma=relay_rx_ma, start_day=start_day,
+                  trace_after_days=trace_after_days,
                   trace_path=Path(trace_path) if trace_path else None)
     return sim.run()
 
@@ -2177,6 +2241,19 @@ def main() -> int:
     ap.add_argument("--wur-boot-ms", type=float, default=None,
                     help="wur mode: main-radio boot time (ms); default from "
                          "the config wur: block or the spec table (100)")
+    ap.add_argument("--relay-rx-ma", type=float, default=0.0,
+                    help="Fixed-site listen-current override in mA "
+                         "(mirrors fastsim --relay-rx-ma; 0 = config value)")
+    ap.add_argument("--config", default="config/sim/wmnf_sim.yaml",
+                    help="Simulation config YAML")
+    ap.add_argument("--start-day", type=int, default=0,
+                    help="Start the sim N days into the weather year "
+                         "(replay windows; 0 = year start)")
+    ap.add_argument("--trace-after-days", type=float, default=0.0,
+                    help="Record trace events only after N sim days: the "
+                         "model runs identically from day 0 (warmup gives "
+                         "true accumulated battery state); only the trace "
+                         "window is written")
     args = ap.parse_args()
 
     (ROOT / "artifacts/sim").mkdir(parents=True, exist_ok=True)
@@ -2195,6 +2272,9 @@ def main() -> int:
                 kiosk_demand_scale=args.kiosk_demand_scale,
                 hiker_trace_sample=args.hiker_trace_sample,
                 wur_delta_db=args.wur_delta_db, wur_boot_ms=args.wur_boot_ms,
+                relay_rx_ma=args.relay_rx_ma, config=args.config,
+                start_day=args.start_day,
+                trace_after_days=args.trace_after_days,
                 trace_path=ROOT / args.trace if args.trace else None)
     out = ROOT / args.out
     out.write_text(json.dumps(s, indent=2))
