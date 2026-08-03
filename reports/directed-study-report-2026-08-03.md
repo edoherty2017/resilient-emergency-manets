@@ -23,7 +23,16 @@ year), while changing the duty policy moves depletions ≈5.5–24× (to
 1,217–5,311 per year) at a quantified cost in delivery ratio and SOS
 latency. This is a MODEL-ONLY result awaiting field calibration; if it
 survives, it reorders the design priorities for solar-powered mesh
-infrastructure: duty/wake architecture first, routing second.
+infrastructure: duty/wake architecture first, routing second. Three
+completed follow-on campaigns sharpen this result: a pre-registered
+wake-up-radio study whose registered claims were both refuted — always-on
+2 mA-class silicon dominates every wake-receiver variant on every axis,
+including the physically ideal one (§5.4) — a ten-year ERA5 climate
+campaign showing the duty-survival advantage holds in every weather year
+(15–27×, §5.5), and a re-earn campaign that re-ran the previously
+withdrawn claims on the corrected engine, restoring four claim families,
+trimming two to their defensible cores, and converting the
+reinforcement-learning results into a documented negative result (§5.5).
 
 The empirical program was adjusted in flight, with every adjustment
 registered before the data it affected was collected. Trial 1 (2026-05-23,
@@ -317,6 +326,100 @@ repaired engine (≤1.3%, §4.3). (MODEL-ONLY; the listen/sleep currents are
 bench-calibration placeholders, which is precisely why the discharge bench
 test and a controlled field day are the critical path.)
 
+### 5.4 Testing the hardware alternative: the wake-up-radio study
+
+Appendix B.1 identifies the idle receive path as the decisive design lever
+and named the wake-up-receiver (WuR) architecture as the natural follow-on.
+That study was subsequently designed with pre-registered, falsifiable
+criteria (`docs/wur-design-2026-07-31.md`), implemented in **both** engines
+(micro-parity verified at two operating points), and executed as three
+experiments (E1–E3; artifacts and hash manifest at
+`artifacts/sim/wur_study/`; results in
+`docs/wur-study-results-2026-08-01.md`). In a WuR node the main radio
+sleeps entirely behind an always-on micro-power (~3 µW) wake receiver that
+is Δ dB less sensitive than the main radio; senders precede frames with a
+wake chirp. The registered competitor was deliberately not the stock 68 mA
+fleet but the **ideal-hardware null**: identical always-on routing on 2 mA
+nRF52-class silicon (B.1's viability row).
+
+| Arm (5 seeds × 365 d) | PDR | Depl./yr | Avail. | SOS del. | SOS p95 |
+|---|---|---|---|---|---|
+| **energy_aware @ 2 mA (null)** | **0.832** | **0** | **100.0%** | **100%** | **3 s** |
+| wur Δ0 (physically ideal) | 0.827 | 489 | 99.2% | 100% | 3.3 s |
+| wur Δ40 (realistic) | 0.728 | 488 | 99.2% | 99.7% | 10.0 min |
+| wur Δ50 | 0.694 | 488 | 99.2% | 99.2% | 20.0 min |
+| wur Δ60 | 0.668 | 488 | 99.2% | 98.7% | 45.1 min |
+| wur Δ70 | 0.661 | 488 | 99.2% | 96.2% | 60.0 min |
+| wur Δ80 | 0.660 | 488 | 99.2% | 94.6% | 55.0 min |
+| energy_aware @ 68 mA (stock) | 0.843 | 29,176 | 53.5% | 100% | 4 s |
+| duty_sync (incumbent) | 0.688 | 1,255 | 96.3% | 94.5% | 35.0 min |
+| selective_duty | 0.778 | 5,309 | 89.6% | 99.5% | 5.0 min |
+| rotate_lb | 0.775 | 4,860 | 91.1% | 99.8% | 61 s |
+
+(MODEL-ONLY. Blind-routing arms shown; informed routing is statistically
+indistinguishable — e.g. 0.734 vs 0.728 at Δ40 — the loss is wake-budget
+physics, not routing blindness.)
+
+**Both pre-registered claims were refuted.** The survivability criterion
+(WuR depletions = 0 at every Δ *and* availability within 0.5 pp of the
+null) fails on both halves: every Δ shows ≈488 depletions/yr (boot-energy
+cycling at marginal sites) and availability sits 0.81 pp below the null.
+The binding-onset claim (Δ\* ∈ (40, 70] with depletions still zero) fails
+because the depletion disqualifier fires everywhere and, on delivery alone,
+even the physically unrealizable Δ=0 arm sits below the null (0.827 vs
+0.832) — the claimed viability window never exists. E2 showed main-radio
+boot latency (50–200 ms) is second-order (PDR 0.679→0.677). E3, a static
+wake-feasibility census, supplies the mechanism: at the realistic Δ=40,
+40.1% of routing-eligible directed links cannot carry the wake chirp and a
+median of 89 of 457 sites lose every wake-feasible path to a gateway
+(σ_eff = 8.25 dB).
+
+The engineering conclusion is sharper than the sweep alone: the question
+WuR answers — how to listen without paying 68 mA — is answered better by
+silicon that listens at 2 mA than by a second radio that cannot hear. The
+2 mA null keeps always-on routing semantics (no chirp airtime, no boot
+stalls, no wake-budget black holes), zero modeled depletions, and 100% SOS
+delivery at interactive latency. Within this model, wake-up receivers are
+not worth hardware-prototyping for this network; the deployment
+recommendation stays with nRF52/RAK-class relays. (MODEL-ONLY; a study
+that refutes its own pre-registered claims is reported with the same
+standing as one that confirms them.)
+
+### 5.5 Re-earning withdrawn claims on the corrected engine
+
+The audit ledger (`docs/audit-correction-ledger-2026-07-13.md`) withdrew
+every claim tied to the defective development engine. The
+withdrawn-but-cheap families were re-run on the corrected engine: a 24-run
+campaign (365 d, seeds 42–44; manifest
+`artifacts/sim/reearn/manifest.json`) plus a 20-run climate campaign (10
+pinned ERA5 weather years × duty_sync/energy_aware;
+`artifacts/sim/weather_decade/`). Full analysis:
+`docs/reearn-report-2026-08-01.md`. Verdicts:
+
+| Withdrawn claim | Verdict | Headline (re-earn runs) |
+|---|---|---|
+| SOS-retry ablation | **Re-earned** | +3.9 pp ±1.6 SOS delivery (0.958→0.996), airtime +0.01%; cost is tail-only (worst case 61 s → 25–100 min) |
+| Regional channels rejected | **Re-earned** (decision) | PDR −2.24 pp, identical in all 3 seeds; airtime relief only −0.24 pt — single shared channel stands |
+| Kiosk zero spares | **Re-earned** (tested cell) | 100% rental availability at 0 spares: 77,380/77,380 walker-days, zero starvation, all seeds |
+| Peak demand 4× | **Mixed** | Duty degrades gracefully (PDR +1.1 pt, ≈2.3× airtime headroom — not the withdrawn 3×); flood saturates (offered airtime 2.23, −7.5 pt PDR, first SOS losses). "SOS survived everywhere" does *not* re-earn |
+| Gateway redundancy | **Mixed** | Single-gateway 30-day midwinter outage: zero SOS cost, ΔPDR −0.17 pp (reroute absorbed by ridge relays at no energy penalty); the dual-gateway wording remains withdrawn pending a dual-outage rerun |
+| Climate robustness (decade) | **Mixed** (survival re-earned, stronger) | Duty survival advantage holds in *every* ERA5 year 2016–2025: 15.4–26.5× (mean 20.7×; 27,013 ±621 fewer depletions/yr). But duty's PDR/SOS-parity sub-claims flip (PDR −15.5 pp, SOS 94.6–96.8%) and must not be carried forward |
+| RL routing/duty wins | **Still withdrawn** (confirmed negative) | q_routing −4.25 PDR pp vs etx; rl_duty has fewest depletions (−31% vs duty_sync) but at PDR −10.1 pp the pre-registered equivalent-PDR gate fails — the learned policy slid down the survival-vs-delivery curve rather than beating it |
+
+(MODEL-ONLY. Within-family comparisons are seed-matched on one engine
+build; the campaign runs a hotter traffic cadence than release_v1, so
+re-earn absolutes are not quotable as release baselines — e.g. rotate_lb
+PDR 0.775 here vs 0.809 in §5.2.)
+
+Four families therefore survive contact with the corrected engine intact,
+two re-earn their headline direction while shedding sub-claims, and the RL
+victories convert to a documented negative result: the learned duty policy
+collapsed to the 2% floor in 50 of 57 visited states — consistent with
+§5.3, it found no structure that the hand-tuned backbone policies had
+missed. The decade campaign also hardens the central insight of §5.3
+against weather choice: the duty-survival separation is not a property of
+one lucky winter.
+
 ## 6. Trial 2: the field campaign
 
 **The causal frame, stated plainly: the two-radio controlled-beacon protocol
@@ -537,7 +640,17 @@ two-radio field day (§8). The raw-dataset package item was built 2026-07-26:
 All quantitative statements in this report are artifact-backed measurements,
 archived software checks, or simulation results labeled MODEL-ONLY.
 Simulation numbers cite the corrected multi-seed release (`release_v1`,
-hash-locked inputs); superseded development-phase outputs are archived
+hash-locked inputs) or the manifested follow-on campaigns of §5.4–5.5
+(`artifacts/sim/wur_study/manifest.json`,
+`artifacts/sim/reearn/manifest.json`,
+`artifacts/sim/weather_decade/manifest.json`; every campaign runner is
+committed, so all run files regenerate from the frozen inputs). The
+repository also ships an interactive replay viewer
+(`scripts/run_replay_traces.sh` → `scripts/render_replay_viewer.py`) that
+animates recorded packet-level traces of all eight policy arms over the
+darkest five-day window of the pinned weather year — every displayed hop,
+collision, and failed wake is a recorded simulation event, not a rendering
+estimate. Superseded development-phase outputs are archived
 separately in the repository (`WITHDRAWN-DO-NOT-CITE/`, with a manifest) and
 are not cited here, per the acceptance requirement that superseded numbers be
 clearly archived and not mixed with final results. Same-seed engine output is
@@ -596,8 +709,9 @@ sufficiently low listen current dominates every duty-cycling policy on both
 axes at once, which quantifies the hardware target: bring the radio's idle
 receive path under ~10 mA and the duty-versus-delivery trade of §5.3
 dissolves. (It also identifies listen current as the first constant to pin at
-the bench, and makes the wake-up-receiver direction a natural follow-on
-study.)
+the bench. The wake-up-receiver follow-on study this row motivated was
+subsequently executed and is reported in §5.4: the architecture was refuted
+against this same 2 mA null.)
 
 **B.2 — What capacity reaches 90–95% availability at stock current?**
 Holding 68 mA and sweeping the energy kit:
