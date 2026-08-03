@@ -680,7 +680,7 @@ unpublished, labeled in the registration files).
 
 ## Appendix B. Design implications: sensitivity of the survivability result
 
-This appendix responds to the advisor's request (2026-07-30) to translate the
+This appendix was added in response to feedback (2026-07-30), translating the
 idle-listening finding of §5.3 into engineering terms. All values are
 MODEL-ONLY (uncalibrated constants, §7); the new sweeps ran on the current
 repaired engine against the release_v1 frozen inputs (17 runs, 365 days each;
