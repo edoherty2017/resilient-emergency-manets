@@ -1,6 +1,6 @@
 # Resilient Emergency MANETs for Wilderness Safety — Directed Study Report
 
-**Date:** 2026-07-31 (supersedes the 2026-07-17 draft)
+**Date:** 2026-08-03 (supersedes the 2026-07-17 draft)
 **Scope:** New Hampshire only
 **Code, data, and all cited artifacts:** <https://github.com/edoherty2017/resilient-emergency-manets-final>
 ## Executive summary
