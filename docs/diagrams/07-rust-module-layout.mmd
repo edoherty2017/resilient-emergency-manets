@@ -1,0 +1,19 @@
+flowchart LR
+  main[main.rs<br/>hand-rolled CLI to Params<br/>validate - run - json summary]
+  simrs[sim.rs<br/>ALL type declarations<br/>Sim - Node - Ev - Mode - constants<br/>+ 5 shared impl helpers]
+  e1[engine.rs<br/>impl Sim - construction<br/>Sim::new - loss_db<br/>build_route_tree - duty assignment]
+  e2[engine2.rs<br/>impl Sim - run loop<br/>Sim::run - 18 event handlers<br/>MAC PHY energy rental wur<br/>+ 50-test module]
+  inputs[inputs.rs<br/>schemas + airtime_ms<br/>validate_model_inputs]
+  rng[rng.rs<br/>SplitMix64 Rng]
+  solar[solar.rs<br/>SiteSolar + NOAA solar model]
+
+  main -->|1. Sim::new| e1
+  main -->|2. sim.run| e2
+  main --> inputs
+  e1 --> simrs
+  e2 --> simrs
+  e2 -->|route_to_mqtt_public<br/>build_route_tree| e1
+  e1 --> solar
+  e2 --> solar
+  e2 --> rng
+  simrs --> rng

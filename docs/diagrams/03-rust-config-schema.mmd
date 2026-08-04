@@ -1,0 +1,32 @@
+classDiagram
+  direction TB
+
+  class Config {
+    <<YAML wmnf_sim.yaml>>
+  }
+  class RadioCfg {
+    +freq_mhz +sf +bw_hz +cr
+    +preamble_syms +tx_eirp_dbm
+    +rx_sensitivity_dbm +noise_figure_db
+    +snr_demod_threshold_db +capture_threshold_db
+    +hop_limit
+    +received_power_reference_dbm() f64
+  }
+  class ShadowCfg { +sigma_db +fast_fading_db +coherence_s }
+  class EnergyCfg { +battery_v +tx_current_ma +rx_listen_ma +light_sleep_ma +gps_active_ma }
+  class BatteryCfg { +capacity_wh +usable_fraction +start_soc }
+  class SolarCfg { +panel_w_nominal +system_efficiency +canopy_tau_16ft +pyramid_tilt_deg +monthly_kt_mean x12 }
+  class TrafficCfg { +telemetry_interval_s +position_interval_s +payload sizes }
+  class SimCfg { +solar_step_s default 60 }
+  class KioskCfg { +capacity +panel_w +battery_wh +charge_w_per_bay +min_checkout_soc +demand tiers a b c }
+  class WurCfg { +wur_idle_ma +wake_sensitivity_delta_db +wake_chirp_ms +main_boot_ms +wake_hangover_s +wake_miss_prob }
+
+  Config *-- RadioCfg
+  Config *-- ShadowCfg
+  Config *-- EnergyCfg
+  Config *-- BatteryCfg
+  Config *-- SolarCfg
+  Config *-- TrafficCfg
+  Config *-- SimCfg
+  Config *-- KioskCfg
+  Config *-- WurCfg

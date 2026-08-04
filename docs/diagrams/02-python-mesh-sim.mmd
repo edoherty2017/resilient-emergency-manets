@@ -1,0 +1,107 @@
+classDiagram
+  direction LR
+
+  class MeshSim {
+    +env : simpy Environment
+    +mode : str (12 arms)
+    +days : float
+    +seed : int
+    +nodes : dict~name,Node~
+    +shadow : Shadowing
+    +linkmodel : LinkModel
+    +start_utc : datetime
+    +start_day : int
+    +trace_after_days : float
+    +active_tx : list~TxRecord~
+    +pkt_meta : dict
+    +fixed_adj : dict
+    +route_next : dict
+    +qrt / qduty : dict (RL state)
+    +weather : list~day~
+    +kiosk_banks : dict
+    +sos_incidents : dict
+    +trace_fh : TextIO
+    +rng_for(phenomenon, entity) Generator
+    +emit(kv) window-gated trace
+    +transmit(sender, pkt) SimPy proc
+    +deliver(tx)
+    +on_receive(node, pkt, rssi, snr)
+    +csma_send(node, pkt) SimPy proc
+    +rebroadcast_after_cw(...) SimPy proc
+    +loss_db(a, b, t) float
+    +rssi_dbm(a, b, t) float
+    +build_route_tree()
+    +route_to_mqtt(origin) path
+    +edge_weight(u, v, margin, t) float
+    +energy_process() SimPy proc
+    +solar_remaining_wh(node, t) float
+    +node_scarcity(node, t) float
+    +gen_fixed_telemetry(node)
+    +gen_hiker(node, interval_s)
+    +gen_daily_sos()
+    +send_sos_incident(node, name)
+    +kiosk_dispatch(walker)
+    +rental_process(node)
+    +wur_receiver_acquires(...)
+    +mark_dead(node) / mark_alive(node)
+    +run() dict
+    +summary() dict
+  }
+
+  class Node {
+    +name : str
+    +lat / lon : float
+    +power : battery, solar, grid
+    +mqtt : bool (gateway)
+    +horizon : ndarray
+    +site_solar : dict?
+    +route : dict? (rental route)
+    +docked : bool
+    +cap_wh / soc_wh : float
+    +alive : bool
+    +seen : set~origin,pkt_id~
+    +pending_rebroadcast : dict~key,Process~
+    +tx_until : float
+    +duty : float
+    +boot_until / hangover_until : float (wur)
+    +dead_since_s / dead_time_s
+    +stats : dict (tx rx_ok collisions deaths ...)
+    +__init__(name, site, cfg, horizon)
+  }
+
+  class Shadowing {
+    +sigma : float dB
+    +fast : float dB
+    +tau : float s
+    +rng : Generator
+    +state : dict~pair,valueT~
+    +sample(a, b, t) float
+    +batch(a, names, t) list
+  }
+
+  class LinkModel {
+    +links : dict (q50 ITM loss per pair)
+    +hiker : dict (GPX track + loss series)
+    +fixed_loss(a, b) float
+    +hiker_loss(site, track_t) float
+  }
+
+  class SimpyEnvironment {
+    <<external>>
+    +process(gen)
+    +timeout(s)
+    +run(until)
+  }
+
+  class run_sim {
+    <<module function>>
+    loads YAML + JSON, builds MeshSim
+  }
+
+  MeshSim "1" *-- "1" Shadowing : shadow
+  MeshSim "1" *-- "1" LinkModel : linkmodel
+  MeshSim "1" *-- "1..*" Node : nodes
+  MeshSim "1" *-- "1" SimpyEnvironment : env
+  Shadowing "1" --> "*" Node : per-pair AR1 state
+  LinkModel ..> Node : loss lookup by name
+  run_sim ..> MeshSim : creates + runs

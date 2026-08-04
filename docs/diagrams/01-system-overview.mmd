@@ -1,0 +1,26 @@
+flowchart LR
+  subgraph IN[Frozen inputs]
+    topo[topology JSON<br/>sites + ITM links]
+    routes[routes JSON<br/>rental routes + loss series]
+    weather[weather_year.json<br/>ERA5 kt + snow factor]
+    cfg[wmnf_sim.yaml<br/>radio - energy - solar - kiosk - wur]
+  end
+  subgraph EN[Dual engines - same model]
+    py[mesh_sim.py<br/>SimPy twin]
+    rs[fastsim<br/>Rust engine]
+  end
+  topo --> py
+  topo --> rs
+  routes --> py
+  routes --> rs
+  weather --> py
+  weather --> rs
+  cfg --> py
+  cfg --> rs
+  parity[sim_micro_parity.py] -.->|runs both, compares scalars| py
+  parity -.-> rs
+  py -->|trace JSONL + summary JSON| render[render_replay_viewer.py]
+  render -->|gzip+base64 payloads<br/>into template| viewer[replay_viewer.html]
+  rs -->|summary JSON| camp[year-scale campaigns<br/>wur - re-earn - decade]
+  camp --> report[directed-study report]
+  viewer --> report

@@ -1,0 +1,40 @@
+classDiagram
+  direction TB
+
+  class Topology {
+    <<JSON topology_statewide.json>>
+    +sites : HashMap~name,Site~
+    +links : HashMap~pairkey,Link~
+  }
+  class Site {
+    +lat +lon +hg_m
+    +power : grid, solar, battery
+    +mqtt_uplink : bool
+    +elev_m
+    +horizon_deg : Vec~f64~
+  }
+  class Link { +loss_db_q50 +loss_db_q90 }
+
+  class RoutesFile {
+    <<JSON routes_statewide.json>>
+    +routes : HashMap~name,Route~
+  }
+  class Route {
+    +kiosk +return_kiosk
+    +duration_s
+    +t_s / lat / lon : Vec~f64~
+    +loss_t_s : Vec~f64~
+    +loss_db_q50 : HashMap~site,Vec~
+  }
+
+  class WeatherFile {
+    <<JSON weather_year.json>>
+    +start_date : ISO
+    +days : Vec~WeatherDay~
+  }
+  class WeatherDay { +date +kt +snow_factor }
+
+  Topology *-- "1..*" Site
+  Topology *-- "0..*" Link
+  RoutesFile *-- "0..*" Route
+  WeatherFile *-- "1..*" WeatherDay

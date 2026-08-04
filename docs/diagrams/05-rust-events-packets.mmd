@@ -1,0 +1,104 @@
+classDiagram
+  direction LR
+
+  class Sim {
+    +cfg : Config
+    +p : Params
+    +now : f64
+    +heap : BinaryHeap~Sched~
+    +nodes : Vec~Node~
+    +name_to_idx : HashMap~name,u32~
+    +active : HashMap~u64,ActiveTx~
+    +pkt_meta : HashMap~u64,PktMeta~
+    +agg : HashMap~u32,OriginAgg~
+    +sos_incidents : HashMap~u64,SosIncident~
+    +route_next / route_cost
+    +draw_counters : HashMap (keyed RNG)
+    +link_rng : HashMap~pair,Rng~
+    +shadow : HashMap~pair,valueT~
+    +new(cfg, topo, routes, weather, p) Sim
+    +run()
+    +handle(ev, seq) 18-arm match
+    +transmit(sender, flight)
+    +on_receive(rx, flight, snr)
+    +loss_db(a, b) f64
+    +build_route_tree()
+    +final_prune()
+  }
+
+  class Sched {
+    +t : f64
+    +prio : u8
+    +seq : u64
+    +ev : Ev
+  }
+
+  class Ev {
+    <<enumeration>>
+    Telemetry / Beacon / Family
+    MsgPair / SosDay / SosSend / SosBurst
+    TxAttempt / TxEnd / RebroadcastFire
+    EnergyStep / SocSample / Prune
+    Dispatch / WalkEnd / Shuttle
+    OutageStart / OutageEnd
+  }
+
+  class Flight {
+    +id : u64
+    +origin : u32
+    +okind : Kind
+    +bytes +hop_limit
+    +dest : Dest
+    +flood : bool
+    +route : Arc~Vec~ shared hop path
+    +sos_id +ack_for
+    +is_fwd +expires_at
+  }
+
+  class ActiveTx {
+    +start / end : f64
+    +sender : u32
+    +rssi_at : Vec (rx, rssi, epoch)
+    +cad_acquired : HashSet
+    +flight : Flight
+  }
+
+  class Kind { <<enumeration>> Tel Pos Fam Msg Sos Ack }
+  class Dest { <<enumeration>> Mqtt NodeIdx }
+  class Mode {
+    <<enumeration>>
+    Flood MinHop Etx EnergyAware LbEnergy
+    DutySync DutyAdaptive RotateLb SelectiveDuty Wur
+    +parse(s) +is_duty() +is_routed() +weight_mode()
+  }
+  class Params {
+    <<resolved CLI>>
+    +mode : Mode
+    +days +seed
+    +sos_retry +renters_per_route
+    +wur_delta_db +wur_boot_ms
+    +outages : Vec
+  }
+  class PktMeta { +origin +t0 +delivered +latency }
+  class OriginAgg { +sent +delivered +latency_sample bottom-k +record() }
+  class SosIncident { +t0 +tries +delivered +latency_s }
+  class Rng {
+    <<SplitMix64>>
+    +new(seed) +stream(seed, domain)
+    +keyed_f64(seed, domain, key) stateless
+    +next_u64() +f64() +normal()
+  }
+
+  Sim "1" *-- "0..*" Sched : heap
+  Sched "1" *-- "1" Ev
+  Ev "1" o-- "0..1" Flight : TxAttempt, SosBurst, RebroadcastFire
+  Sim "1" *-- "0..*" ActiveTx : active
+  ActiveTx "1" *-- "1" Flight
+  Flight --> Kind : okind
+  Flight --> Dest : dest
+  Sim "1" *-- "1" Params : p
+  Params --> Mode : mode
+  Sim "1" *-- "0..*" PktMeta : pkt_meta
+  Sim "1" *-- "0..*" OriginAgg : per origin
+  Sim "1" *-- "0..*" SosIncident : sos_incidents
+  Sim "1" *-- "0..*" Rng : link_rng per undirected pair

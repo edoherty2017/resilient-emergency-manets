@@ -1,0 +1,73 @@
+classDiagram
+  direction LR
+
+  class Sim {
+    +nodes : Vec~Node~ (sites first, then rental radios)
+    +routes : Vec~Route~
+    +walkers : Vec~Walker~
+    +kiosk_banks : HashMap~site,KioskBank~
+    +local_busy : Vec~BusyUnion~ one per node
+    +link_health : HashMap~pair,LinkHealth~
+    +rental : RentalStats
+    +weather : Vec (kt, snow)
+    +soc_series : Vec fleet SOC percentiles
+    +solar_profile : HashMap hourly W cache
+  }
+
+  class Node {
+    +name +lat +lon
+    +grid / solar / mqtt : bool
+    +horizon : Vec~f64~
+    +site_solar : Option~SiteSolar~
+    +cap_wh / soc_wh
+    +alive / energy_alive / forced_outage
+    +docked +checkout_generation
+    +duty +boot_until +hangover_until (wur)
+    +is_radio +kiosk? +route? +start_s
+    +seen : HashSet +pending : HashMap
+    +energy_segments : Vec~EnergySegment~
+    +stats : NodeStats
+    +availability_through(end) f64
+  }
+
+  class NodeStats {
+    +tx +rx_ok +collisions +duty_misses
+    +wake_attempts +wake_budget_fail +wake_misses
+    +dup_suppressed +tx_airtime_s
+    +energy_tx_wh +consumed_wh
+    +deaths +unavailable_s +solar_wh
+  }
+
+  class EnergySegment {
+    <<enumeration>>
+    Active(listen_s, sleep_s, gps_s, boot_s)
+    Docked(seconds, kiosk)
+  }
+
+  class SiteSolar { +pyramid : bool +tilt_deg +canopy_tau }
+  class KioskBank { +soc_wh +cap_wh }
+  class Walker { +route : u32 +start_s +kiosk +return_kiosk +radio : Option~u32~ }
+  class RentalStats { +walker_days +served +starved +starved_no_stock +unusable_at_checkout +checkout_soc_sum }
+  class BusyUnion {
+    +closed_s : f64
+    +open : Option (t0, t1)
+    +add(start, end)
+    +total_through(end) f64
+    +truncate_open_to(new_end)
+  }
+  class LinkHealth { +tries +ok +margin_sum }
+  class Route { <<from RoutesFile>> }
+
+  Sim "1" *-- "1..*" Node : nodes
+  Node "1" *-- "1" NodeStats : stats
+  Node "1" o-- "0..1" SiteSolar : solar sites only
+  Node "1" *-- "0..*" EnergySegment : pending energy
+  Sim "1" *-- "0..*" Route : cloned at build
+  Sim "1" *-- "0..*" Walker : walkers
+  Walker ..> Route : route index
+  Walker ..> Node : radio index
+  Sim "1" *-- "0..*" KioskBank : per kiosk site
+  Node ..> KioskBank : kiosk index
+  Sim "1" *-- "1..*" BusyUnion : local_busy
+  Sim "1" *-- "0..*" LinkHealth : per pair
+  Sim "1" *-- "1" RentalStats : rental

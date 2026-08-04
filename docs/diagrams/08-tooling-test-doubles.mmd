@@ -1,0 +1,74 @@
+classDiagram
+  direction LR
+
+  class Dem {
+    <<itm_relay_links.py>>
+    +lat / lon : ndarray axes
+    +z : ndarray 2-D elevation
+    +sample(lats, lons) ndarray
+    +profile(lat1, lon1, lat2, lon2) dist and elev
+  }
+
+  class TrailGraph {
+    <<osm_trails.py>>
+    +adj : dict~latlon,neighbors~
+    +nodes : list
+    +nearest(lat, lon)
+    +nearest_k(lat, lon, k)
+    +components()
+    +route(a, b) Dijkstra
+  }
+
+  class solar_model {
+    <<module>>
+    solar_position()
+    clear_sky_ghi()
+    horizon_mask(dem, ...)
+    sample_daily_kt()
+    solar_power_w() / daily_solar_wh()
+  }
+
+  class itm_relay_links {
+    <<module>>
+    itm_p2p_loss()
+    fresnel_analysis()
+    haversine_m()
+  }
+
+  class train_energy_router {
+    <<module>>
+    build_solar_dataset()
+    train_solar()
+    enumerate_routes()
+    train_route_cost()
+  }
+
+  class render_replay_viewer {
+    <<module>>
+    year_metrics()
+    digest_run()
+    build_beats()
+    night_bands()
+  }
+
+  class sim_micro_parity {
+    <<module>>
+    run_python() / run_rust()
+    scalars() / flag()
+  }
+
+  class weather_enrich { <<module>> Open-Meteo ingest }
+  class mesh_sim { <<module>> the Python twin }
+  class lora_airtime { <<module>> Semtech airtime }
+  class FakeDem { <<test double>> flat 2x2 grid }
+  class FakeResponse { <<test double>> pinned Open-Meteo JSON }
+
+  itm_relay_links *-- Dem : defines
+  solar_model ..> Dem : horizon_mask(dem)
+  train_energy_router ..> solar_model
+  FakeDem ..|> Dem : stands in for
+  FakeResponse ..> weather_enrich : fakes HTTP for
+  mesh_sim ..> solar_model : solar_power_w
+  mesh_sim ..> lora_airtime : airtime_ms
+  sim_micro_parity ..> mesh_sim : subprocess
+  render_replay_viewer ..> mesh_sim : reads trace JSONL
