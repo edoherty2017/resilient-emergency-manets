@@ -113,3 +113,6 @@ artifacts/sim/reearn/*
 artifacts/sim/weather_decade/*
 !artifacts/sim/weather_decade/weather_*.json
 !artifacts/sim/weather_decade/manifest.json
+
+# Local advisor-attachment staging (deliberately untracked; see memory 2026-08-03)
+reports/FINAL-2026-08-03/
