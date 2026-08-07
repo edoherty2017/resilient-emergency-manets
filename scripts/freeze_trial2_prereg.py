@@ -96,6 +96,7 @@ DECLARED_INPUTS: dict[str, tuple[str, str]] = {
 }
 
 DEFAULT_MANIFEST_FIELDDAY = "artifacts/trial2/prereg_manifest_fieldday.json"
+DEFAULT_MANIFEST_PACKMONADNOCK = "artifacts/trial2/prereg_manifest_packmonadnock.json"
 
 # Bindings for the per-route field-day pack (Moosilauke / Kearsarge / Monadnock).
 # Kept separate from DECLARED_INPUTS so the original 2026-07-19 ammo/jewell freeze
@@ -129,6 +130,56 @@ DECLARED_INPUTS_FIELDDAY: dict[str, tuple[str, str]] = {
     "dem_manifest_monadnock": (
         "artifacts/dem/cache/usgs_3dep_monadnock_manifest.json",
         "USGS 3DEP Monadnock DEM source manifest (binds the omitted raster).",
+    ),
+    "eligibility_rules": (
+        "scripts/airmap_live_trial.py",
+        "Calibration-eligibility gate (hops_away==0, exclusions) applied to field data.",
+    ),
+    "analysis_code": (
+        "scripts/pdr_analysis.py",
+        "PDR / opportunity-accounting analysis used to score the frozen predictions.",
+    ),
+    "generator_lib_radio": (
+        "scripts/radio_link_budget.py",
+        "Link-budget library the generator imports (RX power reference).",
+    ),
+    "generator_lib_itm": (
+        "scripts/itm_relay_links.py",
+        "ITM DEM sampling / haversine library the generator imports.",
+    ),
+}
+
+# Bindings for the drive-up Pack Monadnock summit-beacon pack (2026-08-07).
+# Binds build_hiker_routes.py as well: route waypoints and the 150 m chord
+# sampler live there, a gap the earlier packs left open.
+DECLARED_INPUTS_PACKMONADNOCK: dict[str, tuple[str, str]] = {
+    "prediction_csv": (
+        "artifacts/trial2/predictions_packmonadnock.csv",
+        "Drive-up Pack Monadnock summit-beacon RSSI / threshold predictions.",
+    ),
+    "generation_manifest": (
+        "artifacts/trial2/predictions_packmonadnock_manifest.json",
+        "Generation-time manifest (beacon rule, heights, DEM hash, protocol variant).",
+    ),
+    "generator": (
+        "scripts/trial2_predictions_packmonadnock.py",
+        "Generator for the drive-up pack (imports the sealed fieldday generator).",
+    ),
+    "base_generator": (
+        "scripts/trial2_predictions_field.py",
+        "Sealed fieldday generator imported as a library (constants + formulas).",
+    ),
+    "route_definitions": (
+        "scripts/build_hiker_routes.py",
+        "Route waypoints (pack_monadnock_loop) and the 150 m chord sampler.",
+    ),
+    "radio_metadata": (
+        "config/sim/wmnf_sim.yaml",
+        "Canonical radio / link-budget configuration for the deployment.",
+    ),
+    "dem_manifest_packmonadnock": (
+        "artifacts/dem/cache/rescue_miller_hq_pack_monadnock_manifest.json",
+        "USGS 3DEP Pack Monadnock DEM source manifest (binds the omitted raster).",
     ),
     "eligibility_rules": (
         "scripts/airmap_live_trial.py",
@@ -244,7 +295,7 @@ def main() -> int:
     )
     ap.add_argument(
         "--pack",
-        choices=("prereg", "fieldday"),
+        choices=("prereg", "fieldday", "packmonadnock"),
         default="prereg",
         help="Which frozen pack to bind: the ammo/jewell preregistration (default) "
         "or the per-route field-day pack.",
@@ -262,8 +313,12 @@ def main() -> int:
     )
     args = ap.parse_args()
 
-    declared = DECLARED_INPUTS if args.pack == "prereg" else DECLARED_INPUTS_FIELDDAY
-    default_out = DEFAULT_MANIFEST if args.pack == "prereg" else DEFAULT_MANIFEST_FIELDDAY
+    packs = {
+        "prereg": (DECLARED_INPUTS, DEFAULT_MANIFEST),
+        "fieldday": (DECLARED_INPUTS_FIELDDAY, DEFAULT_MANIFEST_FIELDDAY),
+        "packmonadnock": (DECLARED_INPUTS_PACKMONADNOCK, DEFAULT_MANIFEST_PACKMONADNOCK),
+    }
+    declared, default_out = packs[args.pack]
     out = Path(args.out) if args.out else Path(default_out)
     if not out.is_absolute():
         out = ROOT / out

@@ -1,0 +1,35 @@
+{
+  "generator": "scripts/trial2_predictions_packmonadnock.py",
+  "base_generator": {
+    "path": "scripts/trial2_predictions_field.py",
+    "sha256": "5d21e6174f30b6601037c47cb096199a1e90ef67fb46a9454044de7a241e9310"
+  },
+  "git_commit": "9c239dbd36eb5d7e76ba1397e538a87a1f518752",
+  "git_worktree_dirty": true,
+  "beacon_hg_m": 1.2,
+  "hiker_hg_m": 1.5,
+  "sigma_db_placeholder": 8.0,
+  "treeline_m": 1100.0,
+  "rx_power_reference_dbm": 26.299999999999997,
+  "mount": "car-placed at summit: boulder top or tripod ~1.2 m, measured as-built in field",
+  "protocol_variant": "drive-up: beacon placed and retrieved by car via the Miller SP auto road; hiker walks the loop with the receiver; same-day retrieval",
+  "beacon_hardware": "Heltec Mesh Node T114 (HELTEC_MESH_NODE_T114, nRF52840 + SX1262), stock Meshtastic firmware, LongFast \u2014 photograph FCC ID label at placement",
+  "days": [
+    {
+      "day": "future-drive-up-field-day",
+      "route": "pack_monadnock_loop",
+      "dem": "artifacts/dem/cache/rescue_miller_hq_pack_monadnock.npz",
+      "beacon_name": "packmonadnock_summit_beacon",
+      "beacon_rule_target_elev_m": 680.0,
+      "trial_id": "trial2-packmonadnock-driveup",
+      "beacon_lat": 42.8616,
+      "beacon_lon": -71.8781,
+      "beacon_dem_elev_m": 689.4,
+      "beacon_sample_index": 6,
+      "dem_sha256": "6dc4278601c26704fc691847f0b651fd60c4dd6d0af59d4ab05da6d10294da27",
+      "route_samples": 13,
+      "route_walk_time_h_tobler": 0.73
+    }
+  ],
+  "note": "Prospective MODEL-ONLY predictions. Freeze via commit + freeze_trial2_prereg.py --pack packmonadnock before collection; record the field-measured beacon height/coords as-built."
+}

@@ -1,0 +1,5 @@
+day,route,beacon,band_m,stratum,n_samples,config,pred_median_rssi_dbm,model_p_rssi_above_threshold
+future-drive-up-field-day,pack_monadnock_loop,packmonadnock_summit_beacon,0-500,below_treeline,7,LongFast_candidate,-107.5,0.998
+future-drive-up-field-day,pack_monadnock_loop,packmonadnock_summit_beacon,0-500,below_treeline,7,500kHz_candidate,-107.5,0.899
+future-drive-up-field-day,pack_monadnock_loop,packmonadnock_summit_beacon,500-1000,below_treeline,6,LongFast_candidate,-112.6,0.99
+future-drive-up-field-day,pack_monadnock_loop,packmonadnock_summit_beacon,500-1000,below_treeline,6,500kHz_candidate,-112.6,0.734
