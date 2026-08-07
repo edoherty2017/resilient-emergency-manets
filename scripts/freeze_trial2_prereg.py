@@ -95,6 +95,59 @@ DECLARED_INPUTS: dict[str, tuple[str, str]] = {
     ),
 }
 
+DEFAULT_MANIFEST_FIELDDAY = "artifacts/trial2/prereg_manifest_fieldday.json"
+
+# Bindings for the per-route field-day pack (Moosilauke / Kearsarge / Monadnock).
+# Kept separate from DECLARED_INPUTS so the original 2026-07-19 ammo/jewell freeze
+# stays byte-identical and auditable; ordering mirrors it: prediction first, then
+# generator, then the code that scores it.
+DECLARED_INPUTS_FIELDDAY: dict[str, tuple[str, str]] = {
+    "prediction_csv": (
+        "artifacts/trial2/predictions_fieldday.csv",
+        "Per-route field-day RSSI / threshold-exceedance predictions (frozen bands).",
+    ),
+    "generation_manifest": (
+        "artifacts/trial2/predictions_fieldday_manifest.json",
+        "Generation-time manifest (beacon rule, heights, DEM hashes) for the pack.",
+    ),
+    "generator": (
+        "scripts/trial2_predictions_field.py",
+        "Generator that produced the field-day prediction table.",
+    ),
+    "radio_metadata": (
+        "config/sim/wmnf_sim.yaml",
+        "Canonical radio / link-budget configuration for the deployment.",
+    ),
+    "dem_manifest_moosilauke": (
+        "artifacts/dem/cache/usgs_3dep_moosilauke_manifest.json",
+        "USGS 3DEP Moosilauke DEM source manifest (binds the omitted raster).",
+    ),
+    "dem_manifest_kearsarge": (
+        "artifacts/dem/cache/usgs_3dep_kearsarge_manifest.json",
+        "USGS 3DEP Kearsarge DEM source manifest (binds the omitted raster).",
+    ),
+    "dem_manifest_monadnock": (
+        "artifacts/dem/cache/usgs_3dep_monadnock_manifest.json",
+        "USGS 3DEP Monadnock DEM source manifest (binds the omitted raster).",
+    ),
+    "eligibility_rules": (
+        "scripts/airmap_live_trial.py",
+        "Calibration-eligibility gate (hops_away==0, exclusions) applied to field data.",
+    ),
+    "analysis_code": (
+        "scripts/pdr_analysis.py",
+        "PDR / opportunity-accounting analysis used to score the frozen predictions.",
+    ),
+    "generator_lib_radio": (
+        "scripts/radio_link_budget.py",
+        "Link-budget library the generator imports (RX power reference).",
+    ),
+    "generator_lib_itm": (
+        "scripts/itm_relay_links.py",
+        "ITM DEM sampling / haversine library the generator imports.",
+    ),
+}
+
 
 def sha256_and_size(path: Path) -> tuple[str, int]:
     """Return (hex sha256, byte count) for ``path``, streaming to bound memory."""
@@ -142,7 +195,9 @@ def git_state(root: Path) -> tuple[str, bool]:
     return head, dirty
 
 
-def build_manifest(stamp: str, root: Path = ROOT) -> dict:
+def build_manifest(
+    stamp: str, root: Path = ROOT, declared: dict[str, tuple[str, str]] = DECLARED_INPUTS
+) -> dict:
     """Hash every declared input and assemble the immutable manifest dict.
 
     Raises ``FileNotFoundError`` if any declared input is missing, so a freeze can
@@ -150,7 +205,7 @@ def build_manifest(stamp: str, root: Path = ROOT) -> dict:
     """
     inputs: dict[str, dict] = {}
     missing: list[str] = []
-    for role, (rel_path, description) in DECLARED_INPUTS.items():
+    for role, (rel_path, description) in declared.items():
         path = root / rel_path
         if not path.is_file():
             missing.append(rel_path)
@@ -188,9 +243,17 @@ def main() -> int:
         "(never taken from the wall clock implicitly).",
     )
     ap.add_argument(
+        "--pack",
+        choices=("prereg", "fieldday"),
+        default="prereg",
+        help="Which frozen pack to bind: the ammo/jewell preregistration (default) "
+        "or the per-route field-day pack.",
+    )
+    ap.add_argument(
         "--out",
-        default=DEFAULT_MANIFEST,
-        help=f"Manifest output path (default {DEFAULT_MANIFEST}).",
+        default=None,
+        help=f"Manifest output path (default {DEFAULT_MANIFEST} or "
+        f"{DEFAULT_MANIFEST_FIELDDAY} per --pack).",
     )
     ap.add_argument(
         "--force",
@@ -199,7 +262,9 @@ def main() -> int:
     )
     args = ap.parse_args()
 
-    out = Path(args.out)
+    declared = DECLARED_INPUTS if args.pack == "prereg" else DECLARED_INPUTS_FIELDDAY
+    default_out = DEFAULT_MANIFEST if args.pack == "prereg" else DEFAULT_MANIFEST_FIELDDAY
+    out = Path(args.out) if args.out else Path(default_out)
     if not out.is_absolute():
         out = ROOT / out
     if out.exists() and not args.force:
@@ -207,7 +272,7 @@ def main() -> int:
             f"refusing to overwrite frozen manifest {out} (pass --force to replace)"
         )
 
-    manifest = build_manifest(args.stamp, ROOT)
+    manifest = build_manifest(args.stamp, ROOT, declared)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
 
