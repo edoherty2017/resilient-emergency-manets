@@ -75,6 +75,7 @@ artifacts/osm/*
 artifacts/trial2/*
 !artifacts/trial2/predictions.csv
 !artifacts/trial2/prereg_manifest.json
+!artifacts/trial2/prereg_manifest_fieldday.json
 artifacts/vendor/*
 fastsim/target/
 

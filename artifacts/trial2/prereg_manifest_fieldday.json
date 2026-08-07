@@ -1,0 +1,76 @@
+{
+  "build_timestamp_utc": "2026-08-07T18:47:41+00:00",
+  "generated_by": "scripts/freeze_trial2_prereg.py",
+  "git_head": "bf3999bf7e9f67a5779bf1ffca77eb17ea8703f9",
+  "git_worktree_dirty": false,
+  "input_count": 11,
+  "inputs": {
+    "analysis_code": {
+      "bytes": 11826,
+      "description": "PDR / opportunity-accounting analysis used to score the frozen predictions.",
+      "path": "scripts/pdr_analysis.py",
+      "sha256": "136c617000d73943676b6c771688ee8a5a04932a3bc0ced1ab3290b002ac3a00"
+    },
+    "dem_manifest_kearsarge": {
+      "bytes": 1092,
+      "description": "USGS 3DEP Kearsarge DEM source manifest (binds the omitted raster).",
+      "path": "artifacts/dem/cache/usgs_3dep_kearsarge_manifest.json",
+      "sha256": "8407bdc03a148a2799615e1a9a7214813b27a11e3009d225322f50fd3221208c"
+    },
+    "dem_manifest_monadnock": {
+      "bytes": 1089,
+      "description": "USGS 3DEP Monadnock DEM source manifest (binds the omitted raster).",
+      "path": "artifacts/dem/cache/usgs_3dep_monadnock_manifest.json",
+      "sha256": "f0e4429dd330774f6e7a97d214dbfd3e18e5703f14aa8a2db8922ba9ddfddace"
+    },
+    "dem_manifest_moosilauke": {
+      "bytes": 1096,
+      "description": "USGS 3DEP Moosilauke DEM source manifest (binds the omitted raster).",
+      "path": "artifacts/dem/cache/usgs_3dep_moosilauke_manifest.json",
+      "sha256": "324153a90ecafe08b6cddc85c5efaa31b615fc7db4eefd95694b897711a5cabe"
+    },
+    "eligibility_rules": {
+      "bytes": 42945,
+      "description": "Calibration-eligibility gate (hops_away==0, exclusions) applied to field data.",
+      "path": "scripts/airmap_live_trial.py",
+      "sha256": "e71b78487fec2d2b4c8fe780bbfe95499eb479944c5f3ec4213b6f104ca8e852"
+    },
+    "generation_manifest": {
+      "bytes": 2252,
+      "description": "Generation-time manifest (beacon rule, heights, DEM hashes) for the pack.",
+      "path": "artifacts/trial2/predictions_fieldday_manifest.json",
+      "sha256": "3e6df03fe8e8030c46cae965e65c073e825188b848a2eb4da7983ab56700326e"
+    },
+    "generator": {
+      "bytes": 8182,
+      "description": "Generator that produced the field-day prediction table.",
+      "path": "scripts/trial2_predictions_field.py",
+      "sha256": "5d21e6174f30b6601037c47cb096199a1e90ef67fb46a9454044de7a241e9310"
+    },
+    "generator_lib_itm": {
+      "bytes": 15369,
+      "description": "ITM DEM sampling / haversine library the generator imports.",
+      "path": "scripts/itm_relay_links.py",
+      "sha256": "bf5b5de14e8a730f7559dea7921e059b02e18565abfc0e358ab5657883f131fa"
+    },
+    "generator_lib_radio": {
+      "bytes": 2920,
+      "description": "Link-budget library the generator imports (RX power reference).",
+      "path": "scripts/radio_link_budget.py",
+      "sha256": "6bc62a88ddba413af63156358804155cffd974994038eea56234b133eaaae735"
+    },
+    "prediction_csv": {
+      "bytes": 2644,
+      "description": "Per-route field-day RSSI / threshold-exceedance predictions (frozen bands).",
+      "path": "artifacts/trial2/predictions_fieldday.csv",
+      "sha256": "a85e4d0803c95cc826b3ed9783c6f5a0ceca2aac517077544651267a28cf3bbb"
+    },
+    "radio_metadata": {
+      "bytes": 5672,
+      "description": "Canonical radio / link-budget configuration for the deployment.",
+      "path": "config/sim/wmnf_sim.yaml",
+      "sha256": "a42bc069fa024d3a15af1181d1eb8fd81f937c8a6d407231684163d31c34ffe2"
+    }
+  },
+  "schema_version": "trial2-prereg/1.0"
+}
